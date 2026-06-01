@@ -1,19 +1,24 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.http import HttpResponse
+from django.conf import settings
+import os
 
-def home(request):
-    return HttpResponse("""
-        <h1>Smart OPD API is Running! 🚀</h1>
-        <p>Try these URLs:</p>
-        <ul>
-            <li><a href='/api/core/health/'>Health Check</a></li>
-            <li><a href='/admin/'>Admin Panel</a></li>
-        </ul>
-    """)
+# Read the HTML file
+
+
+def serve_frontend(request):
+    html_path = os.path.join(settings.BASE_DIR, 'frontend', 'index2.html')
+    try:
+        with open(html_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        return HttpResponse(html_content)
+    except FileNotFoundError:
+        return HttpResponse("<h1>Error: index2.html not found</h1><p>Make sure the file exists in the frontend folder</p>")
+
 
 urlpatterns = [
-    path('', home),  # This adds the homepage
     path('admin/', admin.site.urls),
     path('api/core/', include('core.urls')),
+    path('', serve_frontend, name='home'),
 ]
