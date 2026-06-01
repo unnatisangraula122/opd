@@ -13,4 +13,5 @@ urlpatterns = [
     path('start-consult/<int:token_id>/', views.start_consultation, name='start-consult'),
     path('complete-consult/<int:token_id>/', views.complete_consultation, name='complete-consult'),
     path('next-patient/<int:doctor_id>/', views.next_patient, name='next-patient'),
-]
+    
+]   
