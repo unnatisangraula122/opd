@@ -1,21 +1,19 @@
+# ========== COMBINED API VIEWS ==========
 from django.http import JsonResponse
-<<<<<<< HEAD
-
-def health_check(request):
-    return JsonResponse({'status': 'ok', 'message': 'Smart OPD API is running'})
-=======
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import ConsultationSlot, Token
+from django.db import models
 from django.utils import timezone
 from datetime import timedelta
+from .models import ConsultationSlot, Token
+
 
 def health_check(request):
+    """Health check endpoint"""
     return JsonResponse({'status': 'ok', 'message': 'Smart OPD API is running'})
 
 
 # ========== MEMBER A: BOOKING API ==========
-
 
 @api_view(['GET'])
 def available_slots(request):
@@ -126,4 +124,3 @@ def book_token(request):
             'is_elderly': token.is_elderly
         }
     })
->>>>>>> 5f1a79e6441ffa639ad7de7ee89fdaec0d4f60f7
