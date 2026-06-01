@@ -265,3 +265,200 @@ def waiting_queue(request, doctor_id=None):
         'total_waiting': len(queue_list),
         'queue': queue_list
     })
+# ========== MEMBER C: DOCTOR CONSULTATION API ==========
+
+@api_view(['GET'])
+def doctor_queue(request, doctor_id):
+    """
+    Get prioritized queue for a specific doctor (elderly FIRST)
+    URL: GET /api/core/doctor-queue/1/
+    """
+    today = timezone.now().date()
+    
+    # Get today's slots for this doctor
+    try:
+        doctor_slots = ConsultationSlot.objects.filter(
+            doctor_id=doctor_id,
+            date=today
+        )
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': f'Error fetching doctor slots: {str(e)}'
+        }, status=500)
+    
+    if not doctor_slots.exists():
+        return Response({
+            'success': True,
+            'doctor_id': doctor_id,
+            'message': 'No active slots for this doctor today',
+            'queue': []
+        })
+    
+    # Get all checked-in patients for this doctor
+    tokens = Token.objects.filter(
+        slot__in=doctor_slots,
+        status='checked_in'
+    ).select_related('slot')
+    
+    # ========== PRIORITY LOGIC: ELDERLY FIRST ==========
+    queue_list = []
+    for token in tokens:
+        queue_list.append({
+            'position': len(queue_list) + 1,
+            'token_id': token.id,
+            'token_number': token.token_number,
+            'patient_name': token.patient_name,
+            'patient_age': token.patient_age,
+            'is_elderly': token.is_elderly,
+            'priority': 'HIGH' if token.is_elderly else 'NORMAL',
+            'waiting_since': token.checked_in_at.strftime("%I:%M %p") if token.checked_in_at else None
+        })
+    
+    # Sort: elderly patients first, then by token number (FIFO)
+    queue_list.sort(key=lambda x: (not x['is_elderly'], x['token_number']))
+    
+    # Update positions after sorting
+    for idx, patient in enumerate(queue_list):
+        patient['position'] = idx + 1
+    
+    return Response({
+        'success': True,
+        'doctor_id': doctor_id,
+        'queue_length': len(queue_list),
+        'next_patient': queue_list[0] if queue_list else None,
+        'queue': queue_list
+    })
+
+
+@api_view(['POST'])
+def start_consultation(request, token_id):
+    """
+    Doctor starts consultation with a patient
+    URL: POST /api/core/start-consult/1/
+    """
+    try:
+        token = Token.objects.get(id=token_id)
+    except Token.DoesNotExist:
+        return Response({
+            'success': False,
+            'error': f'Token with id {token_id} not found'
+        }, status=404)
+    
+    # Verify patient is checked in
+    if token.status != 'checked_in':
+        return Response({
+            'success': False,
+            'error': f'Cannot start consultation. Patient status is "{token.status}". Patient must be checked in first.'
+        }, status=400)
+    
+    # Start consultation
+    token.start_consultation()
+    
+    return Response({
+        'success': True,
+        'message': f'Consultation started for {token.patient_name} (Token: {token.token_number})',
+        'token': {
+            'token_id': token.id,
+            'token_number': token.token_number,
+            'patient_name': token.patient_name,
+            'status': token.status,
+            'consultation_started_at': token.consultation_started_at.strftime("%I:%M %p")
+        }
+    })
+
+
+@api_view(['POST'])
+def complete_consultation(request, token_id):
+    """
+    Doctor completes consultation
+    URL: POST /api/core/complete-consult/1/
+    Optional body: {"diagnosis": "Fever", "prescription": "Paracetamol 500mg"}
+    """
+    try:
+        token = Token.objects.get(id=token_id)
+    except Token.DoesNotExist:
+        return Response({
+            'success': False,
+            'error': f'Token with id {token_id} not found'
+        }, status=404)
+    
+    # Verify patient is in consultation
+    if token.status != 'consulting':
+        return Response({
+            'success': False,
+            'error': f'Cannot complete consultation. Patient status is "{token.status}". Patient must be in consultation.'
+        }, status=400)
+    
+    # Complete consultation
+    token.complete_consultation()
+    
+    # Calculate consultation duration
+    duration = None
+    if token.consultation_started_at and token.consultation_ended_at:
+        duration_minutes = (token.consultation_ended_at - token.consultation_started_at).total_seconds() / 60
+        duration = round(duration_minutes, 1)
+    
+    return Response({
+        'success': True,
+        'message': f'Consultation completed for {token.patient_name} (Token: {token.token_number})',
+        'token': {
+            'token_id': token.id,
+            'token_number': token.token_number,
+            'patient_name': token.patient_name,
+            'status': token.status,
+            'consultation_duration_minutes': duration
+        }
+    })
+
+
+@api_view(['GET'])
+def next_patient(request, doctor_id):
+    """
+    Get the next patient in queue for a doctor
+    URL: GET /api/core/next-patient/1/
+    """
+    today = timezone.now().date()
+    
+    # Get today's slots for this doctor
+    doctor_slots = ConsultationSlot.objects.filter(
+        doctor_id=doctor_id,
+        date=today
+    )
+    
+    if not doctor_slots.exists():
+        return Response({
+            'success': True,
+            'has_next': False,
+            'message': 'No active slots today'
+        })
+    
+    # Get all checked-in patients, sorted by priority
+    tokens = Token.objects.filter(
+        slot__in=doctor_slots,
+        status='checked_in'
+    )
+    
+    # Sort: elderly first, then token number
+    sorted_tokens = sorted(tokens, key=lambda t: (not t.is_elderly, t.token_number))
+    
+    if not sorted_tokens:
+        return Response({
+            'success': True,
+            'has_next': False,
+            'message': 'No patients waiting'
+        })
+    
+    next_token = sorted_tokens[0]
+    
+    return Response({
+        'success': True,
+        'has_next': True,
+        'next_patient': {
+            'token_id': next_token.id,
+            'token_number': next_token.token_number,
+            'patient_name': next_token.patient_name,
+            'patient_age': next_token.patient_age,
+            'is_elderly': next_token.is_elderly
+        }
+    })
