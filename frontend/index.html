@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart OPD - Hospital Management System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏥 Smart OPD Management System</h1>
+            <p>Nepal's First Intelligent OPD Workflow System</p>
+        </header>
+
+        <!-- Role Selection Buttons -->
+        <div class="role-selector">
+            <button class="role-btn active" onclick="showRole('patient')">👤 Patient</button>
+            <button class="role-btn" onclick="showRole('reception')">📋 Reception</button>
+            <button class="role-btn" onclick="showRole('doctor')">👨‍⚕️ Doctor</button>
+        </div>
+
+        <!-- PATIENT PORTAL -->
+        <div id="patient-panel" class="panel active">
+            <h2>📝 Book an Appointment</h2>
+            
+            <!-- Step 1: Show Slots -->
+            <div class="card">
+                <h3>Step 1: Available Slots</h3>
+                <button onclick="loadSlots()" class="btn-primary">🔄 Load Available Slots</button>
+                <div id="slots-list" class="slots-grid"></div>
+            </div>
+
+            <!-- Step 2: Booking Form -->
+            <div class="card" id="booking-form" style="display:none;">
+                <h3>Step 2: Your Details</h3>
+                <form id="book-token-form">
+                    <input type="hidden" id="selected-slot-id">
+                    <div class="form-group">
+                        <label>Full Name:</label>
+                        <input type="text" id="patient-name" required placeholder="e.g., Ramesh Sharma">
+                    </div>
+                    <div class="form-group">
+                        <label>Age:</label>
+                        <input type="number" id="patient-age" required placeholder="e.g., 35">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number:</label>
+                        <input type="tel" id="patient-phone" required placeholder="e.g., 9841234567">
+                    </div>
+                    <button type="submit" class="btn-success">✅ Confirm Booking</button>
+                    <button type="button" onclick="cancelBooking()" class="btn-secondary">Cancel</button>
+                </form>
+            </div>
+
+            <!-- Step 3: Booking Result -->
+            <div id="booking-result" class="result-card" style="display:none;"></div>
+        </div>
+
+        <!-- RECEPTION PORTAL -->
+        <div id="reception-panel" class="panel">
+            <h2>📋 Reception Dashboard</h2>
+            
+            <div class="card">
+                <h3>Search Patient</h3>
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="Enter Token Number or Phone Number">
+                    <button onclick="searchPatient()" class="btn-primary">🔍 Search</button>
+                </div>
+                <div id="search-results"></div>
+            </div>
+
+            <div class="card">
+                <h3>Current Waiting Queue</h3>
+                <button onclick="loadWaitingQueue()" class="btn-primary">🔄 Refresh Queue</button>
+                <div id="waiting-queue" class="queue-list"></div>
+            </div>
+        </div>
+
+        <!-- DOCTOR PORTAL -->
+        <div id="doctor-panel" class="panel">
+            <h2>👨‍⚕️ Doctor Dashboard</h2>
+            
+            <div class="card">
+                <h3>Select Doctor</h3>
+                <select id="doctor-select">
+                    <option value="1">Dr. Sharma (Cardiologist)</option>
+                    <option value="2">Dr. Gurung (General Physician)</option>
+                </select>
+                <button onclick="loadDoctorQueue()" class="btn-primary">🔄 Load My Queue</button>
+            </div>
+
+            <div class="card">
+                <h3>My Patient Queue</h3>
+                <div id="doctor-queue" class="queue-list"></div>
+            </div>
+
+            <div class="card">
+                <h3>Consultation Actions</h3>
+                <div class="consult-actions">
+                    <input type="number" id="consult-token-id" placeholder="Enter Token ID">
+                    <button onclick="startConsultation()" class="btn-warning">▶️ Start Consultation</button>
+                    <button onclick="completeConsultation()" class="btn-success">✅ Complete Consultation</button>
+                </div>
+                <div id="consult-result"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
