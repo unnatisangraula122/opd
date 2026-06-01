@@ -1,9 +1,4 @@
 from django.http import JsonResponse
-<<<<<<< HEAD
-
-def health_check(request):
-    return JsonResponse({'status': 'ok', 'message': 'Smart OPD API is running'})
-=======
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import ConsultationSlot, Token
@@ -16,24 +11,17 @@ def health_check(request):
 
 # ========== MEMBER A: BOOKING API ==========
 
-
 @api_view(['GET'])
 def available_slots(request):
-    """
-    Get all available slots for today and tomorrow
-    URL: GET /api/core/slots/
-    """
     today = timezone.now().date()
     tomorrow = today + timedelta(days=1)
-    
-    # Get slots for today and tomorrow
+
     slots = ConsultationSlot.objects.filter(date__in=[today, tomorrow])
-    
-    # Build response with only non-full slots
+
     available_slots_list = []
     for slot in slots:
         tokens_left = slot.max_tokens - slot.tokens_booked
-        if tokens_left > 0:  # Only show slots with capacity
+        if tokens_left > 0:
             available_slots_list.append({
                 'slot_id': slot.id,
                 'doctor_name': str(slot.doctor),
@@ -45,7 +33,7 @@ def available_slots(request):
                 'tokens_available': tokens_left,
                 'max_tokens': slot.max_tokens
             })
-    
+
     return Response({
         'success': True,
         'count': len(available_slots_list),
@@ -55,30 +43,17 @@ def available_slots(request):
 
 @api_view(['POST'])
 def book_token(request):
-    """
-    Book a new token with capacity enforcement
-    URL: POST /api/core/book/
-    Body: {
-        "slot_id": 1,
-        "patient_name": "Ramesh Sharma",
-        "patient_age": 35,
-        "patient_phone": "9841234567"
-    }
-    """
-    # Get data from request
     slot_id = request.data.get('slot_id')
     patient_name = request.data.get('patient_name')
     patient_age = request.data.get('patient_age')
     patient_phone = request.data.get('patient_phone')
-    
-    # Validate all fields are present
+
     if not all([slot_id, patient_name, patient_age, patient_phone]):
         return Response({
             'success': False,
-            'error': 'Missing required fields: slot_id, patient_name, patient_age, patient_phone'
+            'error': 'Missing required fields'
         }, status=400)
-    
-    # Validate age is number
+
     try:
         patient_age = int(patient_age)
         if patient_age < 0 or patient_age > 120:
@@ -86,10 +61,9 @@ def book_token(request):
     except ValueError:
         return Response({
             'success': False,
-            'error': 'Patient age must be a valid number between 0 and 120'
+            'error': 'Patient age must be between 0 and 120'
         }, status=400)
-    
-    # Get the slot
+
     try:
         slot = ConsultationSlot.objects.get(id=slot_id)
     except ConsultationSlot.DoesNotExist:
@@ -97,25 +71,23 @@ def book_token(request):
             'success': False,
             'error': 'Slot not found'
         }, status=404)
-    
-    # ========== CAPACITY ENFORCEMENT (Key Feature) ==========
+
     if slot.is_full:
         return Response({
             'success': False,
-            'error': f'Slot is full! Maximum capacity is {slot.max_tokens} tokens per slot. Please choose another slot.'
+            'error': f'Slot is full! Maximum capacity is {slot.max_tokens}.'
         }, status=400)
-    
-    # Create the token
+
     token = Token.objects.create(
         slot=slot,
         patient_name=patient_name,
         patient_age=patient_age,
         patient_phone=patient_phone
     )
-    
+
     return Response({
         'success': True,
-        'message': f'Token booked successfully!',
+        'message': 'Token booked successfully!',
         'token': {
             'token_id': token.id,
             'token_number': token.token_number,
@@ -126,4 +98,3 @@ def book_token(request):
             'is_elderly': token.is_elderly
         }
     })
->>>>>>> 5f1a79e6441ffa639ad7de7ee89fdaec0d4f60f7
