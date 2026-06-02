@@ -1,10 +1,7 @@
 from pathlib import Path
 from decouple import config
-<<<<<<< HEAD
-
-=======
 import os
->>>>>>> origin/main
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY')
@@ -20,10 +17,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-<<<<<<< HEAD
 
-=======
->>>>>>> origin/main
     'rest_framework',
     'corsheaders',
     'django_filters',
@@ -96,16 +90,12 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'frontend'),
+]
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'accounts.User'
 
-<<<<<<< HEAD
 CORS_ALLOW_ALL_ORIGINS = True
-=======
-CORS_ALLOW_ALL_ORIGINS = True
-
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'frontend'),
-]
->>>>>>> origin/main
