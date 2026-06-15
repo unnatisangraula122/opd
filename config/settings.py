@@ -1,7 +1,10 @@
 from pathlib import Path
 from decouple import config
 import os
+<<<<<<< HEAD
 
+=======
+>>>>>>> main
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY')
@@ -17,7 +20,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+<<<<<<< HEAD
 
+=======
+>>>>>>> main
     'rest_framework',
     'corsheaders',
     'django_filters',
@@ -30,7 +36,11 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',  # moved up (important)
     'django.contrib.sessions.middleware.SessionMiddleware',
+<<<<<<< HEAD
 
+=======
+    'corsheaders.middleware.CorsMiddleware',
+>>>>>>> main
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -98,3 +108,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'accounts.User'
 
 CORS_ALLOW_ALL_ORIGINS = True
+<<<<<<< HEAD
+=======
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'frontend'),
+]
+>>>>>>> main
