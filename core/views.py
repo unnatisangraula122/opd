@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-from django.http import JsonResponse
-
-def health_check(request):
-    return JsonResponse({'status': 'ok', 'message': 'Smart OPD API is running'})
-=======
-# ========== COMBINED API VIEWS ==========
 from django.http import JsonResponse
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -29,10 +22,10 @@ def available_slots(request):
     """
     today = timezone.now().date()
     tomorrow = today + timedelta(days=1)
-    
+
     # Get slots for today and tomorrow
     slots = ConsultationSlot.objects.filter(date__in=[today, tomorrow])
-    
+
     # Build response with only non-full slots
     available_slots_list = []
     for slot in slots:
@@ -49,7 +42,7 @@ def available_slots(request):
                 'tokens_available': tokens_left,
                 'max_tokens': slot.max_tokens
             })
-    
+
     return Response({
         'success': True,
         'count': len(available_slots_list),
@@ -74,14 +67,14 @@ def book_token(request):
     patient_name = request.data.get('patient_name')
     patient_age = request.data.get('patient_age')
     patient_phone = request.data.get('patient_phone')
-    
+
     # Validate all fields are present
     if not all([slot_id, patient_name, patient_age, patient_phone]):
         return Response({
             'success': False,
             'error': 'Missing required fields: slot_id, patient_name, patient_age, patient_phone'
         }, status=400)
-    
+
     # Validate age is number
     try:
         patient_age = int(patient_age)
@@ -92,7 +85,7 @@ def book_token(request):
             'success': False,
             'error': 'Patient age must be a valid number between 0 and 120'
         }, status=400)
-    
+
     # Get the slot
     try:
         slot = ConsultationSlot.objects.get(id=slot_id)
@@ -101,14 +94,14 @@ def book_token(request):
             'success': False,
             'error': 'Slot not found'
         }, status=404)
-    
+
     # ========== CAPACITY ENFORCEMENT (Key Feature) ==========
     if slot.is_full:
         return Response({
             'success': False,
             'error': f'Slot is full! Maximum capacity is {slot.max_tokens} tokens per slot. Please choose another slot.'
         }, status=400)
-    
+
     # Create the token
     token = Token.objects.create(
         slot=slot,
@@ -116,7 +109,7 @@ def book_token(request):
         patient_age=patient_age,
         patient_phone=patient_phone
     )
-    
+
     return Response({
         'success': True,
         'message': f'Token booked successfully!',
@@ -141,26 +134,26 @@ def search_patient(request):
     URL: GET /api/core/search/?q=M10
     """
     search_term = request.query_params.get('q', '')
-    
+
     if not search_term:
         return Response({
             'success': False,
             'error': 'Please provide a search term using ?q=token_or_phone'
         }, status=400)
-    
+
     # Search by token number OR phone number
     tokens = Token.objects.filter(
         models.Q(token_number__icontains=search_term) |
         models.Q(patient_phone__icontains=search_term)
     ).select_related('slot__doctor__user')
-    
+
     if not tokens.exists():
         return Response({
             'success': True,
             'message': 'No patients found',
             'patients': []
         })
-    
+
     results = []
     for token in tokens:
         results.append({
@@ -174,7 +167,7 @@ def search_patient(request):
             'doctor_name': str(token.slot.doctor),
             'is_elderly': token.is_elderly
         })
-    
+
     return Response({
         'success': True,
         'count': len(results),
@@ -195,17 +188,17 @@ def check_in_patient(request, token_id):
             'success': False,
             'error': f'Token with id {token_id} not found'
         }, status=404)
-    
+
     # Verify patient is in booked status
     if token.status != 'booked':
         return Response({
             'success': False,
             'error': f'Cannot check in. Patient status is "{token.status}". Only "booked" patients can check in.'
         }, status=400)
-    
+
     # Perform check-in
     token.check_in()
-    
+
     return Response({
         'success': True,
         'message': f'Patient {token.patient_name} checked in successfully',
@@ -228,26 +221,27 @@ def waiting_queue(request, doctor_id=None):
          GET /api/core/waiting-queue/1/ (specific doctor)
     """
     today = timezone.now().date()
-    
+
     # Get today's slots
     if doctor_id:
-        slots = ConsultationSlot.objects.filter(doctor_id=doctor_id, date=today)
+        slots = ConsultationSlot.objects.filter(
+            doctor_id=doctor_id, date=today)
     else:
         slots = ConsultationSlot.objects.filter(date=today)
-    
+
     if not slots.exists():
         return Response({
             'success': True,
             'message': 'No active slots today',
             'queue': []
         })
-    
+
     # Get all checked-in patients
     tokens = Token.objects.filter(
         slot__in=slots,
         status='checked_in'
     ).select_related('slot__doctor__user')
-    
+
     # Build queue with priority (elderly first)
     queue_list = []
     for token in tokens:
@@ -261,10 +255,10 @@ def waiting_queue(request, doctor_id=None):
             'checked_in_at': token.checked_in_at.strftime("%I:%M %p") if token.checked_in_at else None,
             'estimated_time': token.estimated_time.strftime("%I:%M %p")
         })
-    
+
     # Sort: elderly first (True comes before False), then by token number
     queue_list.sort(key=lambda x: (not x['is_elderly'], x['token_number']))
-    
+
     return Response({
         'success': True,
         'queue_length': len(queue_list),
@@ -273,6 +267,7 @@ def waiting_queue(request, doctor_id=None):
     })
 # ========== MEMBER C: DOCTOR CONSULTATION API ==========
 
+
 @api_view(['GET'])
 def doctor_queue(request, doctor_id):
     """
@@ -280,7 +275,7 @@ def doctor_queue(request, doctor_id):
     URL: GET /api/core/doctor-queue/1/
     """
     today = timezone.now().date()
-    
+
     # Get today's slots for this doctor
     try:
         doctor_slots = ConsultationSlot.objects.filter(
@@ -292,7 +287,7 @@ def doctor_queue(request, doctor_id):
             'success': False,
             'error': f'Error fetching doctor slots: {str(e)}'
         }, status=500)
-    
+
     if not doctor_slots.exists():
         return Response({
             'success': True,
@@ -300,13 +295,13 @@ def doctor_queue(request, doctor_id):
             'message': 'No active slots for this doctor today',
             'queue': []
         })
-    
+
     # Get all checked-in patients for this doctor
     tokens = Token.objects.filter(
         slot__in=doctor_slots,
         status='checked_in'
     ).select_related('slot')
-    
+
     # ========== PRIORITY LOGIC: ELDERLY FIRST ==========
     queue_list = []
     for token in tokens:
@@ -320,14 +315,14 @@ def doctor_queue(request, doctor_id):
             'priority': 'HIGH' if token.is_elderly else 'NORMAL',
             'waiting_since': token.checked_in_at.strftime("%I:%M %p") if token.checked_in_at else None
         })
-    
+
     # Sort: elderly patients first, then by token number (FIFO)
     queue_list.sort(key=lambda x: (not x['is_elderly'], x['token_number']))
-    
+
     # Update positions after sorting
     for idx, patient in enumerate(queue_list):
         patient['position'] = idx + 1
-    
+
     return Response({
         'success': True,
         'doctor_id': doctor_id,
@@ -350,17 +345,17 @@ def start_consultation(request, token_id):
             'success': False,
             'error': f'Token with id {token_id} not found'
         }, status=404)
-    
+
     # Verify patient is checked in
     if token.status != 'checked_in':
         return Response({
             'success': False,
             'error': f'Cannot start consultation. Patient status is "{token.status}". Patient must be checked in first.'
         }, status=400)
-    
+
     # Start consultation
     token.start_consultation()
-    
+
     return Response({
         'success': True,
         'message': f'Consultation started for {token.patient_name} (Token: {token.token_number})',
@@ -388,23 +383,24 @@ def complete_consultation(request, token_id):
             'success': False,
             'error': f'Token with id {token_id} not found'
         }, status=404)
-    
+
     # Verify patient is in consultation
     if token.status != 'consulting':
         return Response({
             'success': False,
             'error': f'Cannot complete consultation. Patient status is "{token.status}". Patient must be in consultation.'
         }, status=400)
-    
+
     # Complete consultation
     token.complete_consultation()
-    
+
     # Calculate consultation duration
     duration = None
     if token.consultation_started_at and token.consultation_ended_at:
-        duration_minutes = (token.consultation_ended_at - token.consultation_started_at).total_seconds() / 60
+        duration_minutes = (token.consultation_ended_at -
+                            token.consultation_started_at).total_seconds() / 60
         duration = round(duration_minutes, 1)
-    
+
     return Response({
         'success': True,
         'message': f'Consultation completed for {token.patient_name} (Token: {token.token_number})',
@@ -425,38 +421,39 @@ def next_patient(request, doctor_id):
     URL: GET /api/core/next-patient/1/
     """
     today = timezone.now().date()
-    
+
     # Get today's slots for this doctor
     doctor_slots = ConsultationSlot.objects.filter(
         doctor_id=doctor_id,
         date=today
     )
-    
+
     if not doctor_slots.exists():
         return Response({
             'success': True,
             'has_next': False,
             'message': 'No active slots today'
         })
-    
+
     # Get all checked-in patients, sorted by priority
     tokens = Token.objects.filter(
         slot__in=doctor_slots,
         status='checked_in'
     )
-    
+
     # Sort: elderly first, then token number
-    sorted_tokens = sorted(tokens, key=lambda t: (not t.is_elderly, t.token_number))
-    
+    sorted_tokens = sorted(tokens, key=lambda t: (
+        not t.is_elderly, t.token_number))
+
     if not sorted_tokens:
         return Response({
             'success': True,
             'has_next': False,
             'message': 'No patients waiting'
         })
-    
+
     next_token = sorted_tokens[0]
-    
+
     return Response({
         'success': True,
         'has_next': True,
@@ -468,4 +465,3 @@ def next_patient(request, doctor_id):
             'is_elderly': next_token.is_elderly
         }
     })
->>>>>>> origin/main
