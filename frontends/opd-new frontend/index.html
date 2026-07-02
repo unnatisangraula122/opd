@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smart OPD - Intelligent OPD Workflow System</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <style>
+      .hero {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      }
+      .hero-title {
+        font-size: 3.5rem;
+        font-weight: 800;
+        line-height: 1.2;
+        margin-bottom: 1.5rem;
+      }
+      .hero-highlight {
+        color: var(--secondary);
+        position: relative;
+      }
+      .hero-highlight::after {
+        content: "";
+        position: absolute;
+        bottom: 8px;
+        left: 0;
+        width: 100%;
+        height: 12px;
+        background: rgba(59, 151, 151, 0.2);
+        z-index: -1;
+      }
+      .hero-description {
+        font-size: 1.125rem;
+        color: var(--text-secondary);
+        margin-bottom: 2rem;
+        line-height: 1.6;
+      }
+      .stats-bar {
+        display: flex;
+        gap: 3rem;
+        padding: 1.5rem 0;
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 2rem;
+      }
+      .stat-value {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--secondary);
+      }
+      .stat-label {
+        font-size: 0.875rem;
+        color: var(--text-muted);
+      }
+      .hero-stats-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        box-shadow: var(--shadow);
+      }
+      .stat-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 1rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .features {
+        padding: 5rem 0;
+        background: var(--surface);
+      }
+      .section-header {
+        text-align: center;
+        margin-bottom: 3rem;
+      }
+      .section-tag {
+        display: inline-block;
+        background: rgba(59, 151, 151, 0.1);
+        color: var(--secondary);
+        padding: 0.25rem 1rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+      }
+      .section-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        color: var(--primary);
+      }
+      .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 2rem;
+      }
+      .feature-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s;
+      }
+      .feature-card:hover {
+        transform: translateY(-5px);
+        border-color: var(--secondary);
+        box-shadow: var(--shadow-lg);
+      }
+      .feature-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+      }
+      .how-it-works {
+        padding: 5rem 0;
+        background: var(--background);
+      }
+      .steps-container {
+        display: flex;
+        justify-content: center;
+        gap: 2rem;
+        flex-wrap: wrap;
+      }
+      .step-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        text-align: center;
+        width: 240px;
+      }
+      .step-number {
+        width: 48px;
+        height: 48px;
+        background: var(--secondary);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1.25rem;
+        margin: 0 auto 1rem;
+      }
+      .step-arrow {
+        font-size: 2rem;
+        color: var(--secondary);
+        align-self: center;
+      }
+      .cta-section {
+        padding: 5rem 0;
+        background: linear-gradient(
+          135deg,
+          var(--secondary),
+          var(--primary-light)
+        );
+        text-align: center;
+        color: white;
+      }
+      .footer {
+        background: var(--primary);
+        color: var(--text-muted);
+        padding: 3rem 0 2rem;
+      }
+      .footer-title {
+        color: var(--accent);
+        margin-bottom: 1rem;
+      }
+      @media (max-width: 768px) {
+        .hero-title {
+          font-size: 2rem;
+        }
+        .hero .container {
+          flex-direction: column;
+          text-align: center;
+        }
+        .step-arrow {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="container">
+        <div class="logo">
+          <span class="logo-icon"></span
+          ><span class="logo-text">SMART OPD</span>
+        </div>
+        <div class="nav-links">
+          <a href="#home">Home</a><a href="#features">Features</a
+          ><a href="#how-it-works">How it Works</a>
+        </div>
+        <div class="nav-buttons">
+          <a href="patient/login.html" class="btn btn-outline">Patient Login</a
+          ><a href="patient/booking.html" class="btn btn-primary"
+            >Book Appointment</a
+          >
+        </div>
+      </div>
+    </nav>
+
+    <section id="home" class="hero">
+      <div class="container">
+        <div
+          style="
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+          "
+        >
+          <div>
+            <h1 class="hero-title">
+              Making Health Care
+              <span class="hero-highlight">Better Together</span>
+            </h1>
+            <p class="hero-description">
+              Nepal's first intelligent OPD workflow system reducing waiting
+              time by 67%.
+            </p>
+            <div class="stats-bar">
+              <div>
+                <div class="stat-value">1,248+</div>
+                <div class="stat-label">Patients Served</div>
+              </div>
+              <div>
+                <div class="stat-value">45+</div>
+                <div class="stat-label">Expert Doctors</div>
+              </div>
+              <div>
+                <div class="stat-value">67%</div>
+                <div class="stat-label">Less Waiting</div>
+              </div>
+              <div>
+                <div class="stat-value">94%</div>
+                <div class="stat-label">Satisfaction</div>
+              </div>
+            </div>
+            <div class="hero-buttons">
+              <a href="patient/booking.html" class="btn btn-primary btn-large"
+                >Book Appointment →</a
+              ><a href="#how-it-works" class="btn btn-outline btn-large"
+                >How It Works</a
+              >
+            </div>
+          </div>
+          <div class="hero-stats-card">
+            <div style="text-align: center; margin-bottom: 1.5rem">
+              <div style="font-size: 2.5rem">🏥</div>
+              <h3>Live OPD Statistics</h3>
+            </div>
+            <div class="stat-row">
+              <span>👥 Patients Today</span
+              ><span style="font-weight: bold; color: var(--secondary)"
+                >124</span
+              >
+            </div>
+            <div class="stat-row">
+              <span>⏱️ Current Avg. Wait Time</span
+              ><span style="font-weight: bold; color: var(--secondary)"
+                >15 min</span
+              >
+            </div>
+            <div class="stat-row">
+              <span>✅ Completed Consultations</span
+              ><span style="font-weight: bold; color: var(--secondary)"
+                >87</span
+              >
+            </div>
+            <div class="stat-row">
+              <span>👨‍⚕️ Doctors Available</span
+              ><span style="font-weight: bold; color: var(--secondary)"
+                >12</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="features">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-tag">Why Choose Us</div>
+          <h2 class="section-title">Smart Features for Modern Healthcare</h2>
+        </div>
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon">🎫</div>
+            <h3>Smart Token Booking</h3>
+            <p>Book tokens with real-time slot availability</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">⚡</div>
+            <h3>Real-Time Queue</h3>
+            <p>Live queue tracking with auto-throttling</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📊</div>
+            <h3>Analytics Dashboard</h3>
+            <p>Data-driven insights for administrators</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">💊</div>
+            <h3>Digital Prescription</h3>
+            <p>Paperless prescriptions with pharmacy integration</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="how-it-works" class="how-it-works">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-tag">Simple Process</div>
+          <h2 class="section-title">How Smart OPD Works</h2>
+        </div>
+        <div class="steps-container">
+          <div class="step-card">
+            <div class="step-number">1</div>
+            <div>📱</div>
+            <h4>Book Token</h4>
+            <p style="color: var(--text-muted)">Select doctor and time slot</p>
+          </div>
+          <div class="step-arrow">→</div>
+          <div class="step-card">
+            <div class="step-number">2</div>
+            <div>🏥</div>
+            <h4>Check-in</h4>
+            <p style="color: var(--text-muted)">Arrive 15 mins early</p>
+          </div>
+          <div class="step-arrow">→</div>
+          <div class="step-card">
+            <div class="step-number">3</div>
+            <div>👨‍⚕️</div>
+            <h4>Consult</h4>
+            <p style="color: var(--text-muted)">
+              Meet doctor, get prescription
+            </p>
+          </div>
+          <div class="step-arrow">→</div>
+          <div class="step-card">
+            <div class="step-number">4</div>
+            <div>💊</div>
+            <h4>Complete</h4>
+            <p style="color: var(--text-muted)">
+              Collect medicines, provide feedback
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-section">
+      <div class="container">
+        <h2 class="cta-title">Ready to Transform Your OPD?</h2>
+        <p class="cta-description">
+          Join hospitals that have reduced waiting time by 67%
+        </p>
+        <a href="patient/booking.html" class="btn btn-primary btn-large"
+          >Book Your First Appointment →</a
+        >
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="container">
+        <div
+          class="footer-grid"
+          style="
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+          "
+        >
+          <div>
+            <div class="logo">
+              <span class="logo-icon"></span
+              ><span class="logo-text" style="color: white">SMART OPD</span>
+            </div>
+            <p style="color: var(--text-muted)">
+              Nepal's first intelligent OPD workflow system.
+            </p>
+          </div>
+          <div>
+            <h4 class="footer-title">Quick Links</h4>
+            <ul style="list-style: none">
+              <li><a href="#home" style="color: var(--text-muted)">Home</a></li>
+              <li>
+                <a href="#features" style="color: var(--text-muted)"
+                  >Features</a
+                >
+              </li>
+              <li>
+                <a href="patient/booking.html" style="color: var(--text-muted)"
+                  >Book Appointment</a
+                >
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="footer-title">Contact</h4>
+            <ul style="list-style: none">
+              <li>📍 Lalitpur, Nepal</li>
+              <li>📞 +977-1-5551234</li>
+              <li>✉️ info@smartopd.com.np</li>
+            </ul>
+          </div>
+        </div>
+        <div
+          class="footer-bottom"
+          style="
+            text-align: center;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 2rem;
+          "
+        >
+          <p>&copy; 2026 Smart OPD. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+    <script src="js/app.js"></script>
+  </body>
+</html>

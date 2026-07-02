@@ -21,4 +21,22 @@ urlpatterns = [
     path('followup/<int:token_id>/', views.create_followup, name='followup'),
     path('cancel/<int:token_id>/', views.cancel_token, name='cancel'),
     path('analytics/', views.analytics, name='analytics'),
+     # ========== NEW URLs (add these) ==========
+    
+    # Consultation Notes (Doctor saves diagnosis)
+    path('consultation-notes/<int:token_id>/', views.save_consultation_notes, name='consultation-notes'),
+    
+    # Lab Workflow
+    path('lab/order/<int:token_id>/', views.create_lab_order, name='lab-order'),
+    path('lab/queue/', views.lab_queue, name='lab-queue'),
+    path('lab/complete/<int:lab_order_id>/', views.complete_lab_order, name='lab-complete'),
+    
+    # Pharmacy Workflow
+    path('pharmacy/queue/', views.pharmacy_queue, name='pharmacy-queue'),
+    
+    # Payment
+    path('payment/<int:token_id>/', views.create_payment, name='payment'),
+    
+    # Patient History (View all past visits)
+    path('patient-history/<str:phone>/', views.patient_history, name='patient-history'),
 ]

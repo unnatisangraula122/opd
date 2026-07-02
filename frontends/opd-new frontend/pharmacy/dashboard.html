@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pharmacy Dashboard - Smart OPD</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .prescription-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s;
+        }
+        .prescription-card:hover {
+            transform: translateX(4px);
+            border-color: var(--secondary);
+            box-shadow: var(--shadow);
+        }
+        .prescription-card.priority {
+            border-left: 4px solid var(--danger);
+        }
+        .medicine-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px dashed var(--border);
+        }
+        .medicine-item:last-child {
+            border-bottom: none;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-processing { background: #dbeafe; color: #1e40af; }
+        .status-dispensed { background: #d1fae5; color: #065f46; }
+        .status-ready { background: #e0e7ff; color: #4338ca; }
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-btn.active {
+            background: var(--secondary);
+            color: white;
+            border-color: var(--secondary);
+        }
+        .filter-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .stats-row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .stat-box {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 0.75rem 1rem;
+            flex: 1;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--secondary);
+        }
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        .dispense-btn {
+            background: var(--success);
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .dispense-btn:hover {
+            background: #0d9668;
+        }
+        .view-btn {
+            background: var(--info);
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .view-btn:hover {
+            background: #2563eb;
+        }
+        .queue-position {
+            background: var(--primary-light);
+            color: white;
+            border-radius: 50%;
+            width: 2rem;
+            height: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        /* ============================================
+           PRESCRIPTION SLIP STYLES (Updated)
+           ============================================ */
+        .prescription-slip {
+            font-family: 'Courier New', Courier, monospace;
+            background: #ffffff;
+            color: #000000;
+            padding: 1.5rem;
+            border: 1px solid #cccccc;
+            border-radius: 4px;
+        }
+        .prescription-slip .header {
+            text-align: center;
+            border-bottom: 2px solid #000000;
+            padding-bottom: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .prescription-slip .header h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            margin: 0;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .prescription-slip .header .subtitle {
+            font-size: 0.7rem;
+            color: #555555;
+            letter-spacing: 1px;
+            margin-top: 0.15rem;
+        }
+        .prescription-slip .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.2rem 1rem;
+            font-size: 0.85rem;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px dashed #cccccc;
+        }
+        .prescription-slip .info-grid .label {
+            font-weight: 600;
+            color: #555555;
+        }
+        .prescription-slip .info-grid .value {
+            text-align: right;
+        }
+        .prescription-slip .section {
+            margin: 0.6rem 0;
+            padding: 0.4rem 0;
+            border-bottom: 1px dashed #cccccc;
+        }
+        .prescription-slip .section:last-child {
+            border-bottom: none;
+        }
+        .prescription-slip .section-title {
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.3rem;
+            color: #333333;
+        }
+        .prescription-slip .section-content {
+            font-size: 0.85rem;
+            padding-left: 0.5rem;
+            line-height: 1.5;
+        }
+        .prescription-slip .medicine-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            font-family: 'Courier New', Courier, monospace;
+            margin-top: 0.3rem;
+        }
+        .prescription-slip .medicine-table th {
+            background: #f0f0f0;
+            color: #000000;
+            padding: 0.3rem 0.4rem;
+            text-align: left;
+            font-weight: 700;
+            border-bottom: 2px solid #000000;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+        .prescription-slip .medicine-table td {
+            padding: 0.3rem 0.4rem;
+            border-bottom: 1px solid #dddddd;
+            font-size: 0.8rem;
+        }
+        .prescription-slip .medicine-table tr:last-child td {
+            border-bottom: none;
+        }
+        .prescription-slip .footer {
+            margin-top: 0.75rem;
+            padding-top: 0.5rem;
+            border-top: 2px solid #000000;
+            text-align: center;
+            font-size: 0.65rem;
+            color: #777777;
+            letter-spacing: 0.5px;
+        }
+        .prescription-slip .status-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.15rem 0.6rem;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        #prescriptionModal .modal-content {
+            max-width: 650px;
+            background: #ffffff;
+            padding: 0;
+        }
+        #prescriptionModal .modal-header {
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            padding: 0.75rem 1.5rem;
+        }
+        #prescriptionModal .modal-header h3 {
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: 700;
+            font-size: 1rem;
+            color: #000000;
+        }
+        #prescriptionModal .modal-body {
+            padding: 1.5rem;
+            background: #ffffff;
+        }
+        #prescriptionModal .modal-footer {
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            padding: 0.75rem 1.5rem;
+            justify-content: center;
+            gap: 1rem;
+        }
+        #prescriptionModal .modal-footer .btn {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.8rem;
+            padding: 0.4rem 1.2rem;
+            border-radius: 4px;
+        }
+        #prescriptionModal .modal-footer .btn-secondary {
+            background: #6c757d;
+            color: #ffffff;
+            border: none;
+        }
+        #prescriptionModal .modal-footer .btn-primary {
+            background: #000000;
+            color: #ffffff;
+            border: none;
+        }
+        #prescriptionModal .modal-footer .btn-success {
+            background: #10b981;
+            color: #ffffff;
+            border: none;
+        }
+        #prescriptionModal .modal-footer .btn:hover {
+            opacity: 0.85;
+        }
+        #prescriptionModal .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #000000;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar-layout">
+        <div class="sidebar">
+            <div style="padding:1.5rem;">
+                <div class="logo" style="margin-bottom:2rem;">
+                    <span class="logo-icon">⚡</span>
+                    <span class="logo-text">SMART OPD</span>
+                </div>
+                <div style="text-align:center; margin-bottom:2rem;">
+                    <div style="width:70px;height:70px;background:rgba(59,151,151,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 1rem;">💊</div>
+                    <h4>Pharmacy</h4>
+                    <p style="color:var(--text-muted);" id="pharmacistName">Pharmacist</p>
+                </div>
+                <nav>
+                    <div class="sidebar-nav-item active" onclick="showTab('queue')">📋 Prescription Queue</div>
+                    <div class="sidebar-nav-item" onclick="showTab('processing')">⚙️ Processing</div>
+                    <div class="sidebar-nav-item" onclick="showTab('dispensed')">✅ Dispensed</div>
+                    <div class="sidebar-nav-item" onclick="showTab('inventory')">📦 Inventory</div>
+                    <div class="sidebar-nav-item" onclick="window.location.href='../index.html'">🚪 Logout</div>
+                </nav>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <h1 style="margin-bottom:1.5rem;">Pharmacy Dashboard</h1>
+
+            <!-- Statistics -->
+            <div class="stats-row" id="statsContainer"></div>
+
+            <!-- Filter Buttons -->
+            <div class="filter-buttons">
+                <button class="filter-btn active" onclick="filterPrescriptions('all')">All</button>
+                <button class="filter-btn" onclick="filterPrescriptions('pending')">Pending</button>
+                <button class="filter-btn" onclick="filterPrescriptions('processing')">Processing</button>
+                <button class="filter-btn" onclick="filterPrescriptions('dispensed')">Dispensed</button>
+                <button class="filter-btn" onclick="filterPrescriptions('ready')">Ready for Pickup</button>
+            </div>
+
+            <!-- Queue Tab -->
+            <div id="queueTab">
+                <div class="card">
+                    <h3 style="margin-bottom:1rem;">Prescription Queue</h3>
+                    <div id="prescriptionQueue"></div>
+                </div>
+            </div>
+
+            <!-- Processing Tab -->
+            <div id="processingTab" style="display:none;">
+                <div class="card">
+                    <h3 style="margin-bottom:1rem;">Processing Prescriptions</h3>
+                    <div id="processingList"></div>
+                </div>
+            </div>
+
+            <!-- Dispensed Tab -->
+            <div id="dispensedTab" style="display:none;">
+                <div class="card">
+                    <h3 style="margin-bottom:1rem;">Dispensed Prescriptions</h3>
+                    <div id="dispensedList"></div>
+                </div>
+            </div>
+
+            <!-- Inventory Tab -->
+            <div id="inventoryTab" style="display:none;">
+                <div class="card">
+                    <h3 style="margin-bottom:1rem;">Medicine Inventory</h3>
+                    <div class="alert alert-info">⚠️ Low stock items are highlighted in yellow. Please reorder.</div>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Medicine Name</th><th>Stock</th><th>Price (Rs.)</th><th>Status</th></tr>
+                            </thead>
+                            <tbody id="inventoryList"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prescription Details Modal -->
+    <div id="prescriptionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Prescription Details</h3>
+                <button class="modal-close" onclick="closePrescriptionModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="prescriptionModalBody"></div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closePrescriptionModal()">Close</button>
+                <button class="btn btn-primary" id="processBtn" onclick="processPrescription()">Start Processing</button>
+                <button class="btn btn-success" id="dispenseBtn" onclick="dispensePrescription()" style="display:none;">Dispense Medicines</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/app.js"></script>
+    <script>
+        // ============================================
+        // DATA STORE
+        // ============================================
+        
+        let pharmacyQueue = [];
+        let currentFilter = 'all';
+        let currentPrescriptionId = null;
+        
+        function initializePharmacyData() {
+            const saved = localStorage.getItem('smartOPD_pharmacyData');
+            if (saved) {
+                const data = JSON.parse(saved);
+                pharmacyQueue = data.queue || [];
+            } else {
+                pharmacyQueue = [
+                    {
+                        id: 1,
+                        token: "M10",
+                        patient: "Ram Prasad",
+                        age: 72,
+                        doctor: "Dr. Rajesh Sharma",
+                        date: "2026-06-28",
+                        status: "pending",
+                        priority: "ELDERLY",
+                        medicines: [
+                            { name: "Amlodipine", dosage: "5mg", duration: "30 days", instructions: "Once daily after meal" },
+                            { name: "Losartan", dosage: "50mg", duration: "30 days", instructions: "Once daily" }
+                        ],
+                        diagnosis: "Hypertension, Stage 1",
+                        notes: "Monitor BP weekly",
+                        createdAt: "2026-06-28T09:30:00"
+                    },
+                    {
+                        id: 2,
+                        token: "M11",
+                        patient: "Sita Gurung",
+                        age: 35,
+                        doctor: "Dr. Rajesh Sharma",
+                        date: "2026-06-28",
+                        status: "pending",
+                        priority: "GENERAL",
+                        medicines: [
+                            { name: "Paracetamol", dosage: "500mg", duration: "5 days", instructions: "Twice daily" },
+                            { name: "Azithromycin", dosage: "500mg", duration: "3 days", instructions: "Once daily" }
+                        ],
+                        diagnosis: "Upper Respiratory Tract Infection",
+                        notes: "Take with food",
+                        createdAt: "2026-06-28T10:15:00"
+                    },
+                    {
+                        id: 3,
+                        token: "A05",
+                        patient: "John Doe",
+                        age: 28,
+                        doctor: "Dr. Naresh Kharbuja",
+                        date: "2026-06-28",
+                        status: "processing",
+                        priority: "GENERAL",
+                        medicines: [
+                            { name: "Sumatriptan", dosage: "50mg", duration: "3 days", instructions: "At onset of headache" },
+                            { name: "Naproxen", dosage: "500mg", duration: "3 days", instructions: "Twice daily" }
+                        ],
+                        diagnosis: "Acute Migraine",
+                        notes: "Rest in dark room",
+                        createdAt: "2026-06-28T11:00:00"
+                    },
+                    {
+                        id: 4,
+                        token: "A06",
+                        patient: "Hari Prasad",
+                        age: 65,
+                        doctor: "Dr. Naresh Kharbuja",
+                        date: "2026-06-28",
+                        status: "dispensed",
+                        priority: "ELDERLY",
+                        medicines: [
+                            { name: "Atorvastatin", dosage: "20mg", duration: "90 days", instructions: "Once daily at night" }
+                        ],
+                        diagnosis: "Hyperlipidemia",
+                        notes: "Follow up in 3 months",
+                        createdAt: "2026-06-28T09:00:00"
+                    }
+                ];
+                
+                const labQueue = JSON.parse(localStorage.getItem('smartOPD_labQueue') || '[]');
+                const labPatients = labQueue.filter(l => l.status === 'completed');
+                labPatients.forEach((l, idx) => {
+                    pharmacyQueue.push({
+                        id: 100 + idx,
+                        token: l.token,
+                        patient: l.patient,
+                        age: 30,
+                        doctor: "Dr. Rajesh Sharma",
+                        date: new Date().toISOString().split('T')[0],
+                        status: "pending",
+                        priority: "GENERAL",
+                        medicines: [
+                            { name: "Vitamin D3", dosage: "60,000 IU", duration: "1 dose", instructions: "Once weekly" }
+                        ],
+                        diagnosis: "Vitamin D Deficiency",
+                        notes: "Based on lab results",
+                        createdAt: new Date().toISOString()
+                    });
+                });
+            }
+            savePharmacyData();
+            renderAll();
+        }
+
+        function savePharmacyData() {
+            localStorage.setItem('smartOPD_pharmacyData', JSON.stringify({
+                queue: pharmacyQueue
+            }));
+        }
+
+        // ============================================
+        // RENDER FUNCTIONS
+        // ============================================
+
+        function renderStats() {
+            const total = pharmacyQueue.length;
+            const pending = pharmacyQueue.filter(p => p.status === 'pending').length;
+            const processing = pharmacyQueue.filter(p => p.status === 'processing').length;
+            const dispensed = pharmacyQueue.filter(p => p.status === 'dispensed').length;
+            const ready = pharmacyQueue.filter(p => p.status === 'ready').length;
+            
+            document.getElementById('statsContainer').innerHTML = `
+                <div class="stat-box"><div class="stat-number">${total}</div><div class="stat-label">Total</div></div>
+                <div class="stat-box"><div class="stat-number">${pending}</div><div class="stat-label">Pending</div></div>
+                <div class="stat-box"><div class="stat-number">${processing}</div><div class="stat-label">Processing</div></div>
+                <div class="stat-box"><div class="stat-number">${ready}</div><div class="stat-label">Ready</div></div>
+                <div class="stat-box"><div class="stat-number">${dispensed}</div><div class="stat-label">Dispensed</div></div>
+            `;
+        }
+
+        function renderPrescriptions() {
+            const container = document.getElementById('prescriptionQueue');
+            const filtered = pharmacyQueue.filter(p => {
+                if (currentFilter === 'all') return true;
+                return p.status === currentFilter;
+            }).filter(p => p.status === 'pending' || p.status === 'ready');
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">No prescriptions in queue</div>';
+                return;
+            }
+            
+            container.innerHTML = filtered.map((p, idx) => `
+                <div class="prescription-card ${p.priority === 'ELDERLY' ? 'priority' : ''}">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div style="display:flex; gap:1rem;">
+                            <div class="queue-position">${idx + 1}</div>
+                            <div>
+                                <div style="display:flex; align-items:center; gap:0.5rem;">
+                                    <h4>${p.patient}</h4>
+                                    ${p.priority === 'ELDERLY' ? '<span class="badge badge-priority">👴 Priority</span>' : ''}
+                                    ${p.status === 'ready' ? '<span class="status-badge status-ready">Ready for Pickup</span>' : '<span class="status-badge status-pending">Pending</span>'}
+                                </div>
+                                <p style="color:var(--text-muted); font-size:0.875rem;">
+                                    Token: ${p.token} | Doctor: ${p.doctor} | Age: ${p.age}
+                                </p>
+                                <p style="font-size:0.875rem;">
+                                    <strong>Diagnosis:</strong> ${p.diagnosis}
+                                </p>
+                                <p style="font-size:0.875rem;">
+                                    <strong>Medicines:</strong> ${p.medicines.map(m => m.name).join(', ')}
+                                </p>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button class="view-btn" onclick="viewPrescription(${p.id})">View</button>
+                            ${p.status === 'pending' ? `<button class="dispense-btn" onclick="processPrescription(${p.id})">Start Processing</button>` : ''}
+                            ${p.status === 'ready' ? `<button class="dispense-btn" onclick="dispensePrescription(${p.id})">Dispense</button>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderProcessing() {
+            const container = document.getElementById('processingList');
+            const processing = pharmacyQueue.filter(p => p.status === 'processing');
+            
+            if (processing.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">No prescriptions being processed</div>';
+                return;
+            }
+            
+            container.innerHTML = processing.map(p => `
+                <div class="prescription-card">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <div style="display:flex; align-items:center; gap:0.5rem;">
+                                <h4>${p.patient}</h4>
+                                <span class="status-badge status-processing">⚙️ Processing</span>
+                            </div>
+                            <p style="color:var(--text-muted); font-size:0.875rem;">
+                                Token: ${p.token} | Doctor: ${p.doctor}
+                            </p>
+                            <p style="font-size:0.875rem;">
+                                <strong>Medicines:</strong> ${p.medicines.map(m => m.name).join(', ')}
+                            </p>
+                        </div>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button class="view-btn" onclick="viewPrescription(${p.id})">View</button>
+                            <button class="dispense-btn" onclick="readyForPickup(${p.id})">Ready for Pickup</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderDispensed() {
+            const container = document.getElementById('dispensedList');
+            const dispensed = pharmacyQueue.filter(p => p.status === 'dispensed');
+            
+            if (dispensed.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">No prescriptions dispensed today</div>';
+                return;
+            }
+            
+            container.innerHTML = dispensed.map(p => `
+                <div class="prescription-card">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <div style="display:flex; align-items:center; gap:0.5rem;">
+                                <h4>${p.patient}</h4>
+                                <span class="status-badge status-dispensed">✅ Dispensed</span>
+                            </div>
+                            <p style="color:var(--text-muted); font-size:0.875rem;">
+                                Token: ${p.token} | Doctor: ${p.doctor}
+                            </p>
+                            <p style="font-size:0.875rem;">
+                                <strong>Dispensed:</strong> ${p.medicines.map(m => m.name).join(', ')}
+                            </p>
+                        </div>
+                        <button class="view-btn" onclick="viewPrescription(${p.id})">View</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderInventory() {
+            const container = document.getElementById('inventoryList');
+            const inventory = [
+                { name: "Amlodipine", stock: 45, price: 120, status: "In Stock" },
+                { name: "Losartan", stock: 32, price: 85, status: "In Stock" },
+                { name: "Paracetamol", stock: 120, price: 15, status: "In Stock" },
+                { name: "Azithromycin", stock: 8, price: 250, status: "Low Stock" },
+                { name: "Sumatriptan", stock: 5, price: 350, status: "Low Stock" },
+                { name: "Naproxen", stock: 25, price: 180, status: "In Stock" },
+                { name: "Atorvastatin", stock: 15, price: 220, status: "In Stock" },
+                { name: "Vitamin D3", stock: 3, price: 95, status: "Low Stock" }
+            ];
+            
+            container.innerHTML = inventory.map(item => `
+                <tr>
+                    <td><strong>${item.name}</strong></td>
+                    <td>${item.stock}</td>
+                    <td>Rs. ${item.price}</td>
+                    <td>
+                        <span class="status-badge ${item.status === 'Low Stock' ? 'status-pending' : 'status-dispensed'}">
+                            ${item.status}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // ============================================
+        // PRESCRIPTION SLIP VIEW (Updated Professional Style)
+        // ============================================
+
+        function viewPrescription(id) {
+            const p = pharmacyQueue.find(p => p.id === id);
+            if (!p) return;
+            
+            currentPrescriptionId = id;
+
+            let medicinesRows = "";
+            if (p.medicines && p.medicines.length > 0) {
+                medicinesRows = p.medicines.map(m => `
+                    <tr>
+                        <td>${m.name}</td>
+                        <td>${m.dosage}</td>
+                        <td>${m.duration}</td>
+                        <td>${m.instructions}</td>
+                    </tr>
+                `).join("");
+            }
+
+            const statusMap = {
+                pending: { label: "Pending", class: "status-pending" },
+                processing: { label: "Processing", class: "status-processing" },
+                ready: { label: "Ready for Pickup", class: "status-ready" },
+                dispensed: { label: "Dispensed", class: "status-dispensed" }
+            };
+            const statusInfo = statusMap[p.status] || statusMap.pending;
+
+            const modalBody = document.getElementById('prescriptionModalBody');
+            modalBody.innerHTML = `
+                <div class="prescription-slip">
+                    <div class="header">
+                        <h3>SMART OPD</h3>
+                        <div class="subtitle">Digital Prescription</div>
+                    </div>
+
+                    <div class="info-grid">
+                        <div><span class="label">Patient</span><br><span class="value">${p.patient}</span></div>
+                        <div><span class="label">Token</span><br><span class="value">${p.token}</span></div>
+                        <div><span class="label">Age</span><br><span class="value">${p.age} years</span></div>
+                        <div><span class="label">Date</span><br><span class="value">${p.date}</span></div>
+                        <div><span class="label">Doctor</span><br><span class="value">${p.doctor}</span></div>
+                        <div><span class="label">Status</span><br><span class="value"><span class="status-badge ${statusInfo.class}">${statusInfo.label}</span></span></div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Diagnosis</div>
+                        <div class="section-content">${p.diagnosis}</div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Medicines</div>
+                        <table class="medicine-table">
+                            <thead>
+                                <tr>
+                                    <th>Medicine</th>
+                                    <th>Dosage</th>
+                                    <th>Duration</th>
+                                    <th>Instructions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${medicinesRows || '<tr><td colspan="4" style="text-align:center; color:#999;">No medicines prescribed</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    ${p.notes ? `
+                        <div class="section">
+                            <div class="section-title">Doctor's Notes</div>
+                            <div class="section-content">${p.notes}</div>
+                        </div>
+                    ` : ''}
+
+                    <div class="footer">
+                        <div>This is a digitally generated prescription</div>
+                        <div>Please verify and dispense medicines</div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('processBtn').style.display = p.status === 'pending' ? 'block' : 'none';
+            document.getElementById('dispenseBtn').style.display = p.status === 'ready' ? 'block' : 'none';
+
+            document.getElementById('prescriptionModal').classList.add('active');
+        }
+
+        // ============================================
+        // ACTION FUNCTIONS
+        // ============================================
+
+        function processPrescription(id) {
+            const prescription = pharmacyQueue.find(p => p.id === id);
+            if (!prescription) return;
+            
+            prescription.status = 'processing';
+            savePharmacyData();
+            renderAll();
+            closePrescriptionModal();
+            Toast.show(`Processing prescription for ${prescription.patient}`, 'info');
+        }
+
+        function readyForPickup(id) {
+            const prescription = pharmacyQueue.find(p => p.id === id);
+            if (!prescription) return;
+            
+            prescription.status = 'ready';
+            savePharmacyData();
+            renderAll();
+            Toast.show(`Prescription for ${prescription.patient} is ready for pickup`, 'success');
+        }
+
+        function dispensePrescription(id) {
+            const prescription = pharmacyQueue.find(p => p.id === id);
+            if (!prescription) return;
+            
+            prescription.status = 'dispensed';
+            savePharmacyData();
+            renderAll();
+            closePrescriptionModal();
+            Toast.show(`Medicines dispensed to ${prescription.patient}`, 'success');
+        }
+
+        function closePrescriptionModal() {
+            document.getElementById('prescriptionModal').classList.remove('active');
+        }
+
+        // ============================================
+        // FILTER AND TAB FUNCTIONS
+        // ============================================
+
+        function filterPrescriptions(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+            renderPrescriptions();
+        }
+
+        function showTab(tab) {
+            document.getElementById('queueTab').style.display = tab === 'queue' ? 'block' : 'none';
+            document.getElementById('processingTab').style.display = tab === 'processing' ? 'block' : 'none';
+            document.getElementById('dispensedTab').style.display = tab === 'dispensed' ? 'block' : 'none';
+            document.getElementById('inventoryTab').style.display = tab === 'inventory' ? 'block' : 'none';
+            
+            document.querySelectorAll('.sidebar-nav-item').forEach(el => el.classList.remove('active'));
+            if (event && event.target) {
+                event.target.closest('.sidebar-nav-item').classList.add('active');
+            }
+            
+            if (tab === 'queue') renderPrescriptions();
+            if (tab === 'processing') renderProcessing();
+            if (tab === 'dispensed') renderDispensed();
+            if (tab === 'inventory') renderInventory();
+        }
+
+        function renderAll() {
+            renderStats();
+            renderPrescriptions();
+            renderProcessing();
+            renderDispensed();
+            renderInventory();
+        }
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+
+        const user = StorageManager.getUser();
+        if (user) {
+            document.getElementById('pharmacistName').innerText = user.name || 'Pharmacist';
+        }
+
+        initializePharmacyData();
+
+        window.viewPrescription = viewPrescription;
+        window.processPrescription = processPrescription;
+        window.readyForPickup = readyForPickup;
+        window.dispensePrescription = dispensePrescription;
+        window.closePrescriptionModal = closePrescriptionModal;
+        window.filterPrescriptions = filterPrescriptions;
+        window.showTab = showTab;
+    </script>
+</body>
+</html>

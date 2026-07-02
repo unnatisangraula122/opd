@@ -580,3 +580,275 @@ def analytics(request):
         'avg_waiting_minutes': round(avg_wait, 1),
         'doctor_queues': doctor_queues
     })
+
+# ========== NEW: CONSULTATION NOTES ==========
+@api_view(['POST'])
+def save_consultation_notes(request, token_id):
+    """Doctor saves consultation notes, diagnosis, and followup"""
+    from .models import Consultation
+    
+    try:
+        token = Token.objects.get(id=token_id)
+    except Token.DoesNotExist:
+        return Response({'success': False, 'error': 'Token not found'}, status=404)
+    
+    if token.status not in ['consulting', 'completed']:
+        return Response({
+            'success': False,
+            'error': 'Consultation not in progress'
+        }, status=400)
+    
+    consultation, created = Consultation.objects.get_or_create(
+        token=token,
+        defaults={'doctor': token.slot.doctor}
+    )
+    
+    consultation.symptoms = request.data.get('symptoms', consultation.symptoms)
+    consultation.diagnosis = request.data.get('diagnosis', consultation.diagnosis)
+    consultation.notes = request.data.get('notes', consultation.notes)
+    consultation.requires_lab = request.data.get('requires_lab', consultation.requires_lab)
+    consultation.requires_followup = request.data.get('requires_followup', consultation.requires_followup)
+    
+    if consultation.requires_followup:
+        followup_date = request.data.get('followup_date')
+        if followup_date:
+            consultation.followup_date = followup_date
+        consultation.followup_instructions = request.data.get('followup_instructions', '')
+    
+    consultation.save()
+    
+    return Response({
+        'success': True,
+        'message': 'Consultation notes saved',
+        'consultation': {
+            'id': consultation.id,
+            'diagnosis': consultation.diagnosis,
+            'requires_lab': consultation.requires_lab,
+            'requires_followup': consultation.requires_followup
+        }
+    })
+
+
+# ========== NEW: LAB ORDERS ==========
+@api_view(['POST'])
+def create_lab_order(request, token_id):
+    """Doctor orders lab test"""
+    from .models import Consultation, LabOrder
+    
+    try:
+        token = Token.objects.get(id=token_id)
+    except Token.DoesNotExist:
+        return Response({'success': False, 'error': 'Token not found'}, status=404)
+    
+    try:
+        consultation = Consultation.objects.get(token=token)
+    except Consultation.DoesNotExist:
+        return Response({'success': False, 'error': 'Consultation not found'}, status=404)
+    
+    test_name = request.data.get('test_name')
+    instructions = request.data.get('instructions', '')
+    
+    if not test_name:
+        return Response({'success': False, 'error': 'Test name required'}, status=400)
+    
+    lab_order = LabOrder.objects.create(
+        consultation=consultation,
+        token=token,
+        test_name=test_name,
+        instructions=instructions
+    )
+    
+    # Update token status
+    token.status = 'pending_lab'
+    token.save()
+    
+    return Response({
+        'success': True,
+        'message': 'Lab order created',
+        'lab_order': {
+            'id': lab_order.id,
+            'test_name': lab_order.test_name,
+            'status': lab_order.status
+        }
+    })
+
+
+@api_view(['GET'])
+def lab_queue(request):
+    """Get lab queue for technician"""
+    from .models import LabQueueEntry
+    
+    lab_entries = LabQueueEntry.objects.filter(
+        status='waiting'
+    ).select_related('lab_order', 'token')
+    
+    queue_list = []
+    for entry in lab_entries:
+        queue_list.append({
+            'entry_id': entry.id,
+            'test_name': entry.lab_order.test_name,
+            'token_number': entry.token.token_number,
+            'patient_name': entry.token.patient_name,
+            'status': entry.status,
+            'lab_fee_paid': entry.lab_fee_paid
+        })
+    
+    return Response({
+        'success': True,
+        'queue_length': len(queue_list),
+        'queue': queue_list
+    })
+
+
+@api_view(['POST'])
+def complete_lab_order(request, lab_order_id):
+    """Lab technician completes lab order"""
+    from .models import LabOrder
+    
+    try:
+        lab_order = LabOrder.objects.get(id=lab_order_id)
+    except LabOrder.DoesNotExist:
+        return Response({'success': False, 'error': 'Lab order not found'}, status=404)
+    
+    if lab_order.status != 'in_queue':
+        return Response({
+            'success': False,
+            'error': f'Cannot complete. Status: {lab_order.status}'
+        }, status=400)
+    
+    lab_order.status = 'completed'
+    lab_order.completed_at = timezone.now()
+    lab_order.save()
+    
+    # Update queue entry
+    if hasattr(lab_order, 'queue_entry'):
+        entry = lab_order.queue_entry
+        entry.status = 'done'
+        entry.completed_at = timezone.now()
+        entry.save()
+    
+    return Response({
+        'success': True,
+        'message': 'Lab order completed'
+    })
+
+
+# ========== NEW: PHARMACY QUEUE ==========
+@api_view(['GET'])
+def pharmacy_queue(request):
+    """Get pharmacy queue for pharmacist"""
+    from .models import PharmacyQueueEntry
+    
+    pharmacy_entries = PharmacyQueueEntry.objects.filter(
+        status='waiting'
+    ).select_related('token')
+    
+    queue_list = []
+    for entry in pharmacy_entries:
+        queue_list.append({
+            'entry_id': entry.id,
+            'token_number': entry.token.token_number,
+            'patient_name': entry.token.patient_name,
+            'status': entry.status,
+            'total_bill': entry.total_bill
+        })
+    
+    return Response({
+        'success': True,
+        'queue_length': len(queue_list),
+        'queue': queue_list
+    })
+
+
+# ========== NEW: PAYMENT ==========
+@api_view(['POST'])
+def create_payment(request, token_id):
+    """Create a payment record"""
+    from .models import Payment
+    
+    try:
+        token = Token.objects.get(id=token_id)
+    except Token.DoesNotExist:
+        return Response({'success': False, 'error': 'Token not found'}, status=404)
+    
+    payment_type = request.data.get('payment_type')
+    amount = request.data.get('amount')
+    
+    if not payment_type or not amount:
+        return Response({'success': False, 'error': 'Payment type and amount required'}, status=400)
+    
+    payment = Payment.objects.create(
+        token=token,
+        payment_type=payment_type,
+        amount=amount
+    )
+    
+    return Response({
+        'success': True,
+        'message': 'Payment record created',
+        'payment': {
+            'id': payment.id,
+            'payment_type': payment.payment_type,
+            'amount': payment.amount,
+            'status': payment.status
+        }
+    })
+
+
+# ========== NEW: PATIENT HISTORY ==========
+@api_view(['GET'])
+def patient_history(request, phone):
+    """Get complete patient history with prescriptions and consultations"""
+    from .models import Consultation, Prescription
+    
+    tokens = Token.objects.filter(patient_phone=phone).order_by('-created_at')
+    
+    if not tokens.exists():
+        return Response({
+            'success': True,
+            'patient_phone': phone,
+            'history': [],
+            'message': 'No records found'
+        })
+    
+    history = []
+    for token in tokens:
+        record = {
+            'token_number': token.token_number,
+            'date': token.created_at.strftime("%Y-%m-%d %H:%M"),
+            'doctor': str(token.slot.doctor),
+            'status': token.status,
+            'is_elderly': token.is_elderly,
+            'consultation': None,
+            'prescriptions': []
+        }
+        
+        # Get consultation notes
+        if hasattr(token, 'consultation'):
+            consult = token.consultation
+            record['consultation'] = {
+                'diagnosis': consult.diagnosis,
+                'symptoms': consult.symptoms,
+                'notes': consult.notes,
+                'requires_followup': consult.requires_followup
+            }
+        
+        # Get prescriptions
+        prescriptions = Prescription.objects.filter(token=token)
+        for presc in prescriptions:
+            record['prescriptions'].append({
+                'medicine': presc.medicine_name,
+                'dosage': presc.dosage,
+                'frequency': presc.frequency,
+                'duration_days': presc.duration_days,
+                'dispensed': presc.dispensed
+            })
+        
+        history.append(record)
+    
+    return Response({
+        'success': True,
+        'patient_phone': phone,
+        'total_visits': len(history),
+        'history': history
+    })

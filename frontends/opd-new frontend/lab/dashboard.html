@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lab Dashboard - Smart OPD</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <style>
+      .test-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: all 0.2s;
+      }
+      .test-card:hover {
+        transform: translateX(4px);
+        border-color: var(--secondary);
+      }
+      .status-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+      }
+      .status-pending {
+        background: #fef3c7;
+        color: var(--warning);
+      }
+      .status-completed {
+        background: #d1fae5;
+        color: var(--success);
+      }
+      .status-processing {
+        background: #dbeafe;
+        color: var(--info);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sidebar-layout">
+      <div class="sidebar">
+        <div style="padding: 1.5rem">
+          <div class="logo" style="margin-bottom: 2rem">
+            <span class="logo-icon"></span
+            ><span class="logo-text">SMART OPD</span>
+          </div>
+          <div style="text-align: center; margin-bottom: 2rem">
+            <div
+              style="
+                width: 70px;
+                height: 70px;
+                background: rgba(59, 151, 151, 0.1);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 2rem;
+                margin: 0 auto 1rem;
+              "
+            >
+              🔬
+            </div>
+            <h4>Lab Technician</h4>
+            <p style="color: var(--text-muted)" id="labTechName">
+              Lab Assistant
+            </p>
+          </div>
+          <nav>
+            <div class="sidebar-nav-item active" onclick="showTab('pending')">
+              🧪 Pending Tests
+            </div>
+            <div class="sidebar-nav-item" onclick="showTab('processing')">
+              ⚙️ In Progress
+            </div>
+            <div class="sidebar-nav-item" onclick="showTab('completed')">
+              ✅ Completed
+            </div>
+            <div
+              class="sidebar-nav-item"
+              onclick="window.location.href = '../index.html'"
+            >
+              🚪 Logout
+            </div>
+          </nav>
+        </div>
+      </div>
+
+      <div class="main-content">
+        <h1 style="margin-bottom: 1.5rem">Lab Dashboard</h1>
+
+        <!-- Pending Tests Tab -->
+        <div id="pendingTab">
+          <div class="card">
+            <h3>Pending Lab Tests</h3>
+            <div id="pendingList"></div>
+          </div>
+        </div>
+
+        <!-- Processing Tab -->
+        <div id="processingTab" style="display: none">
+          <div class="card">
+            <h3>Tests In Progress</h3>
+            <div id="processingList"></div>
+          </div>
+        </div>
+
+        <!-- Completed Tab -->
+        <div id="completedTab" style="display: none">
+          <div class="card">
+            <h3>Completed Tests</h3>
+            <div id="completedList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result Modal -->
+    <div id="resultModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Enter Test Results</h3>
+          <button onclick="closeResultModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Test Results</label>
+            <textarea
+              class="form-textarea"
+              id="resultValue"
+              rows="4"
+              placeholder="Enter detailed test results..."
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Normal Range</label>
+            <input
+              type="text"
+              class="form-input"
+              id="normalRange"
+              placeholder="e.g., 100-200 mg/dL"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Upload Report (PDF/Image)</label>
+            <input
+              type="file"
+              class="form-input"
+              id="reportFile"
+              accept=".pdf,.jpg,.png"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Additional Notes</label>
+            <textarea
+              class="form-textarea"
+              id="labNotes"
+              rows="2"
+              placeholder="Any additional notes..."
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeResultModal()">
+            Cancel
+          </button>
+          <button class="btn btn-primary" onclick="submitResult()">
+            Submit Result
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="../js/app.js"></script>
+    <script>
+      let pendingTests = [];
+      let processingTests = [];
+      let completedTests = [];
+      let currentTestId = null;
+
+      function loadLabQueue() {
+        const labQueue = JSON.parse(
+          localStorage.getItem("smartOPD_labQueue") || "[]",
+        );
+        // Separate pending vs processing
+        pendingTests = labQueue.filter(
+          (t) => t.status === "pending" || t.status === "pending_payment",
+        );
+        processingTests = labQueue.filter((t) => t.status === "processing");
+        completedTests = labQueue.filter((t) => t.status === "completed");
+
+        pendingTests = pendingTests.map((t, idx) => ({ ...t, id: idx + 1 }));
+        processingTests = processingTests.map((t, idx) => ({
+          ...t,
+          id: idx + 1,
+        }));
+        completedTests = completedTests.map((t, idx) => ({
+          ...t,
+          id: idx + 1,
+        }));
+
+        renderPending();
+        renderProcessing();
+        renderCompleted();
+      }
+
+      function showTab(tab) {
+        document.getElementById("pendingTab").style.display =
+          tab === "pending" ? "block" : "none";
+        document.getElementById("processingTab").style.display =
+          tab === "processing" ? "block" : "none";
+        document.getElementById("completedTab").style.display =
+          tab === "completed" ? "block" : "none";
+
+        if (tab === "pending") loadLabQueue();
+        if (tab === "processing") renderProcessing();
+        if (tab === "completed") renderCompleted();
+      }
+
+      function renderPending() {
+        if (pendingTests.length === 0) {
+          document.getElementById("pendingList").innerHTML =
+            '<p style="text-align:center; color:var(--text-muted);">No pending tests</p>';
+          return;
+        }
+        document.getElementById("pendingList").innerHTML = pendingTests
+          .map(
+            (t) => `
+                <div class="test-card">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <h4>${t.patient} <span class="status-badge status-pending">Pending</span></h4>
+                            <p><strong>Token:</strong> ${t.token} | <strong>Ordered:</strong> ${new Date(t.orderedAt).toLocaleString()}</p>
+                            <p><strong>Tests:</strong> ${t.tests.join(", ")}</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="startTest(${t.id})">Start Test →</button>
+                    </div>
+                </div>
+            `,
+          )
+          .join("");
+      }
+
+      function renderProcessing() {
+        if (processingTests.length === 0) {
+          document.getElementById("processingList").innerHTML =
+            '<p style="text-align:center; color:var(--text-muted);">No tests in progress</p>';
+          return;
+        }
+        document.getElementById("processingList").innerHTML = processingTests
+          .map(
+            (t) => `
+                <div class="test-card">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <h4>${t.patient} <span class="status-badge status-processing">In Progress</span></h4>
+                            <p><strong>Token:</strong> ${t.token} | <strong>Started:</strong> ${new Date(t.startedAt).toLocaleString()}</p>
+                            <p><strong>Tests:</strong> ${t.tests.join(", ")}</p>
+                        </div>
+                        <button class="btn btn-success" onclick="openResultModal(${t.id})">Add Results</button>
+                    </div>
+                </div>
+            `,
+          )
+          .join("");
+      }
+
+      function renderCompleted() {
+        if (completedTests.length === 0) {
+          document.getElementById("completedList").innerHTML =
+            '<p style="text-align:center; color:var(--text-muted);">No completed tests</p>';
+          return;
+        }
+        document.getElementById("completedList").innerHTML = completedTests
+          .map(
+            (t) => `
+                <div class="test-card">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <h4>${t.patient} <span class="status-badge status-completed">Completed</span></h4>
+                            <p><strong>Token:</strong> ${t.token} | <strong>Completed:</strong> ${new Date(t.completedAt).toLocaleString()}</p>
+                            <p><strong>Tests:</strong> ${t.tests.join(", ")}</p>
+                            <p><strong>Result:</strong> ${t.result || "See report"}</p>
+                        </div>
+                        <button class="btn btn-outline" onclick="viewReport(${t.id})">View Report</button>
+                    </div>
+                </div>
+            `,
+          )
+          .join("");
+      }
+
+      function startTest(id) {
+        const test = pendingTests.find((t) => t.id === id);
+        if (test) {
+          test.status = "processing";
+          test.startedAt = new Date().toISOString();
+          processingTests.push(test);
+          pendingTests = pendingTests.filter((t) => t.id !== id);
+
+          // Update localStorage
+          const labQueue = JSON.parse(
+            localStorage.getItem("smartOPD_labQueue") || "[]",
+          );
+          const updatedQueue = labQueue.map((t) => {
+            if (t.token === test.token && t.patient === test.patient) {
+              return { ...t, status: "processing", startedAt: test.startedAt };
+            }
+            return t;
+          });
+          localStorage.setItem(
+            "smartOPD_labQueue",
+            JSON.stringify(updatedQueue),
+          );
+
+          renderPending();
+          renderProcessing();
+          Toast.show(`Started processing tests for ${test.patient}`, "success");
+        }
+      }
+
+      function openResultModal(id) {
+        currentTestId = id;
+        document.getElementById("resultModal").classList.add("active");
+      }
+
+      function submitResult() {
+        const result = document.getElementById("resultValue").value;
+        const normalRange = document.getElementById("normalRange").value;
+        const notes = document.getElementById("labNotes").value;
+
+        if (!result) {
+          Toast.show("Please enter test results", "error");
+          return;
+        }
+
+        const test = processingTests.find((t) => t.id === currentTestId);
+        if (test) {
+          test.status = "completed";
+          test.result = result;
+          test.normalRange = normalRange;
+          test.notes = notes;
+          test.completedAt = new Date().toISOString();
+          completedTests.push(test);
+          processingTests = processingTests.filter(
+            (t) => t.id !== currentTestId,
+          );
+
+          // Update localStorage
+          const labQueue = JSON.parse(
+            localStorage.getItem("smartOPD_labQueue") || "[]",
+          );
+          const updatedQueue = labQueue.map((t) => {
+            if (t.token === test.token && t.patient === test.patient) {
+              return {
+                ...t,
+                status: "completed",
+                result: result,
+                normalRange: normalRange,
+                notes: notes,
+                completedAt: test.completedAt,
+              };
+            }
+            return t;
+          });
+          localStorage.setItem(
+            "smartOPD_labQueue",
+            JSON.stringify(updatedQueue),
+          );
+
+          // Add to patient lab reports
+          const labReports = JSON.parse(
+            localStorage.getItem("smartOPD_patientLabReports") || "[]",
+          );
+          labReports.push({
+            patient: test.patient,
+            token: test.token,
+            tests: test.tests,
+            result: result,
+            normalRange: normalRange,
+            date: test.completedAt,
+          });
+          localStorage.setItem(
+            "smartOPD_patientLabReports",
+            JSON.stringify(labReports),
+          );
+
+          renderProcessing();
+          renderCompleted();
+          closeResultModal();
+          document.getElementById("resultValue").value = "";
+          document.getElementById("normalRange").value = "";
+          document.getElementById("labNotes").value = "";
+          Toast.show("Result submitted successfully", "success");
+        }
+      }
+
+      function viewReport(id) {
+        const test = completedTests.find((t) => t.id === id);
+        if (test) {
+          ModalManager.open(
+            `
+                    <p><strong>Patient:</strong> ${test.patient}</p>
+                    <p><strong>Token:</strong> ${test.token}</p>
+                    <p><strong>Tests:</strong> ${test.tests.join(", ")}</p>
+                    <p><strong>Result:</strong> ${test.result}</p>
+                    <p><strong>Normal Range:</strong> ${test.normalRange || "Not specified"}</p>
+                    <p><strong>Notes:</strong> ${test.notes || "None"}</p>
+                    <p><strong>Completed:</strong> ${new Date(test.completedAt).toLocaleString()}</p>
+                `,
+            "Lab Report",
+          );
+        }
+      }
+
+      function closeResultModal() {
+        document.getElementById("resultModal").classList.remove("active");
+      }
+
+      // Auto-refresh every 5 seconds
+      setInterval(() => {
+        if (document.getElementById("pendingTab").style.display !== "none")
+          loadLabQueue();
+        if (document.getElementById("processingTab").style.display !== "none")
+          renderProcessing();
+        if (document.getElementById("completedTab").style.display !== "none")
+          renderCompleted();
+      }, 5000);
+
+      loadLabQueue();
+    </script>
+  </body>
+</html>
