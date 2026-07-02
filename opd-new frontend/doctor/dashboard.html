@@ -1,0 +1,1030 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Doctor Dashboard - Smart OPD</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <style>
+      .consultation-area {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        position: sticky;
+        top: 1rem;
+      }
+      .medicine-row {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr 2fr;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        align-items: center;
+      }
+      .medicine-row input {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.6rem;
+      }
+      .add-medicine {
+        color: var(--secondary);
+        cursor: pointer;
+        font-size: 0.875rem;
+        margin-top: 0.5rem;
+      }
+      .add-medicine:hover {
+        text-decoration: underline;
+      }
+      .lab-test-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-bottom: 0.5rem;
+        background: var(--background);
+      }
+      .timer-display {
+        font-family: monospace;
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--secondary);
+      }
+      .patient-info-box {
+        background: var(--background);
+        padding: 0.75rem;
+        border-radius: var(--radius);
+        margin-bottom: 1rem;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+      }
+      .patient-info-box .label {
+        color: var(--text-muted);
+        font-size: 0.75rem;
+      }
+      .patient-info-box .value {
+        font-weight: 500;
+      }
+
+      /* ============================================
+         PRESCRIPTION SLIP STYLES
+         ============================================ */
+      .prescription-slip {
+        font-family: 'Courier New', Courier, monospace;
+        background: #ffffff;
+        color: #000000;
+        padding: 2rem;
+        max-width: 650px;
+        margin: 0 auto;
+        border: 1px solid #cccccc;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      }
+
+      .prescription-slip .header {
+        text-align: center;
+        border-bottom: 2px solid #000000;
+        padding-bottom: 0.75rem;
+        margin-bottom: 1rem;
+      }
+
+      .prescription-slip .header h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: 2px;
+        margin: 0;
+        font-family: 'Courier New', Courier, monospace;
+      }
+
+      .prescription-slip .header .subtitle {
+        font-size: 0.8rem;
+        color: #555555;
+        letter-spacing: 1px;
+        margin-top: 0.25rem;
+      }
+
+      .prescription-slip .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.25rem 0;
+        border-bottom: 1px dashed #cccccc;
+        font-size: 0.9rem;
+      }
+
+      .prescription-slip .info-row .label {
+        font-weight: 600;
+        min-width: 120px;
+      }
+
+      .prescription-slip .info-row .value {
+        text-align: right;
+      }
+
+      .prescription-slip .section {
+        margin: 1rem 0;
+        padding: 0.5rem 0;
+        border-bottom: 1px dashed #cccccc;
+      }
+
+      .prescription-slip .section:last-child {
+        border-bottom: none;
+      }
+
+      .prescription-slip .section-title {
+        font-weight: 700;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+        color: #333333;
+      }
+
+      .prescription-slip .section-content {
+        font-size: 0.9rem;
+        padding-left: 0.5rem;
+        line-height: 1.6;
+      }
+
+      .prescription-slip .medicine-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+        font-family: 'Courier New', Courier, monospace;
+        margin-top: 0.5rem;
+      }
+
+      .prescription-slip .medicine-table th {
+        background: #f0f0f0;
+        color: #000000;
+        padding: 0.4rem 0.5rem;
+        text-align: left;
+        font-weight: 700;
+        border-bottom: 2px solid #000000;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+      }
+
+      .prescription-slip .medicine-table td {
+        padding: 0.4rem 0.5rem;
+        border-bottom: 1px solid #dddddd;
+        font-size: 0.85rem;
+      }
+
+      .prescription-slip .medicine-table tr:last-child td {
+        border-bottom: none;
+      }
+
+      .prescription-slip .footer {
+        margin-top: 1.5rem;
+        padding-top: 0.75rem;
+        border-top: 2px solid #000000;
+        text-align: center;
+        font-size: 0.7rem;
+        color: #777777;
+        letter-spacing: 0.5px;
+      }
+
+      .prescription-slip .footer .line {
+        margin: 0.2rem 0;
+      }
+
+      .prescription-slip .follow-up-status {
+        font-weight: 700;
+        color: #10b981;
+      }
+
+      .prescription-slip .priority-badge {
+        font-weight: 700;
+        color: #ef4444;
+      }
+
+      /* Print styles for prescription */
+      @media print {
+        body * {
+          visibility: hidden;
+        }
+        .prescription-slip, .prescription-slip * {
+          visibility: visible;
+        }
+        .prescription-slip {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+          border: none;
+          box-shadow: none;
+          padding: 1.5rem;
+        }
+        .modal-content {
+          box-shadow: none !important;
+          border: none !important;
+        }
+        .modal-header, .modal-footer {
+          display: none !important;
+        }
+        .prescription-slip .medicine-table th {
+          background: #f0f0f0 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+      }
+
+      /* Modal overrides for prescription */
+      #prescriptionModal .modal-content {
+        max-width: 700px;
+        background: #ffffff;
+        padding: 0;
+      }
+
+      #prescriptionModal .modal-header {
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 0.75rem 1.5rem;
+      }
+
+      #prescriptionModal .modal-header h3 {
+        font-family: 'Courier New', Courier, monospace;
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: #000000;
+      }
+
+      #prescriptionModal .modal-body {
+        padding: 0;
+        background: #ffffff;
+      }
+
+      #prescriptionModal .modal-footer {
+        background: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+        padding: 0.75rem 1.5rem;
+        justify-content: center;
+        gap: 1rem;
+      }
+
+      #prescriptionModal .modal-footer .btn {
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 0.8rem;
+        padding: 0.4rem 1.2rem;
+        border-radius: 4px;
+      }
+
+      #prescriptionModal .modal-footer .btn-secondary {
+        background: #6c757d;
+        color: #ffffff;
+        border: none;
+      }
+
+      #prescriptionModal .modal-footer .btn-primary {
+        background: #000000;
+        color: #ffffff;
+        border: none;
+      }
+
+      #prescriptionModal .modal-footer .btn-success {
+        background: #10b981;
+        color: #ffffff;
+        border: none;
+      }
+
+      #prescriptionModal .modal-footer .btn:hover {
+        opacity: 0.85;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sidebar-layout">
+      <div class="sidebar">
+        <div style="padding: 1.5rem">
+          <div class="logo" style="margin-bottom: 2rem">
+            <span class="logo-icon">⚡</span>
+            <span class="logo-text">SMART OPD</span>
+          </div>
+          <div style="text-align: center; margin-bottom: 2rem">
+            <div
+              style="
+                width: 70px;
+                height: 70px;
+                background: rgba(59, 151, 151, 0.1);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 2rem;
+                margin: 0 auto 1rem;
+              "
+            >
+              👨‍⚕️
+            </div>
+            <h4>Dr. Rajesh Sharma</h4>
+            <p style="color: var(--text-muted)">Cardiologist</p>
+            <p style="color: var(--text-muted); font-size: 0.75rem" id="currentDateTime"></p>
+          </div>
+          <nav>
+            <div class="sidebar-nav-item active" onclick="showTab('queue')">
+              Patient Queue
+            </div>
+            <div class="sidebar-nav-item" onclick="showTab('completed')">
+              Completed Today
+            </div>
+            <div
+              class="sidebar-nav-item"
+              onclick="window.location.href = '../index.html'"
+            >
+              Logout
+            </div>
+          </nav>
+        </div>
+      </div>
+
+      <div class="main-content">
+        <div class="grid grid-2" style="gap: 1.5rem">
+          <div>
+            <div class="card">
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  margin-bottom: 1rem;
+                "
+              >
+                <h3>
+                  Patient Queue
+                  <span style="color: var(--text-muted)"
+                    >(Priority: Elderly First)</span
+                  >
+                </h3>
+                <button
+                  class="btn btn-primary"
+                  id="callNextBtn"
+                  onclick="callNextPatient()"
+                >
+                  Call Next
+                </button>
+              </div>
+              <div id="queueList"></div>
+            </div>
+          </div>
+          <div>
+            <div
+              id="consultationPanel"
+              class="consultation-area"
+              style="display: none"
+            >
+              <h3 id="currentPatientName"></h3>
+              <div
+                id="consultationTimer"
+                class="timer-display"
+                style="text-align: center; margin-bottom: 1rem"
+              >
+                00:00
+              </div>
+              <div id="consultationForm"></div>
+            </div>
+            <div
+              id="noPatientPanel"
+              class="consultation-area"
+              style="text-align: center"
+            >
+              <div style="font-size: 3rem">👨‍⚕️</div>
+              <h3>Ready for Consultation</h3>
+              <p style="color: var(--text-muted)">
+                Click "Call Next" to start consultation
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="prescriptionModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Digital Prescription</h3>
+          <button onclick="closeModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+        </div>
+        <div class="modal-body" id="prescriptionBody"></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+          <button class="btn btn-primary" onclick="window.print()">Print</button>
+          <button class="btn btn-success" onclick="sendToPharmacyFromModal()">Send to Pharmacy</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="../js/app.js"></script>
+    <script src="../js/api.js"></script>
+    <script>
+      // ============================================
+      // DATA
+      // ============================================
+      let queue = [];
+
+      let currentPatient = null;
+      let medicines = [];
+      let selectedLabTests = [];
+      let consultationStartTime = null;
+      let timerInterval = null;
+      let currentPrescriptionData = null;
+
+      // ============================================
+      // QUEUE FUNCTIONS
+      // ============================================
+
+      async function loadDoctorQueue() {
+        const res = await API.doctorQueue();
+        if (!res.success) return;
+        queue = (res.queue || []).map(p => ({
+          id: p.token_id,
+          token_id: p.token_id,
+          token: p.token_number,
+          patient: p.patient_name,
+          age: p.patient_age,
+          category: p.priority === 'HIGH' ? 'ELDERLY' : 'GENERAL',
+          wait: 0,
+          complaint: '',
+          status: 'waiting',
+        }));
+        renderQueue();
+      }
+
+      function renderQueue() {
+        const sorted = [...queue].sort((a, b) =>
+          a.category === "ELDERLY" && b.category !== "ELDERLY" ? -1 : 0
+        );
+        document.getElementById("queueList").innerHTML = sorted
+          .map(
+            (p) => `
+              <div class="queue-item ${p.category === "ELDERLY" ? "priority-queue" : ""}">
+                <div>
+                  <div>
+                    <strong>${p.token}</strong>
+                    ${p.category === "ELDERLY" ? ' <span class="badge badge-priority">Priority</span>' : ""}
+                  </div>
+                  <h4>${p.patient} (${p.age} yrs)</h4>
+                  <p style="color: var(--text-muted); font-size: 0.85rem;">${p.complaint}</p>
+                  <p style="color: var(--text-muted); font-size: 0.75rem;">Waiting: ${p.wait} min</p>
+                </div>
+              </div>
+            `
+          )
+          .join("");
+      }
+
+      async function callNextPatient() {
+        if (queue.length === 0) {
+          Toast.show("No patients in queue", "error");
+          return;
+        }
+        const sorted = [...queue].sort((a, b) =>
+          a.category === "ELDERLY" && b.category !== "ELDERLY" ? -1 : 0
+        );
+        currentPatient = sorted[0];
+        LoadingOverlay.show();
+        const res = await API.startConsult(currentPatient.token_id);
+        LoadingOverlay.hide();
+        if (!res.success) { Toast.show(res.error || 'Failed to start', 'error'); return; }
+        queue = queue.filter((p) => p.id !== currentPatient.id);
+        renderQueue();
+        consultationStartTime = new Date();
+        startTimer();
+        document.getElementById("noPatientPanel").style.display = "none";
+        document.getElementById("consultationPanel").style.display = "block";
+        document.getElementById("currentPatientName").innerHTML =
+          `Consultation: ${currentPatient.patient} (Token: ${currentPatient.token})`;
+        renderConsultationForm();
+      }
+
+      // ============================================
+      // TIMER FUNCTIONS
+      // ============================================
+
+      function startTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+          const elapsed = Math.floor(
+            (new Date() - consultationStartTime) / 1000
+          );
+          const minutes = Math.floor(elapsed / 60);
+          const seconds = elapsed % 60;
+          document.getElementById("consultationTimer").innerHTML =
+            `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+        }, 1000);
+      }
+
+      function stopTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+      }
+
+      // ============================================
+      // CONSULTATION FORM
+      // ============================================
+
+      function renderConsultationForm() {
+        medicines = [];
+        selectedLabTests = [];
+        document.getElementById("consultationForm").innerHTML = `
+          <div class="patient-info-box">
+            <div><span class="label">Patient</span><br><span class="value">${currentPatient.patient}</span></div>
+            <div><span class="label">Token</span><br><span class="value">${currentPatient.token}</span></div>
+            <div><span class="label">Age</span><br><span class="value">${currentPatient.age} years</span></div>
+            <div><span class="label">Category</span><br><span class="value">${currentPatient.category}</span></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Symptoms <span class="required">*</span></label>
+            <textarea class="form-textarea" id="symptoms" rows="3" placeholder="Describe patient's symptoms in detail...">${currentPatient.complaint}</textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Diagnosis <span class="required">*</span></label>
+            <input type="text" class="form-input" id="diagnosis" placeholder="Enter diagnosis (e.g., Hypertension, Stage 1)">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Medicines Prescribed</label>
+            <div id="medicinesList"></div>
+            <div class="add-medicine" onclick="addMedicine()">+ Add Medicine</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Lab Tests Ordered</label>
+            <div id="labTestsList"></div>
+            <div class="add-medicine" onclick="addLabTest()">+ Order Lab Test</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Follow-up Date</label>
+            <input type="date" class="form-input" id="followUp">
+            <small style="color: var(--text-muted);">Follow-up within 3 days is fee exempt</small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Doctor's Notes</label>
+            <textarea class="form-textarea" id="notes" rows="2" placeholder="Additional notes or instructions for the patient..."></textarea>
+          </div>
+
+          <div style="display:flex; gap:1rem; margin-top:1rem;">
+            <button class="btn btn-primary" style="flex:1;" onclick="completeConsultation()">Complete Consultation</button>
+            <button class="btn btn-secondary" style="flex:1;" onclick="cancelConsultation()">Cancel</button>
+          </div>
+        `;
+        renderMedicines();
+        renderLabTests();
+      }
+
+      // ============================================
+      // MEDICINE FUNCTIONS
+      // ============================================
+
+      function renderMedicines() {
+        const container = document.getElementById("medicinesList");
+        if (!container) return;
+        if (medicines.length === 0) {
+          container.innerHTML =
+            '<p style="color: var(--text-muted); font-size: 0.85rem;">No medicines added yet.</p>';
+          return;
+        }
+        container.innerHTML = medicines
+          .map(
+            (m, idx) => `
+              <div class="medicine-row">
+                <input type="text" placeholder="Medicine Name *" class="form-input" value="${m.name || ""}" 
+                       onchange="updateMedicine(${idx},'name',this.value)" style="font-size:0.8rem;">
+                <input type="text" placeholder="Dosage *" class="form-input" value="${m.dosage || ""}" 
+                       onchange="updateMedicine(${idx},'dosage',this.value)" style="font-size:0.8rem;">
+                <input type="text" placeholder="Duration *" class="form-input" value="${m.duration || ""}" 
+                       onchange="updateMedicine(${idx},'duration',this.value)" style="font-size:0.8rem;">
+                <input type="text" placeholder="Instructions *" class="form-input" value="${m.instructions || ""}" 
+                       onchange="updateMedicine(${idx},'instructions',this.value)" style="font-size:0.8rem;">
+                <button class="btn btn-danger" style="padding:0.25rem 0.5rem; font-size:0.7rem;" onclick="removeMedicine(${idx})">X</button>
+              </div>
+            `
+          )
+          .join("");
+      }
+
+      function addMedicine() {
+        medicines.push({ name: "", dosage: "", duration: "", instructions: "" });
+        renderMedicines();
+      }
+
+      function removeMedicine(idx) {
+        medicines.splice(idx, 1);
+        renderMedicines();
+      }
+
+      function updateMedicine(idx, field, val) {
+        medicines[idx][field] = val;
+      }
+
+      // ============================================
+      // LAB TEST FUNCTIONS
+      // ============================================
+
+      function renderLabTests() {
+        const container = document.getElementById("labTestsList");
+        if (!container) return;
+        const availableTests = [
+          "Complete Blood Count (CBC)",
+          "Lipid Profile",
+          "Blood Glucose (Fasting)",
+          "Liver Function Test (LFT)",
+          "Kidney Function Test (KFT)",
+          "ECG (12-lead)",
+          "Troponin I",
+          "Thyroid Profile (TSH)",
+          "Vitamin D3",
+          "HbA1c",
+        ];
+
+        let html = "";
+        if (selectedLabTests.length > 0) {
+          html = selectedLabTests
+            .map(
+              (test, idx) => `
+                <div class="lab-test-item">
+                  <span>${test}</span>
+                  <button class="btn btn-outline" style="padding:0.25rem 0.5rem; font-size:0.7rem;" onclick="removeLabTest(${idx})">X</button>
+                </div>
+              `
+            )
+            .join("");
+        }
+
+        html += `
+          <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+            <select class="form-select" id="newLabTest" style="flex:1;">
+              <option value="">-- Select a test --</option>
+              ${availableTests
+                .filter((t) => !selectedLabTests.includes(t))
+                .map((t) => `<option value="${t}">${t}</option>`)
+                .join("")}
+            </select>
+            <button class="btn btn-outline" onclick="addSelectedLabTest()">Add Test</button>
+          </div>
+        `;
+
+        container.innerHTML = html;
+      }
+
+      function addLabTest() {
+        selectedLabTests.push("New Test");
+        renderLabTests();
+      }
+
+      function addSelectedLabTest() {
+        const test = document.getElementById("newLabTest")?.value;
+        if (test && !selectedLabTests.includes(test)) {
+          selectedLabTests.push(test);
+          renderLabTests();
+        }
+      }
+
+      function removeLabTest(idx) {
+        selectedLabTests.splice(idx, 1);
+        renderLabTests();
+      }
+
+      // ============================================
+      // COMPLETE CONSULTATION
+      // ============================================
+
+      function completeConsultation() {
+        const symptoms = document.getElementById("symptoms")?.value;
+        const diagnosis = document.getElementById("diagnosis")?.value;
+        const notes = document.getElementById("notes")?.value;
+        const followUp = document.getElementById("followUp")?.value;
+
+        if (!symptoms || symptoms.trim() === "") {
+          Toast.show("Please enter patient symptoms", "error");
+          document.getElementById("symptoms").style.borderColor = "var(--danger)";
+          return;
+        }
+
+        if (!diagnosis || diagnosis.trim() === "") {
+          Toast.show("Please enter diagnosis", "error");
+          document.getElementById("diagnosis").style.borderColor = "var(--danger)";
+          return;
+        }
+
+        if (medicines.length === 0 && selectedLabTests.length === 0) {
+          Toast.show("Add at least one medicine or lab test", "error");
+          return;
+        }
+
+        let medicineErrors = false;
+        medicines.forEach((m, idx) => {
+          if (!m.name || !m.dosage || !m.duration || !m.instructions) {
+            Toast.show(`Please fill all fields for medicine ${idx + 1}`, "error");
+            medicineErrors = true;
+          }
+        });
+        if (medicineErrors) return;
+
+        const consultationEndTime = new Date();
+        const duration = Math.floor(
+          (consultationEndTime - consultationStartTime) / 1000
+        );
+        const durationMinutes = Math.floor(duration / 60);
+        const durationSeconds = duration % 60;
+
+        currentPrescriptionData = {
+          token: currentPatient.token,
+          patient: currentPatient.patient,
+          age: currentPatient.age,
+          doctor: document.getElementById('doctorName')?.innerText || 'Doctor',
+          date: new Date().toISOString().split("T")[0],
+          symptoms: symptoms,
+          diagnosis: diagnosis,
+          medicines: medicines.map((m) => ({
+            name: m.name,
+            dosage: m.dosage,
+            duration: m.duration,
+            instructions: m.instructions,
+          })),
+          labTests: selectedLabTests,
+          followUp: followUp || "Not specified",
+          notes: notes || "No additional notes",
+          consultationStart: consultationStartTime.toLocaleTimeString(),
+          consultationEnd: consultationEndTime.toLocaleTimeString(),
+          consultationDuration: `${durationMinutes}m ${durationSeconds}s`,
+        };
+
+        LoadingOverlay.show();
+        API.completeConsult(currentPatient.token_id, {
+          symptoms, diagnosis, notes,
+          medicines: currentPrescriptionData.medicines.map(m => ({
+            name: m.name, dosage: m.dosage, frequency: m.duration, instructions: m.instructions,
+          })),
+          lab_tests: selectedLabTests,
+          followup_date: followUp || null,
+        }).then(res => {
+          LoadingOverlay.hide();
+          if (!res.success) { Toast.show(res.error || 'Failed to complete', 'error'); return; }
+          showPrescriptionSlip(currentPrescriptionData);
+          Toast.show(`Consultation completed in ${durationMinutes}m ${durationSeconds}s`, 'success');
+          resetConsultation();
+          loadDoctorQueue();
+        });
+      }
+
+      // ============================================
+      // PRESCRIPTION SLIP (Professional Style)
+      // ============================================
+
+      function showPrescriptionSlip(data) {
+        const modalBody = document.getElementById("prescriptionBody");
+
+        // Build medicines table rows
+        let medicinesRows = "";
+        if (data.medicines && data.medicines.length > 0) {
+          medicinesRows = data.medicines.map(m => `
+            <tr>
+              <td>${m.name}</td>
+              <td>${m.dosage}</td>
+              <td>${m.duration}</td>
+              <td>${m.instructions}</td>
+            </tr>
+          `).join("");
+        }
+
+        // Build lab tests list
+        let labTestsHtml = "";
+        if (data.labTests && data.labTests.length > 0) {
+          labTestsHtml = data.labTests.map(test => `<div>• ${test}</div>`).join("");
+        }
+
+        const followUpDisplay = data.followUp || "Not specified";
+        const isFeeExempt = data.followUp && data.followUp !== "Not specified";
+
+        modalBody.innerHTML = `
+          <div class="prescription-slip">
+            <!-- Header -->
+            <div class="header">
+              <h1>SMART OPD</h1>
+              <div class="subtitle">Digital Prescription</div>
+            </div>
+
+            <!-- Patient Info -->
+            <div class="info-row">
+              <span class="label">Patient</span>
+              <span class="value">${data.patient}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Token</span>
+              <span class="value">${data.token}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Age</span>
+              <span class="value">${data.age} years</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Doctor</span>
+              <span class="value">${data.doctor}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Date</span>
+              <span class="value">${data.date}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Consultation Time</span>
+              <span class="value">${data.consultationStart} - ${data.consultationEnd} (${data.consultationDuration})</span>
+            </div>
+
+            <!-- Symptoms -->
+            <div class="section">
+              <div class="section-title">Symptoms</div>
+              <div class="section-content">${data.symptoms}</div>
+            </div>
+
+            <!-- Diagnosis -->
+            <div class="section">
+              <div class="section-title">Diagnosis</div>
+              <div class="section-content">${data.diagnosis}</div>
+            </div>
+
+            <!-- Medicines -->
+            <div class="section">
+              <div class="section-title">Medicines</div>
+              <table class="medicine-table">
+                <thead>
+                  <tr>
+                    <th>Medicine</th>
+                    <th>Dosage</th>
+                    <th>Duration</th>
+                    <th>Instructions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${medicinesRows}
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Lab Tests -->
+            ${data.labTests && data.labTests.length > 0 ? `
+              <div class="section">
+                <div class="section-title">Lab Tests Ordered</div>
+                <div class="section-content">${labTestsHtml}</div>
+              </div>
+            ` : ''}
+
+            <!-- Follow-up -->
+            <div class="section">
+              <div class="section-title">Follow-up</div>
+              <div class="section-content">
+                ${followUpDisplay}
+                ${isFeeExempt ? ' <span class="follow-up-status">(Fee Exempt - within 3 days)</span>' : ''}
+              </div>
+            </div>
+
+            <!-- Doctor's Notes -->
+            <div class="section">
+              <div class="section-title">Doctor's Notes</div>
+              <div class="section-content">${data.notes}</div>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+              <div class="line">This is a digitally generated prescription</div>
+              <div class="line">Please present this at the pharmacy counter</div>
+              <div class="line">Generated on: ${new Date().toLocaleString()}</div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById("prescriptionModal").classList.add("active");
+      }
+
+      // ============================================
+      // SAVE FUNCTIONS
+      // ============================================
+
+      function sendToPharmacy(prescriptionData) {
+        const pharmacyData = JSON.parse(
+          localStorage.getItem("smartOPD_pharmacyData") || '{"queue":[]}'
+        );
+        const newPrescription = {
+          id: pharmacyData.queue.length + 1,
+          token: prescriptionData.token,
+          patient: prescriptionData.patient,
+          age: prescriptionData.age,
+          doctor: prescriptionData.doctor,
+          date: prescriptionData.date,
+          status: "pending",
+          priority: prescriptionData.priority || "GENERAL",
+          symptoms: prescriptionData.symptoms,
+          diagnosis: prescriptionData.diagnosis,
+          medicines: prescriptionData.medicines,
+          labTests: prescriptionData.labTests || [],
+          followUp: prescriptionData.followUp,
+          notes: prescriptionData.notes,
+          createdAt: prescriptionData.createdAt,
+        };
+        pharmacyData.queue.push(newPrescription);
+        localStorage.setItem(
+          "smartOPD_pharmacyData",
+          JSON.stringify(pharmacyData)
+        );
+      }
+
+      function sendToPharmacyFromModal() {
+        if (currentPrescriptionData) {
+          sendToPharmacy(currentPrescriptionData);
+          Toast.show("Prescription sent to pharmacy successfully", "success");
+        }
+        closeModal();
+      }
+
+      function saveToPatientPrescriptions(prescriptionData) {
+        const patientPrescriptions = JSON.parse(
+          localStorage.getItem("smartOPD_patientPrescriptions") || "[]"
+        );
+        patientPrescriptions.push({
+          id: patientPrescriptions.length + 1,
+          patient: prescriptionData.patient,
+          token: prescriptionData.token,
+          age: prescriptionData.age,
+          doctor: prescriptionData.doctor,
+          date: prescriptionData.date,
+          symptoms: prescriptionData.symptoms,
+          diagnosis: prescriptionData.diagnosis,
+          medicines: prescriptionData.medicines,
+          labTests: prescriptionData.labTests || [],
+          followUp: prescriptionData.followUp,
+          notes: prescriptionData.notes,
+          createdAt: prescriptionData.createdAt,
+        });
+        localStorage.setItem(
+          "smartOPD_patientPrescriptions",
+          JSON.stringify(patientPrescriptions)
+        );
+      }
+
+      // ============================================
+      // UTILITY FUNCTIONS
+      // ============================================
+
+      function cancelConsultation() {
+        resetConsultation();
+        Toast.show("Consultation cancelled", "info");
+      }
+
+      function resetConsultation() {
+        stopTimer();
+        currentPatient = null;
+        medicines = [];
+        selectedLabTests = [];
+        consultationStartTime = null;
+        currentPrescriptionData = null;
+        document.getElementById("consultationPanel").style.display = "none";
+        document.getElementById("noPatientPanel").style.display = "block";
+      }
+
+      function closeModal() {
+        document.getElementById("prescriptionModal").classList.remove("active");
+      }
+
+      function showTab(tab) {
+        if (tab === "completed") {
+          const completed = document.getElementById("completedList");
+          if (!completed) {
+            const card = document.createElement("div");
+            card.className = "card";
+            card.id = "completedList";
+            card.innerHTML = `<h3>Completed Today</h3>
+              <p style="color: var(--text-muted);">No consultations completed yet today.</p>`;
+            document.querySelector(".main-content .grid").appendChild(card);
+          }
+          document.querySelector(".grid").style.display = "none";
+          document.getElementById("completedList").style.display = "block";
+        } else {
+          document.querySelector(".grid").style.display = "grid";
+          const comp = document.getElementById("completedList");
+          if (comp) comp.style.display = "none";
+        }
+      }
+
+      function updateDateTime() {
+        const now = new Date();
+        document.getElementById("currentDateTime").innerHTML = now.toLocaleString();
+      }
+      setInterval(updateDateTime, 1000);
+      updateDateTime();
+
+      // ============================================
+      // INITIALIZATION
+      // ============================================
+
+      API.requireStaff(['doctor']).then(user => {
+        if (user) {
+          const nameEl = document.getElementById('doctorName');
+          if (nameEl) nameEl.innerText = user.name;
+          loadDoctorQueue();
+          setInterval(loadDoctorQueue, 15000);
+        }
+      });
+    </script>
+  </body>
+</html>

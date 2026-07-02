@@ -1,0 +1,868 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Check-in Management - Smart OPD</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <style>
+      .checkin-container {
+        max-width: 1400px;
+        margin: 100px auto 2rem;
+        padding: 0 2rem;
+      }
+      .token-input-card {
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow);
+      }
+      .token-display-large {
+        font-size: 3rem;
+        font-weight: bold;
+        text-align: center;
+        font-family: monospace;
+        letter-spacing: 8px;
+      }
+      .status-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 500;
+      }
+      .status-ontime {
+        background: #d1fae5;
+        color: #065f46;
+      }
+      .status-late {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .status-expired {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      .status-waiting {
+        background: #dbeafe;
+        color: #1e40af;
+      }
+      .status-queued {
+        background: #e0e7ff;
+        color: #4338ca;
+      }
+      .patient-card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: all 0.2s;
+      }
+      .patient-card:hover {
+        box-shadow: var(--shadow);
+      }
+      .priority-badge {
+        display: inline-block;
+        padding: 0.125rem 0.5rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+      }
+      .priority-elderly {
+        background: #fee2e2;
+        color: var(--danger);
+      }
+      .priority-disabled {
+        background: #fef3c7;
+        color: var(--warning);
+      }
+      .priority-pregnant {
+        background: #dbeafe;
+        color: var(--info);
+      }
+      .slot-tag {
+        display: inline-block;
+        padding: 0.125rem 0.5rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        background: var(--secondary);
+        color: white;
+      }
+      .filter-buttons {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+      }
+      .filter-btn {
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .filter-btn.active {
+        background: var(--secondary);
+        color: white;
+        border-color: var(--secondary);
+      }
+      .stats-row {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+      }
+      .stat-box {
+        background: var(--surface);
+        border-radius: var(--radius);
+        padding: 0.75rem 1rem;
+        flex: 1;
+        text-align: center;
+        border: 1px solid var(--border);
+      }
+      .stat-number {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--secondary);
+      }
+      .stat-label {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+      }
+      .queue-position-badge {
+        display: inline-block;
+        background: var(--primary-light);
+        color: white;
+        border-radius: 20px;
+        padding: 0.125rem 0.5rem;
+        font-size: 0.7rem;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="container">
+        <div class="logo">
+          <span class="logo-icon"></span
+          ><span class="logo-text">SMART OPD</span>
+        </div>
+        <div class="nav-buttons">
+          <a href="dashboard.html" class="btn btn-outline">Main Dashboard</a>
+          <a href="../index.html" class="btn btn-primary">Home</a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="checkin-container">
+      <!-- Token Input Section -->
+      <div class="token-input-card">
+        <h2 style="margin-bottom: 1rem">Patient Check-in</h2>
+        <p style="color: var(--text-muted); margin-bottom: 1.5rem">
+          Enter token number to check in patient. Check-in is only allowed
+          within the slot time window.
+        </p>
+        <div style="display: flex; gap: 1rem; max-width: 500px">
+          <input
+            type="text"
+            class="form-input"
+            id="tokenInput"
+            placeholder="Enter Token Number (e.g., M10, A05, E02)"
+            style="font-size: 1.2rem; text-transform: uppercase"
+          />
+          <button class="btn btn-primary" onclick="searchToken()">
+            Search Token
+          </button>
+        </div>
+        <div id="tokenSearchResult" style="margin-top: 1.5rem"></div>
+      </div>
+
+      <!-- Statistics Summary -->
+      <div class="stats-row" id="statsContainer"></div>
+
+      <!-- Filter Buttons -->
+      <div class="filter-buttons">
+        <button class="filter-btn active" onclick="filterAppointments('all')">
+          All
+        </button>
+        <button class="filter-btn" onclick="filterAppointments('pending')">
+          Pending Check-in
+        </button>
+        <button class="filter-btn" onclick="filterAppointments('ontime')">
+          On Time
+        </button>
+        <button class="filter-btn" onclick="filterAppointments('late')">
+          Late
+        </button>
+        <button class="filter-btn" onclick="filterAppointments('expired')">
+          Expired
+        </button>
+        <button class="filter-btn" onclick="filterAppointments('checked-in')">
+          Checked In
+        </button>
+        <button class="filter-btn" onclick="filterAppointments('in-queue')">
+          In Queue
+        </button>
+      </div>
+
+      <!-- Appointments List -->
+      <div class="card">
+        <h3 style="margin-bottom: 1rem">Today's Appointments</h3>
+        <div class="table-container">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Token</th>
+                <th>Patient</th>
+                <th>Doctor</th>
+                <th>Slot</th>
+                <th>Scheduled Time</th>
+                <th>Status</th>
+                <th>Queue Position</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="appointmentsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- New Patient Registration Modal -->
+    <div id="newPatientModal" class="modal">
+      <div class="modal-content" style="max-width: 600px">
+        <div class="modal-header">
+          <h3>Register New Patient</h3>
+          <button onclick="closeNewPatientModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info">
+            Please complete patient registration to continue check-in
+          </div>
+          <div class="grid grid-2">
+            <div class="form-group">
+              <input
+                type="text"
+                class="form-input"
+                id="modalFirstName"
+                placeholder="First Name *"
+              />
+            </div>
+            <div class="form-group">
+              <input
+                type="text"
+                class="form-input"
+                id="modalLastName"
+                placeholder="Last Name *"
+              />
+            </div>
+            <div class="form-group">
+              <input
+                type="tel"
+                class="form-input"
+                id="modalPhone"
+                placeholder="Phone Number *"
+              />
+            </div>
+            <div class="form-group">
+              <input
+                type="number"
+                class="form-input"
+                id="modalAge"
+                placeholder="Age *"
+              />
+            </div>
+            <div class="form-group">
+              <select class="form-select" id="modalGender">
+                <option value="">Select Gender *</option>
+                <option>Male</option>
+                <option>Female</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <input
+                type="text"
+                class="form-input"
+                id="modalAddress"
+                placeholder="Address"
+              />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Priority Status (if applicable)</label>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap">
+              <label
+                ><input type="checkbox" id="modalElderly" /> Elderly (60+
+                years)</label
+              >
+              <label
+                ><input type="checkbox" id="modalDisabled" /> Disabled</label
+              >
+              <label
+                ><input type="checkbox" id="modalPregnant" /> Pregnant</label
+              >
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeNewPatientModal()">
+            Cancel
+          </button>
+          <button class="btn btn-primary" onclick="completeRegistration()">
+            Register & Check-in
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="../js/app.js"></script>
+    <script src="../js/api.js"></script>
+    <script>
+      // Slot time configuration
+      const SLOT_CONFIG = {
+        MORNING: {
+          startHour: 9,
+          startMinute: 0,
+          endHour: 11,
+          endMinute: 0,
+          displayTime: "Morning (9:00-11:00)",
+          prefix: "M",
+        },
+        AFTERNOON: {
+          startHour: 12,
+          startMinute: 0,
+          endHour: 14,
+          endMinute: 0,
+          displayTime: "Afternoon (12:00-2:00)",
+          prefix: "A",
+        },
+        EVENING: {
+          startHour: 15,
+          startMinute: 0,
+          endHour: 17,
+          endMinute: 0,
+          displayTime: "Evening (3:00-5:00)",
+          prefix: "E",
+        },
+      };
+
+      // Priority scores for queue sorting
+      const PRIORITY_SCORES = {
+        ELDERLY: 100,
+        DISABLED: 90,
+        PREGNANT: 80,
+        NORMAL: 0,
+      };
+
+      // Data stores
+      let allAppointments = [];
+      let queues = { MORNING: [], AFTERNOON: [], EVENING: [] };
+      let currentFilter = "all";
+      let currentTokenData = null;
+
+      // Generate valid tokens for all slots (M01-M20, A01-A20, E01-E20)
+      function generateAllValidTokens() {
+        const tokens = [];
+        // Morning tokens M01-M20
+        for (let i = 1; i <= 20; i++) {
+          tokens.push(`M${i.toString().padStart(2, "0")}`);
+        }
+        // Afternoon tokens A01-A20
+        for (let i = 1; i <= 20; i++) {
+          tokens.push(`A${i.toString().padStart(2, "0")}`);
+        }
+        // Evening tokens E01-E20
+        for (let i = 1; i <= 20; i++) {
+          tokens.push(`E${i.toString().padStart(2, "0")}`);
+        }
+        return tokens;
+      }
+
+      // Initialize data with more appointments
+      function initializeData() {
+        const saved = localStorage.getItem("smartOPD_checkinData");
+        if (saved) {
+          const data = JSON.parse(saved);
+          allAppointments = data.appointments;
+          queues = data.queues;
+        } else {
+          const allValidTokens = generateAllValidTokens();
+          const doctors = [
+            "Dr. Sharma",
+            "Dr. Kharbuja",
+            "Dr. Thapa",
+            "Dr. Shrestha",
+          ];
+          const patients = [
+            { name: "Ram Prasad", priority: "ELDERLY", phone: "9812345678" },
+            { name: "Sita Gurung", priority: "NORMAL", phone: "9823456789" },
+            { name: "Hari Prasad", priority: "DISABLED", phone: "9834567890" },
+            { name: "Gita Sharma", priority: "PREGNANT", phone: "9845678901" },
+            { name: "John Doe", priority: "NORMAL", phone: "9856789012" },
+            { name: "Bikram Thapa", priority: "NORMAL", phone: "9867890123" },
+            {
+              name: "Samikshya Shrestha",
+              priority: "NORMAL",
+              phone: "9878901234",
+              isNew: true,
+            },
+            { name: "Sujan Khadka", priority: "NORMAL", phone: "9889012345" },
+          ];
+
+          const today = new Date().toISOString().split("T")[0];
+          allAppointments = [];
+
+          // Create appointments for some tokens (not all)
+          const usedTokens = [
+            "M10",
+            "M11",
+            "M12",
+            "M13",
+            "M14",
+            "A05",
+            "A06",
+            "A07",
+            "E01",
+            "E02",
+          ];
+
+          usedTokens.forEach((token, index) => {
+            const prefix = token[0];
+            let slot = "MORNING";
+            if (prefix === "A") slot = "AFTERNOON";
+            if (prefix === "E") slot = "EVENING";
+
+            const patientIndex = index % patients.length;
+            const patient = patients[patientIndex];
+            let scheduledTime = "";
+            if (slot === "MORNING")
+              scheduledTime = `${9 + (index % 3)}:${(index % 6) * 10} AM`;
+            else if (slot === "AFTERNOON")
+              scheduledTime = `${12 + (index % 2)}:${(index % 6) * 10} PM`;
+            else scheduledTime = `${3 + (index % 2)}:${(index % 6) * 10} PM`;
+
+            allAppointments.push({
+              id: index + 1,
+              token: token,
+              patient: patient.name,
+              doctor: doctors[index % doctors.length],
+              slot: slot,
+              scheduledTime: scheduledTime,
+              status:
+                index < 6 ? "pending" : index === 6 ? "checked-in" : "pending",
+              checkinTime: index === 6 ? new Date().toISOString() : null,
+              checkinStatus: null,
+              isNewPatient: patient.isNew || false,
+              patientId: patient.isNew ? null : `PAT00${index + 1}`,
+              priority: patient.priority,
+              phone: patient.phone,
+            });
+          });
+
+          queues = { MORNING: [], AFTERNOON: [], EVENING: [] };
+
+          // If there's a checked-in patient, add to queue
+          const checkedIn = allAppointments.find(
+            (a) => a.status === "checked-in",
+          );
+          if (checkedIn) {
+            addToQueue(checkedIn, "ontime");
+          }
+        }
+        saveData();
+        renderAll();
+      }
+
+      // Get queue position for a token
+      function getQueuePosition(token, slot) {
+        const queue = queues[slot] || [];
+        const position = queue.findIndex((p) => p.token === token);
+        return position !== -1 ? position + 1 : null;
+      }
+
+      // Check if token is valid format
+      function isValidTokenFormat(token) {
+        const match = token.match(/^([M|A|E])(\d{1,2})$/);
+        if (!match) return false;
+        const number = parseInt(match[2]);
+        return number >= 1 && number <= 20;
+      }
+
+      function saveData() {
+        localStorage.setItem(
+          "smartOPD_checkinData",
+          JSON.stringify({
+            appointments: allAppointments,
+            queues: queues,
+          }),
+        );
+      }
+
+      // Check if slot is still active
+      function isSlotActive(slotType) {
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const slot = SLOT_CONFIG[slotType];
+        if (!slot) return false;
+        const currentTotal = currentHour * 60 + currentMinute;
+        const startTotal = slot.startHour * 60 + slot.startMinute;
+        const endTotal = slot.endHour * 60 + slot.endMinute;
+        return currentTotal >= startTotal && currentTotal < endTotal;
+      }
+
+      // Determine check-in status based on arrival time
+      function determineCheckinStatus(appointment, arrivalTime) {
+        const slot = SLOT_CONFIG[appointment.slot];
+        if (!slot) return "expired";
+
+        const arrivalHour = arrivalTime.getHours();
+        const arrivalMinute = arrivalTime.getMinutes();
+        const arrivalTotal = arrivalHour * 60 + arrivalMinute;
+        const slotStartTotal = slot.startHour * 60 + slot.startMinute;
+        const slotEndTotal = slot.endHour * 60 + slot.endMinute;
+
+        if (arrivalTotal > slotEndTotal) {
+          return "expired";
+        }
+
+        const gracePeriod = slotStartTotal + 30;
+        if (arrivalTotal > gracePeriod) {
+          return "late";
+        }
+
+        return "ontime";
+      }
+
+      async function searchToken() {
+        const token = document.getElementById("tokenInput").value.trim();
+        const resultDiv = document.getElementById("tokenSearchResult");
+        if (!token) { Toast.show("Please enter a token number", "error"); return; }
+        LoadingOverlay.show();
+        const res = await API.searchPatient(token);
+        LoadingOverlay.hide();
+        if (!res.success || !res.patients.length) {
+          resultDiv.innerHTML = `<div class="alert alert-danger"><span>✗</span><div>Token not found.</div></div>`;
+          return;
+        }
+        const appointment = res.patients[0];
+        currentTokenData = { token_id: appointment.token_id, token: appointment.token_number, patient: appointment.patient_name, slot: (appointment.slot_type||'').toUpperCase(), status: appointment.status };
+        if (appointment.status !== 'booked') {
+          resultDiv.innerHTML = `<div class="alert alert-warning"><span>⚠️</span><div>Status: ${appointment.status}</div></div>`;
+          return;
+        }
+        resultDiv.innerHTML = `
+          <div class="alert alert-success"><span>✓</span><div><strong>${appointment.patient_name}</strong> — ${appointment.token_number}</div></div>
+          <button class="btn btn-success" style="width:100%;margin-top:1rem;" onclick="performCheckin(${appointment.token_id})">Check In →</button>`;
+      }
+
+      async function performCheckin(tokenId) {
+        const is_elderly = document.getElementById('priorityElderly')?.checked;
+        const is_disabled = document.getElementById('priorityDisabled')?.checked;
+        const res = await API.checkIn(tokenId, { is_elderly, is_disabled });
+        Toast.show(res.success ? res.message : (res.error || 'Failed'), res.success ? 'success' : 'error');
+        if (res.success) document.getElementById('tokenSearchResult').innerHTML = `<div class="alert alert-success">Checked in!</div>`;
+      }
+
+      API.requireStaff(['receptionist','admin']).then(u => { if (u) API.receptionAppointments().then(r => { if (r.success) allAppointments = r.appointments.map(a => ({ token: a.token_number, patient: a.patient_name, slot: (a.slot_type||'').toUpperCase(), status: a.status === 'booked' ? 'pending' : a.status })); renderAll(); }); });
+
+      // Register new patient and check in
+      function registerAndCheckin(token, checkinStatus) {
+        const firstName = document.getElementById("regFirstName")?.value;
+        const lastName = document.getElementById("regLastName")?.value;
+        const phone = document.getElementById("regPhone")?.value;
+        const age = document.getElementById("regAge")?.value;
+
+        if (!firstName || !lastName || !phone || !age) {
+          Toast.show("Please fill all required fields", "error");
+          return;
+        }
+
+        let priority = "NORMAL";
+        if (document.getElementById("regElderly")?.checked)
+          priority = "ELDERLY";
+        else if (document.getElementById("regDisabled")?.checked)
+          priority = "DISABLED";
+        else if (document.getElementById("regPregnant")?.checked)
+          priority = "PREGNANT";
+
+        const patientId = "PAT" + Math.floor(Math.random() * 1000000);
+
+        const users = JSON.parse(
+          localStorage.getItem("smartOPD_users") || "[]",
+        );
+        users.push({
+          patientId: patientId,
+          name: `${firstName} ${lastName}`,
+          phone: phone,
+          age: age,
+          priority: priority,
+          registeredAt: new Date().toISOString(),
+        });
+        localStorage.setItem("smartOPD_users", JSON.stringify(users));
+
+        const appointment = allAppointments.find((a) => a.token === token);
+        if (appointment) {
+          appointment.patient = `${firstName} ${lastName}`;
+          appointment.patientId = patientId;
+          appointment.isNewPatient = false;
+          appointment.priority = priority;
+          appointment.phone = phone;
+          appointment.status = "checked-in";
+          appointment.checkinTime = new Date().toISOString();
+          appointment.checkinStatus = checkinStatus;
+
+          addToQueue(appointment, checkinStatus);
+
+          saveData();
+          renderAll();
+          document.getElementById("tokenSearchResult").innerHTML = `
+                    <div class="alert alert-success">
+                        <span>✓</span>
+                        <div>Patient registered and checked in successfully!<br>Patient ID: ${patientId} | Queue Position: ${getQueuePosition(token, appointment.slot)}</div>
+                    </div>
+                `;
+          document.getElementById("tokenInput").value = "";
+          Toast.show(
+            `Patient registered and checked in! ID: ${patientId}`,
+            "success",
+          );
+          setTimeout(() => {
+            document.getElementById("tokenSearchResult").innerHTML = "";
+          }, 3000);
+        }
+      }
+
+      // Confirm check-in for existing patient
+      function confirmCheckin(token, checkinStatus) {
+        const appointment = allAppointments.find((a) => a.token === token);
+        if (appointment) {
+          appointment.status = "checked-in";
+          appointment.checkinTime = new Date().toISOString();
+          appointment.checkinStatus = checkinStatus;
+
+          addToQueue(appointment, checkinStatus);
+
+          saveData();
+          renderAll();
+          const queuePos = getQueuePosition(token, appointment.slot);
+          document.getElementById("tokenSearchResult").innerHTML = `
+                    <div class="alert alert-success">
+                        <span>✓</span>
+                        <div>Patient checked in successfully!<br>Status: ${checkinStatus === "ontime" ? "On Time" : "Late"} | Queue Position: #${queuePos}</div>
+                    </div>
+                `;
+          document.getElementById("tokenInput").value = "";
+          Toast.show(
+            `Patient ${appointment.patient} checked in successfully`,
+            "success",
+          );
+          setTimeout(() => {
+            document.getElementById("tokenSearchResult").innerHTML = "";
+          }, 3000);
+        }
+      }
+
+      // Add patient to queue with priority sorting
+      function addToQueue(appointment, checkinStatus) {
+        const priorityScore = PRIORITY_SCORES[appointment.priority] || 0;
+
+        const queueItem = {
+          token: appointment.token,
+          patientName: appointment.patient,
+          patientId: appointment.patientId,
+          doctor: appointment.doctor,
+          slot: appointment.slot,
+          scheduledTime: appointment.scheduledTime,
+          checkinTime: appointment.checkinTime,
+          checkinStatus: checkinStatus,
+          priority: appointment.priority,
+          priorityScore: priorityScore,
+          isLate: checkinStatus === "late",
+        };
+
+        queues[appointment.slot].push(queueItem);
+
+        // Sort queue: by priority score (higher first), then by check-in time
+        queues[appointment.slot].sort((a, b) => {
+          if (a.priorityScore !== b.priorityScore) {
+            return b.priorityScore - a.priorityScore;
+          }
+          if (a.isLate !== b.isLate) {
+            return a.isLate ? 1 : -1;
+          }
+          return new Date(a.checkinTime) - new Date(b.checkinTime);
+        });
+      }
+
+      // Get status display for appointment
+      function getAppointmentStatusDisplay(apt) {
+        if (apt.status === "checked-in") {
+          const queuePos = getQueuePosition(apt.token, apt.slot);
+          if (queuePos) {
+            return {
+              text: `In Queue (#${queuePos})`,
+              class: "status-queued",
+              icon: "⏳",
+            };
+          }
+          return { text: "Checked In", class: "status-ontime", icon: "✓" };
+        }
+
+        const isActive = isSlotActive(apt.slot);
+        if (!isActive) {
+          return { text: "Expired", class: "status-expired", icon: "⛔" };
+        }
+
+        if (apt.status === "pending") {
+          return { text: "Pending", class: "status-waiting", icon: "⏳" };
+        }
+
+        return { text: "Unknown", class: "", icon: "?" };
+      }
+
+      // Render appointments table
+      function renderAppointmentsTable() {
+        const filteredApps = allAppointments.filter((apt) => {
+          if (currentFilter === "all") return true;
+          if (currentFilter === "pending") return apt.status === "pending";
+          if (currentFilter === "checked-in")
+            return apt.status === "checked-in";
+          if (currentFilter === "in-queue") {
+            return (
+              apt.status === "checked-in" &&
+              getQueuePosition(apt.token, apt.slot) !== null
+            );
+          }
+          if (currentFilter === "expired") {
+            return apt.status === "pending" && !isSlotActive(apt.slot);
+          }
+          if (currentFilter === "ontime" || currentFilter === "late") {
+            if (apt.status !== "checked-in") return false;
+            return apt.checkinStatus === currentFilter;
+          }
+          return true;
+        });
+
+        const tbody = document.getElementById("appointmentsTableBody");
+        tbody.innerHTML = filteredApps
+          .map((apt) => {
+            const status = getAppointmentStatusDisplay(apt);
+            const isActive = isSlotActive(apt.slot);
+            const canCheckin = apt.status === "pending" && isActive;
+            const queuePos = getQueuePosition(apt.token, apt.slot);
+
+            let priorityBadge = "";
+            if (apt.priority === "ELDERLY")
+              priorityBadge =
+                '<span class="priority-badge priority-elderly">Elderly</span>';
+            else if (apt.priority === "DISABLED")
+              priorityBadge =
+                '<span class="priority-badge priority-disabled">Disabled</span>';
+            else if (apt.priority === "PREGNANT")
+              priorityBadge =
+                '<span class="priority-badge priority-pregnant">Pregnant</span>';
+
+            let checkinStatusDisplay = "";
+            if (apt.status === "checked-in" && apt.checkinStatus === "late") {
+              checkinStatusDisplay =
+                '<span class="status-badge status-late">Late</span>';
+            } else if (
+              apt.status === "checked-in" &&
+              apt.checkinStatus === "ontime"
+            ) {
+              checkinStatusDisplay =
+                '<span class="status-badge status-ontime">On Time</span>';
+            }
+
+            return `
+                    <tr>
+                        <td>${apt.token}<br>${priorityBadge}</td>
+                        <td>${apt.patient}${apt.isNewPatient ? ' <span class="badge badge-warning">New</span>' : ""}</td>
+                        <td>${apt.doctor}</td>
+                        <td><span class="slot-tag">${apt.slot}</span></td>
+                        <td>${apt.scheduledTime}</td>
+                        <td><span class="status-badge ${status.class}">${status.icon} ${status.text}</span> ${checkinStatusDisplay}</td>
+                        <td>${queuePos ? `<span class="queue-position-badge">Position #${queuePos}</span>` : "-"}</td>
+                        <td>
+                            ${
+                              canCheckin
+                                ? `<button class="btn btn-primary" onclick="quickCheckin('${apt.token}')">Check In</button>`
+                                : apt.status === "checked-in"
+                                  ? '<span class="status-badge status-queued">In Queue</span>'
+                                  : '<span class="status-badge status-expired">Expired</span>'
+                            }
+                          </td>
+                     </tr>
+                `;
+          })
+          .join("");
+      }
+
+      // Quick check-in from table
+      function quickCheckin(token) {
+        document.getElementById("tokenInput").value = token;
+        searchToken();
+      }
+
+      // Render statistics
+      function renderStats() {
+        const total = allAppointments.length;
+        const pending = allAppointments.filter(
+          (a) => a.status === "pending",
+        ).length;
+        const checkedIn = allAppointments.filter(
+          (a) => a.status === "checked-in",
+        ).length;
+        const expired = allAppointments.filter(
+          (a) => a.status === "pending" && !isSlotActive(a.slot),
+        ).length;
+        const ontime = allAppointments.filter(
+          (a) => a.status === "checked-in" && a.checkinStatus === "ontime",
+        ).length;
+        const late = allAppointments.filter(
+          (a) => a.status === "checked-in" && a.checkinStatus === "late",
+        ).length;
+        const inQueue = Object.values(queues).reduce(
+          (sum, q) => sum + q.length,
+          0,
+        );
+
+        document.getElementById("statsContainer").innerHTML = `
+                <div class="stat-box"><div class="stat-number">${total}</div><div class="stat-label">Total</div></div>
+                <div class="stat-box"><div class="stat-number">${pending}</div><div class="stat-label">Pending</div></div>
+                <div class="stat-box"><div class="stat-number">${checkedIn}</div><div class="stat-label">Checked In</div></div>
+                <div class="stat-box"><div class="stat-number">${expired}</div><div class="stat-label">Expired</div></div>
+                <div class="stat-box"><div class="stat-number">${ontime}</div><div class="stat-label">On Time</div></div>
+                <div class="stat-box"><div class="stat-number">${late}</div><div class="stat-label">Late</div></div>
+                <div class="stat-box"><div class="stat-number">${inQueue}</div><div class="stat-label">In Queue</div></div>
+            `;
+      }
+
+      // Filter appointments
+      function filterAppointments(filter) {
+        currentFilter = filter;
+        document
+          .querySelectorAll(".filter-btn")
+          .forEach((btn) => btn.classList.remove("active"));
+        event.target.classList.add("active");
+        renderAppointmentsTable();
+      }
+
+      // Close modal
+      function closeNewPatientModal() {
+        document.getElementById("newPatientModal").classList.remove("active");
+      }
+
+      // Render everything
+      function renderAll() {
+        renderStats();
+        renderAppointmentsTable();
+      }
+
+      // Initialize
+      initializeData();
+    </script>
+  </body>
+</html>

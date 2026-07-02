@@ -6,6 +6,5 @@ db.sqlite3
 .env
 .DS_Store
 .vscode/
-migrations/
-!accounts/migrations/__init__.py
-!core/migrations/__init__.py
+.migrations/
+!**/migrations/__init__.py

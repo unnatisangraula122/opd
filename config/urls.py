@@ -1,21 +1,52 @@
-from django.contrib import admin
-from django.urls import path, include
-from django.http import HttpResponse
-from django.conf import settings
-import os
+import mimetypes
+from pathlib import Path
 
-# Read the HTML file
-def serve_frontend(request):
-    html_path = os.path.join(settings.BASE_DIR, 'frontend', 'index2.html')
-    try:
-        with open(html_path, 'r', encoding='utf-8') as f:
-            html_content = f.read()
-        return HttpResponse(html_content)
-    except FileNotFoundError:
-        return HttpResponse("<h1>Error: index2.html not found</h1><p>Make sure the file exists in the frontend folder</p>")
+from django.conf import settings
+from django.contrib import admin
+from django.http import FileResponse, Http404
+from django.urls import path, include, re_path
+from django.views.static import serve
+
+FRONTEND_ROOT = Path(settings.BASE_DIR) / 'opd-new frontend'
+
+
+def serve_frontend_file(request, filepath='index.html'):
+    safe_path = Path(filepath)
+    if '..' in safe_path.parts:
+        raise Http404('Invalid path')
+    full_path = FRONTEND_ROOT / safe_path
+    if not full_path.exists() or not full_path.is_file():
+        raise Http404('Page not found')
+    content_type, _ = mimetypes.guess_type(str(full_path))
+    return FileResponse(open(full_path, 'rb'), content_type=content_type or 'text/html')
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/core/', include('core.urls')),
-    path('', serve_frontend, name='home'),
+    re_path(r'^(?P<filepath>.*\.html)$', serve_frontend_file, name='frontend-html'),
+    path('', serve_frontend_file, {'filepath': 'index.html'}),
 ]
+
+if settings.DEBUG:
+    urlpatterns += [
+        re_path(r'^css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
+        re_path(r'^js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
+        re_path(r'^patient/css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
+        re_path(r'^patient/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
+        re_path(r'^reception/css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
+        re_path(r'^reception/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
+        re_path(r'^doctor/css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
+        re_path(r'^doctor/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
+        re_path(r'^lab/css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
+        re_path(r'^lab/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
+        re_path(r'^pharmacy/css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
+        re_path(r'^pharmacy/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
+        re_path(r'^admin/css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
+        re_path(r'^admin/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
+        re_path(r'^staff/css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
+        re_path(r'^staff/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
+    ]
+    urlpatterns += [
+        re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+    ]
