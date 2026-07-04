@@ -469,7 +469,7 @@ class LabQueueEntry(models.Model):
     token = models.ForeignKey(Token, on_delete=models.CASCADE, related_name='lab_queue_entries')
     technician = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
-        limit_choices_to={'role': 'lab_technician'},
+        limit_choices_to={'role': 'lab_tech'},
         related_name='lab_queue_entries'
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='waiting')
@@ -510,7 +510,7 @@ class LabReport(models.Model):
     lab_order = models.OneToOneField(LabOrder, on_delete=models.CASCADE, related_name='report')
     uploaded_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True,
-        limit_choices_to={'role': 'lab_technician'},
+        limit_choices_to={'role': 'lab_tech'},
         related_name='uploaded_reports'
     )
     report_file = models.FileField(upload_to='lab_reports/%Y/%m/')

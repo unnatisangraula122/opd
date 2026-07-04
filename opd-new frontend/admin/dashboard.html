@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard - Smart OPD</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <style>
+        .chart-container {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+        .alert-item {
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .alert-critical {
+            background: #fee2e2;
+            border-left: 4px solid var(--danger);
+        }
+        .alert-warning {
+            background: #fef3c7;
+            border-left: 4px solid var(--warning);
+        }
+        .alert-info {
+            background: #dbeafe;
+            border-left: 4px solid var(--info);
+        }
+        .alert-success {
+            background: #d1fae5;
+            border-left: 4px solid var(--success);
+        }
+        .report-card {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .report-card:hover {
+            background: var(--surface-hover);
+        }
+        .log-entry {
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+        }
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        .log-time {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            min-width: 140px;
+        }
+        .log-action {
+            font-weight: 500;
+        }
+        .log-user {
+            color: var(--secondary);
+            font-weight: 500;
+        }
+        .throttle-status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .throttle-active {
+            background: #fee2e2;
+            color: var(--danger);
+        }
+        .throttle-inactive {
+            background: #d1fae5;
+            color: var(--success);
+        }
+        .stat-card-modern {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .stat-card-modern:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+        }
+        .stat-icon-modern {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        .stat-value-modern {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .stat-label-modern {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .stat-trend {
+            font-size: 0.7rem;
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            border-radius: 20px;
+            margin-top: 0.25rem;
+        }
+        .stat-trend.up {
+            background: #d1fae5;
+            color: var(--success);
+        }
+        .stat-trend.down {
+            background: #fee2e2;
+            color: var(--danger);
+        }
+        .config-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .config-card h4 {
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+        .config-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        @media (max-width: 768px) {
+            .config-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar-layout">
+        <div class="sidebar">
+            <div style="padding: 1.5rem">
+                <div class="logo" style="margin-bottom: 2rem">
+                    <span class="logo-icon">⚡</span>
+                    <span class="logo-text">SMART OPD</span>
+                </div>
+                <div style="text-align: center; margin-bottom: 2rem">
+                    <div style="width: 70px; height: 70px; background: rgba(59,151,151,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1rem;">👑</div>
+                    <h4>Administrator</h4>
+                    <p style="color: var(--text-muted); font-size: 0.8rem;">System Admin</p>
+                </div>
+                <nav>
+                    <div class="sidebar-nav-item active" onclick="showSection('overview')">📊 Overview</div>
+                    <div class="sidebar-nav-item" onclick="showSection('doctors')">👨‍⚕️ Doctor Management</div>
+                    <div class="sidebar-nav-item" onclick="showSection('slots')">⏰ Slot Configuration</div>
+                    <div class="sidebar-nav-item" onclick="showSection('throttle')">🛑 Auto-Throttle</div>
+                    <div class="sidebar-nav-item" onclick="showSection('logs')">📋 System Logs</div>
+                    <div class="sidebar-nav-item" onclick="showSection('reports')">📈 Reports</div>
+                    <div class="sidebar-nav-item" onclick="window.location.href = '../index.html'">🚪 Logout</div>
+                </nav>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <h1 style="margin-bottom: 1.5rem;">Admin Dashboard</h1>
+
+            <!-- ==================== OVERVIEW SECTION ==================== -->
+            <div id="overviewSection">
+                <!-- KPI Cards -->
+                <div class="kpi-grid">
+                    <div class="stat-card-modern">
+                        <div class="stat-icon-modern">👥</div>
+                        <div class="stat-value-modern">1,248</div>
+                        <div class="stat-label-modern">Total Patients</div>
+                        <div class="stat-trend up">↑ 12.5%</div>
+                    </div>
+                    <div class="stat-card-modern">
+                        <div class="stat-icon-modern">⏰</div>
+                        <div class="stat-value-modern">15 min</div>
+                        <div class="stat-label-modern">Avg Wait Time</div>
+                        <div class="stat-trend down">↓ 8.3%</div>
+                    </div>
+                    <div class="stat-card-modern">
+                        <div class="stat-icon-modern">✅</div>
+                        <div class="stat-value-modern">94%</div>
+                        <div class="stat-label-modern">Completion Rate</div>
+                        <div class="stat-trend up">↑ 2.1%</div>
+                    </div>
+                    <div class="stat-card-modern">
+                        <div class="stat-icon-modern">💰</div>
+                        <div class="stat-value-modern">Rs 48,500</div>
+                        <div class="stat-label-modern">Today's Revenue</div>
+                        <div class="stat-trend up">↑ 5.2%</div>
+                    </div>
+                </div>
+
+                <!-- System Alerts -->
+                <div class="chart-container">
+                    <h3 style="margin-bottom: 1rem;">System Alerts</h3>
+                    <div class="alert-item alert-critical">
+                        <span>🔴</span>
+                        <div><strong>CRITICAL:</strong> Dr. Kharbuja's queue at 85% capacity - Throttling ACTIVE</div>
+                    </div>
+                    <div class="alert-item alert-warning">
+                        <span>🟡</span>
+                        <div><strong>WARNING:</strong> No-show rate increased to 22% this week</div>
+                    </div>
+                    <div class="alert-item alert-info">
+                        <span>🟢</span>
+                        <div><strong>INFO:</strong> System performance optimal - 0.5s response time</div>
+                    </div>
+                    <div class="alert-item alert-success">
+                        <span>✅</span>
+                        <div><strong>SUCCESS:</strong> All systems operational</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== DOCTOR MANAGEMENT ==================== -->
+            <div id="doctorsSection" style="display: none">
+                <div class="chart-container">
+                    <h3 style="margin-bottom: 1rem;">Doctor Management</h3>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Doctor</th>
+                                    <th>Specialization</th>
+                                    <th>Consult Time</th>
+                                    <th>Today's Patients</th>
+                                    <th>Avg Duration</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="doctorsList"></tbody>
+                        </table>
+                    </div>
+                    <button class="btn btn-primary" style="margin-top: 1rem;" onclick="addDoctor()">+ Add New Doctor</button>
+                </div>
+            </div>
+
+            <!-- ==================== SLOT CONFIGURATION ==================== -->
+            <div id="slotsSection" style="display: none">
+                <div class="chart-container">
+                    <h3 style="margin-bottom: 1rem;">Slot Configuration</h3>
+                    <div class="config-row">
+                        <div class="form-group">
+                            <label class="form-label">Doctor</label>
+                            <select class="form-select" id="slotDoctor">
+                                <option>Dr. Rajesh Sharma</option>
+                                <option>Dr. Naresh Kharbuja</option>
+                                <option>Dr. Sita Thapa</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Slot Type</label>
+                            <select class="form-select" id="slotType">
+                                <option>Morning (9:00-11:00)</option>
+                                <option>Afternoon (12:00-2:00)</option>
+                                <option>Evening (3:00-5:00)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Average Consultation Time (minutes)</label>
+                            <input type="number" class="form-input" id="avgConsultTime" value="10" oninput="updateMaxTokens()" min="5" max="30">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max Tokens per Slot</label>
+                            <input type="text" class="form-input" id="maxTokens" readonly>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveSlotConfig()">Save Configuration</button>
+                </div>
+            </div>
+
+            <!-- ==================== AUTO-THROTTLE SECTION ==================== -->
+            <div id="throttleSection" style="display: none">
+                <div class="chart-container">
+                    <h3 style="margin-bottom: 1rem;">Auto-Throttle Configuration</h3>
+                    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Auto-throttling automatically pauses new patient check-ins when queue exceeds the threshold to prevent overcrowding.</p>
+                    
+                    <div class="config-card">
+                        <h4>Throttle Settings</h4>
+                        <div class="config-row">
+                            <div class="form-group">
+                                <label class="form-label">Throttle Threshold (%)</label>
+                                <input type="number" class="form-input" id="throttleThreshold" value="80" min="50" max="95">
+                                <small style="color: var(--text-muted);">Queue utilization percentage that triggers throttling</small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Check Interval (seconds)</label>
+                                <input type="number" class="form-input" id="checkInterval" value="30" min="10" max="120">
+                                <small style="color: var(--text-muted);">How often to check queue status</small>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="saveThrottleConfig()">Save Throttle Settings</button>
+                    </div>
+
+                    <div class="config-card">
+                        <h4>Current Throttle Status</h4>
+                        <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+                            <div>
+                                <span style="color: var(--text-muted);">Status:</span>
+                                <span class="throttle-status throttle-active">🔴 ACTIVE</span>
+                            </div>
+                            <div>
+                                <span style="color: var(--text-muted);">Current Utilization:</span>
+                                <strong>85%</strong>
+                            </div>
+                            <div>
+                                <span style="color: var(--text-muted);">Queue Length:</span>
+                                <strong>17 / 20</strong>
+                            </div>
+                            <div>
+                                <span style="color: var(--text-muted);">Last Checked:</span>
+                                <span id="lastCheckTime">Just now</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 1rem;">
+                            <button class="btn btn-secondary" onclick="checkThrottleStatus()">↻ Refresh Status</button>
+                            <button class="btn btn-outline" onclick="toggleThrottle()" id="toggleThrottleBtn">Disable Throttle</button>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info" style="margin-top: 1rem;">
+                        <span>ℹ️</span>
+                        <div>When throttling is active, new patient check-ins are automatically paused until the queue clears below the threshold.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== SYSTEM LOGS ==================== -->
+            <div id="logsSection" style="display: none">
+                <div class="chart-container">
+                    <h3 style="margin-bottom: 1rem;">System Activity Logs</h3>
+                    <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                        <button class="btn btn-outline active" onclick="filterLogs('all')" id="logFilterAll">All</button>
+                        <button class="btn btn-outline" onclick="filterLogs('checkin')" id="logFilterCheckin">Check-ins</button>
+                        <button class="btn btn-outline" onclick="filterLogs('booking')" id="logFilterBooking">Bookings</button>
+                        <button class="btn btn-outline" onclick="filterLogs('consult')" id="logFilterConsult">Consultations</button>
+                        <button class="btn btn-outline" onclick="filterLogs('system')" id="logFilterSystem">System</button>
+                        <button class="btn btn-secondary" onclick="clearLogs()" style="margin-left: auto;">Clear All</button>
+                    </div>
+                    <div id="logsContainer" style="max-height: 500px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius);">
+                        <div id="logsList"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== REPORTS SECTION ==================== -->
+            <div id="reportsSection" style="display: none">
+                <div class="chart-container">
+                    <h3 style="margin-bottom: 1rem;">Generate Reports</h3>
+                    <div class="config-row">
+                        <div class="form-group">
+                            <label class="form-label">Report Type</label>
+                            <select class="form-select" id="reportType">
+                                <option>Daily Report</option>
+                                <option>Weekly Report</option>
+                                <option>Monthly Report</option>
+                                <option>Custom Range</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" class="form-input" id="startDate">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">End Date</label>
+                            <input type="date" class="form-input" id="endDate">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Format</label>
+                            <select class="form-select" id="reportFormat">
+                                <option>PDF</option>
+                                <option>Excel</option>
+                                <option>CSV</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                        <button class="btn btn-primary" onclick="generateReport()">Generate Report</button>
+                        <button class="btn btn-outline" onclick="exportData()">Export Data</button>
+                    </div>
+                </div>
+                <div class="chart-container" style="margin-top: 1rem;">
+                    <h3 style="margin-bottom: 1rem;">Generated Reports</h3>
+                    <div id="recentReportsList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/app.js"></script>
+    <script src="../js/api.js"></script>
+    <script>
+        // ============================================
+        // NAVIGATION
+        // ============================================
+        function showSection(section) {
+            document.querySelectorAll('[id$="Section"]').forEach(el => el.style.display = 'none');
+            document.getElementById(`${section}Section`).style.display = 'block';
+            document.querySelectorAll('.sidebar-nav-item').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if (section === 'doctors') renderDoctors();
+            if (section === 'reports') renderRecentReports();
+            if (section === 'logs') renderLogs();
+            if (section === 'throttle') updateThrottleStatus();
+        }
+
+        // ============================================
+        // DOCTOR MANAGEMENT
+        // ============================================
+        async function renderDoctors() {
+            const res = await API.adminDoctors();
+            if (!res.success) return;
+            document.getElementById('doctorsList').innerHTML = res.doctors.map(d => `
+                <tr>
+                    <td><strong>${d.name}</strong></td>
+                    <td>${d.specialization}</td>
+                    <td>${d.avg_consultation_time} min</td>
+                    <td>${d.max_queue_size}</td>
+                    <td>—</td>
+                    <td><span class="badge badge-success">${d.is_available ? 'Active' : 'Inactive'}</span></td>
+                    <td><button class="btn btn-outline" style="padding:0.25rem 0.75rem;" onclick="editDoctor(${d.id})">Edit</button></td>
+                </tr>`).join('');
+        }
+
+        function addDoctor() {
+            const name = prompt('Doctor name:');
+            const username = prompt('Username:');
+            if (!name || !username) return;
+            API.adminAddDoctor({ full_name: name, username, password: 'doctor123' }).then(res => {
+                Toast.show(res.success ? 'Doctor added' : (res.error || 'Failed'), res.success ? 'success' : 'error');
+                if (res.success) renderDoctors();
+            });
+        }
+        function editDoctor(id) { Toast.show('Doctor ID: ' + id, 'info'); }
+
+        // ============================================
+        // SLOT CONFIGURATION
+        // ============================================
+        function updateMaxTokens() {
+            const val = document.getElementById('avgConsultTime').value;
+            document.getElementById('maxTokens').value = Math.floor(120 / val) || 0;
+        }
+
+        async function saveSlotConfig() {
+            const consultTime = document.getElementById('avgConsultTime').value;
+            const res = await API.adminSaveSlotConfig({ avg_consultation_time: parseInt(consultTime) });
+            if (res.success) {
+                document.getElementById('maxTokens').value = res.max_tokens_per_slot;
+                Toast.show('Slot configuration saved', 'success');
+            } else Toast.show(res.error || 'Failed', 'error');
+        }
+
+        // ============================================
+        // AUTO-THROTTLE
+        // ============================================
+        let throttleEnabled = true;
+
+        async function saveThrottleConfig() {
+            const threshold = parseInt(document.getElementById('throttleThreshold').value) || 5;
+            const res = await API.adminSaveThrottleConfig({ max_queue_size: threshold });
+            Toast.show(res.success ? 'Throttle settings saved' : (res.error || 'Failed'), res.success ? 'success' : 'error');
+            updateThrottleStatus();
+        }
+
+        async function updateThrottleStatus() {
+            document.getElementById('lastCheckTime').innerHTML = new Date().toLocaleTimeString();
+            const res = await API.adminThrottleConfig();
+            if (res.success) {
+                const status = document.querySelector('.throttle-status');
+                if (status) {
+                    status.innerHTML = res.is_throttled ? '🔴 ACTIVE' : '🟢 INACTIVE';
+                }
+            }
+        }
+
+        function checkThrottleStatus() {
+            document.getElementById('lastCheckTime').innerHTML = new Date().toLocaleTimeString();
+            Toast.show('Throttle status refreshed', 'info');
+        }
+
+        function toggleThrottle() {
+            throttleEnabled = !throttleEnabled;
+            const btn = document.getElementById('toggleThrottleBtn');
+            const status = document.querySelector('.throttle-status');
+            if (throttleEnabled) {
+                btn.innerHTML = 'Disable Throttle';
+                status.className = 'throttle-status throttle-active';
+                status.innerHTML = '🔴 ACTIVE';
+                addLog('system', 'Auto-throttle enabled');
+                Toast.show('Auto-throttle enabled', 'success');
+            } else {
+                btn.innerHTML = 'Enable Throttle';
+                status.className = 'throttle-status throttle-inactive';
+                status.innerHTML = '🟢 INACTIVE';
+                addLog('system', 'Auto-throttle disabled');
+                Toast.show('Auto-throttle disabled', 'warning');
+            }
+        }
+
+        // ============================================
+        // SYSTEM LOGS
+        // ============================================
+        let logs = [];
+        let currentLogFilter = 'all';
+
+        function initializeLogs() {
+            const savedLogs = localStorage.getItem('smartOPD_systemLogs');
+            if (savedLogs) {
+                logs = JSON.parse(savedLogs);
+            } else {
+                // Sample logs
+                logs = [
+                    { time: new Date().toISOString(), type: 'system', user: 'System', action: 'System started' },
+                    { time: new Date(Date.now() - 300000).toISOString(), type: 'checkin', user: 'Reception', action: 'Patient M10 checked in' },
+                    { time: new Date(Date.now() - 600000).toISOString(), type: 'booking', user: 'Patient', action: 'Samikshya Shrestha booked token M12' },
+                    { time: new Date(Date.now() - 900000).toISOString(), type: 'consult', user: 'Dr. Sharma', action: 'Consultation completed for Ram Prasad' },
+                    { time: new Date(Date.now() - 1200000).toISOString(), type: 'system', user: 'System', action: 'Auto-throttle activated at 85% capacity' },
+                ];
+                localStorage.setItem('smartOPD_systemLogs', JSON.stringify(logs));
+            }
+            renderLogs();
+        }
+
+        function renderLogs() {
+            const filtered = currentLogFilter === 'all' ? logs : logs.filter(l => l.type === currentLogFilter);
+            const container = document.getElementById('logsList');
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<div style="padding: 1rem; text-align: center; color: var(--text-muted);">No logs found</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(log => `
+                <div class="log-entry">
+                    <span class="log-time">${new Date(log.time).toLocaleString()}</span>
+                    <span class="log-user">${log.user}</span>
+                    <span class="log-action">${log.action}</span>
+                    <span class="badge badge-${log.type === 'system' ? 'info' : log.type === 'checkin' ? 'success' : log.type === 'booking' ? 'warning' : 'primary'}">${log.type}</span>
+                </div>
+            `).join('');
+        }
+
+        function addLog(type, action, user = 'System') {
+            const log = {
+                time: new Date().toISOString(),
+                type: type,
+                user: user,
+                action: action
+            };
+            logs.unshift(log);
+            if (logs.length > 100) logs = logs.slice(0, 100); // Keep only last 100 logs
+            localStorage.setItem('smartOPD_systemLogs', JSON.stringify(logs));
+            if (document.getElementById('logsSection').style.display !== 'none') {
+                renderLogs();
+            }
+        }
+
+        function filterLogs(type) {
+            currentLogFilter = type;
+            document.querySelectorAll('#logsSection .btn-outline').forEach(btn => btn.classList.remove('active'));
+            const btnMap = {
+                'all': 'logFilterAll',
+                'checkin': 'logFilterCheckin',
+                'booking': 'logFilterBooking',
+                'consult': 'logFilterConsult',
+                'system': 'logFilterSystem'
+            };
+            const activeBtn = document.getElementById(btnMap[type]);
+            if (activeBtn) activeBtn.classList.add('active');
+            renderLogs();
+        }
+
+        function clearLogs() {
+            if (confirm('Are you sure you want to clear all logs?')) {
+                logs = [];
+                localStorage.setItem('smartOPD_systemLogs', JSON.stringify(logs));
+                renderLogs();
+                Toast.show('Logs cleared successfully', 'info');
+            }
+        }
+
+        // ============================================
+        // REPORTS
+        // ============================================
+        function generateReport() {
+            const type = document.getElementById('reportType').value;
+            const format = document.getElementById('reportFormat').value;
+            addLog('system', `Generated ${type} report in ${format} format`);
+            Toast.show(`${type} generated successfully`, 'success');
+            
+            const reports = JSON.parse(localStorage.getItem('smartOPD_reports') || '[]');
+            reports.push({
+                type: type,
+                date: new Date().toLocaleDateString(),
+                format: format
+            });
+            localStorage.setItem('smartOPD_reports', JSON.stringify(reports));
+            renderRecentReports();
+        }
+
+        function exportData() {
+            addLog('system', 'Data exported');
+            Toast.show('Data exported successfully', 'success');
+        }
+
+        function renderRecentReports() {
+            const reports = JSON.parse(localStorage.getItem('smartOPD_reports') || '[]');
+            if (reports.length === 0) {
+                document.getElementById('recentReportsList').innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">No reports generated yet</p>';
+                return;
+            }
+            document.getElementById('recentReportsList').innerHTML = reports.map((r, i) => `
+                <div class="report-card">
+                    <div>
+                        <strong>${r.type}</strong>
+                        <br><small style="color: var(--text-muted);">Generated: ${r.date} | Format: ${r.format}</small>
+                    </div>
+                    <button class="btn btn-outline" onclick="downloadReport(${i})">📥 Download</button>
+                </div>
+            `).join('');
+        }
+
+        function downloadReport(index) {
+            Toast.show('Downloading report...', 'info');
+            addLog('system', 'Downloaded report');
+        }
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        async function loadAdminOverview() {
+            const res = await API.analytics();
+            if (!res.success) return;
+            const el = (id) => document.getElementById(id);
+            if (el('totalPatientsToday')) el('totalPatientsToday').innerText = res.total_patients;
+            if (el('completedToday')) el('completedToday').innerText = res.completed;
+            if (el('avgWaitTime')) el('avgWaitTime').innerText = res.avg_waiting_minutes + ' min';
+            if (el('noShowRate')) el('noShowRate').innerText = res.no_shows;
+        }
+
+        API.requireStaff(['admin']).then(user => {
+            if (user) {
+                updateMaxTokens();
+                initializeLogs();
+                loadAdminOverview();
+                API.adminThrottleLogs().then(r => {
+                    if (r.success) logs = r.logs.map(l => ({
+                        time: l.triggered_at, type: 'system', user: l.doctor, action: `${l.action} (queue: ${l.queue_length})`,
+                    }));
+                    renderLogs();
+                });
+            }
+        });
+
+        // Expose functions globally
+        window.showSection = showSection;
+        window.renderDoctors = renderDoctors;
+        window.updateMaxTokens = updateMaxTokens;
+        window.saveSlotConfig = saveSlotConfig;
+        window.saveThrottleConfig = saveThrottleConfig;
+        window.checkThrottleStatus = checkThrottleStatus;
+        window.toggleThrottle = toggleThrottle;
+        window.addDoctor = addDoctor;
+        window.editDoctor = editDoctor;
+        window.generateReport = generateReport;
+        window.exportData = exportData;
+        window.filterLogs = filterLogs;
+        window.clearLogs = clearLogs;
+        window.downloadReport = downloadReport;
+    </script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Login - Smart OPD</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .login-container { max-width: 480px; margin: 100px auto 2rem; padding: 0 1.5rem; }
+        .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; box-shadow: var(--shadow); }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="logo"><span class="logo-icon"></span><span class="logo-text">SMART OPD</span></div>
+            <div class="nav-buttons"><a href="../index.html" class="btn btn-outline">Home</a></div>
+        </div>
+    </nav>
+    <div class="login-container">
+        <div class="login-card">
+            <div style="text-align:center; margin-bottom:1.5rem;">
+                <div style="font-size:3rem;">🏥</div>
+                <h2>Staff Portal Login</h2>
+                <p style="color:var(--text-muted);">Reception, Doctor, Lab, Pharmacy, Admin</p>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Role</label>
+                <select class="form-input" id="staffRole">
+                    <option value="receptionist">Receptionist</option>
+                    <option value="doctor">Doctor</option>
+                    <option value="lab_tech">Lab Technician</option>
+                    <option value="pharmacist">Pharmacist</option>
+                    <option value="admin">Administrator</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Username</label>
+                <input type="text" class="form-input" id="username" placeholder="e.g. reception">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-input" id="password" placeholder="Password">
+            </div>
+            <button class="btn btn-primary" style="width:100%" onclick="staffLogin()">Login →</button>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin-top:1rem; text-align:center;">
+                Demo: reception/reception123, doctor1/doctor123, labtech/lab123, pharmacist/pharmacy123, admin/admin
+            </p>
+        </div>
+    </div>
+    <script src="../js/app.js"></script>
+    <script src="../js/api.js"></script>
+    <script>
+        const roleRedirects = {
+            receptionist: '../reception/dashboard.html',
+            doctor: '../doctor/dashboard.html',
+            lab_tech: '../lab/dashboard.html',
+            pharmacist: '../pharmacy/dashboard.html',
+            admin: '../admin/dashboard.html',
+        };
+
+        async function staffLogin() {
+            const role = document.getElementById('staffRole').value;
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            if (!username || !password) { Toast.show('Enter username and password', 'error'); return; }
+            LoadingOverlay.show();
+            const res = await API.staffLogin({ username, password, role });
+            LoadingOverlay.hide();
+            if (!res.success) { Toast.show(res.error || 'Login failed', 'error'); return; }
+            StorageManager.setUser(res.user);
+            Toast.show('Login successful!', 'success');
+            setTimeout(() => { window.location.href = roleRedirects[role]; }, 800);
+        }
+    </script>
+</body>
+</html>

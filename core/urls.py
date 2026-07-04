@@ -3,40 +3,70 @@ from . import views
 
 urlpatterns = [
     path('health/', views.health_check, name='health'),
-    path('slots/', views.available_slots, name='slots'),
-    path('book/', views.book_token, name='book'),
-    path('search/', views.search_patient, name='search'),
-    path('check-in/<int:token_id>/', views.check_in_patient, name='check-in'),
-    path('waiting-queue/', views.waiting_queue, name='waiting-queue'),
-    path('waiting-queue/<int:doctor_id>/', views.waiting_queue, name='waiting-queue-doctor'),
-    path('doctor-queue/<int:doctor_id>/', views.doctor_queue, name='doctor-queue'),
-    path('start-consult/<int:token_id>/', views.start_consultation, name='start-consult'),
-    path('complete-consult/<int:token_id>/', views.complete_consultation, name='complete-consult'),
-    path('next-patient/<int:doctor_id>/', views.next_patient, name='next-patient'),
+    path('csrf/', views.csrf_token, name='csrf'),
+
+    # Auth
+    path('auth/staff/login/', views.staff_login, name='staff-login'),
+    path('auth/staff/logout/', views.staff_logout, name='staff-logout'),
+    path('auth/me/', views.auth_me, name='auth-me'),
     path('patient/register/', views.patient_register, name='patient-register'),
     path('patient/login/', views.patient_login, name='patient-login'),
     path('patient/logout/', views.patient_logout, name='patient-logout'),
     path('patient/me/', views.get_current_patient, name='patient-me'),
-    path('patient/tokens/', views.get_patient_tokens, name='patient-tokens'),
-    path('followup/<int:token_id>/', views.create_followup, name='followup'),
-    path('cancel/<int:token_id>/', views.cancel_token, name='cancel'),
-    path('analytics/', views.analytics, name='analytics'),
-     # ========== NEW URLs (add these) ==========
-    
-    # Consultation Notes (Doctor saves diagnosis)
-    path('consultation-notes/<int:token_id>/', views.save_consultation_notes, name='consultation-notes'),
-    
-    # Lab Workflow
-    path('lab/order/<int:token_id>/', views.create_lab_order, name='lab-order'),
+    path('patient/reset-password/', views.patient_reset_password, name='patient-reset-password'),
+
+    # Booking
+    path('slots/', views.available_slots, name='slots'),
+    path('book/', views.book_token, name='book'),
+    path('cancel/<int:token_id>/', views.cancel_token_public, name='cancel'),
+
+    # Reception
+    path('search/', views.search_patient, name='search'),
+    path('check-in/<int:token_id>/', views.check_in_patient, name='check-in'),
+    path('reception/register/', views.register_walkin_patient, name='reception-register'),
+    path('reception/appointments/', views.reception_appointments, name='reception-appointments'),
+    path('reception/lab-payments/', views.reception_lab_payments, name='reception-lab-payments'),
+    path('reception/lab-pay/<int:order_id>/', views.pay_lab_fee, name='reception-lab-pay'),
+    path('reception/throttle/', views.throttle_status, name='reception-throttle'),
+
+    # Queue
+    path('waiting-queue/', views.waiting_queue, name='waiting-queue'),
+    path('waiting-queue/<int:doctor_id>/', views.waiting_queue, name='waiting-queue-doctor'),
+
+    # Doctor
+    path('doctor/schedule/', views.doctor_schedule, name='doctor-schedule'),
+    path('doctor-queue/', views.doctor_queue, name='doctor-queue'),
+    path('doctor-queue/<int:doctor_id>/', views.doctor_queue, name='doctor-queue-id'),
+    path('next-patient/', views.next_patient, name='next-patient'),
+    path('next-patient/<int:doctor_id>/', views.next_patient, name='next-patient-id'),
+    path('start-consult/<int:token_id>/', views.start_consultation, name='start-consult'),
+    path('complete-consult/<int:token_id>/', views.complete_consultation, name='complete-consult'),
+
+    # Lab
     path('lab/queue/', views.lab_queue, name='lab-queue'),
-    path('lab/complete/<int:lab_order_id>/', views.complete_lab_order, name='lab-complete'),
-    
-    # Pharmacy Workflow
+    path('lab/orders/<int:order_id>/start/', views.lab_start_test, name='lab-start'),
+    path('lab/orders/<int:order_id>/complete/', views.lab_complete_test, name='lab-complete'),
+    path('lab/reports/<int:token_id>/', views.lab_reports_for_token, name='lab-reports-token'),
+
+    # Pharmacy
     path('pharmacy/queue/', views.pharmacy_queue, name='pharmacy-queue'),
-    
-    # Payment
-    path('payment/<int:token_id>/', views.create_payment, name='payment'),
-    
-    # Patient History (View all past visits)
-    path('patient-history/<str:phone>/', views.patient_history, name='patient-history'),
+    path('pharmacy/<int:entry_id>/start/', views.pharmacy_start_dispense, name='pharmacy-start'),
+    path('pharmacy/<int:entry_id>/complete/', views.pharmacy_complete_dispense, name='pharmacy-complete'),
+
+    # Patient portal
+    path('patient/tokens/', views.get_patient_tokens, name='patient-tokens'),
+    path('patient/queue-status/', views.patient_queue_status, name='patient-queue-status'),
+    path('patient/prescriptions/', views.patient_prescriptions, name='patient-prescriptions'),
+    path('patient/lab-reports/', views.patient_lab_reports, name='patient-lab-reports'),
+    path('patient/bills/', views.patient_bills, name='patient-bills'),
+    path('followup/<int:token_id>/', views.create_followup, name='followup'),
+
+    # Admin
+    path('admin/doctors/', views.admin_doctors, name='admin-doctors'),
+    path('admin/doctors/add/', views.admin_add_doctor, name='admin-add-doctor'),
+    path('admin/doctors/<int:doctor_id>/', views.admin_update_doctor, name='admin-update-doctor'),
+    path('admin/slots/config/', views.admin_slot_config, name='admin-slot-config'),
+    path('admin/throttle/config/', views.admin_throttle_config, name='admin-throttle-config'),
+    path('admin/throttle/logs/', views.admin_throttle_logs, name='admin-throttle-logs'),
+    path('analytics/', views.analytics, name='analytics'),
 ]

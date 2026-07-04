@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Login - Smart OPD</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .login-container { max-width: 480px; margin: 100px auto 2rem; padding: 0 1.5rem; }
+        .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; box-shadow: var(--shadow); }
+        .option-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; cursor: pointer; text-align: center; transition: all 0.3s; }
+        .option-card:hover { border-color: var(--secondary); transform: translateY(-2px); box-shadow: var(--shadow); }
+        .otp-group { display: flex; gap: 0.75rem; justify-content: center; margin: 1.5rem 0; }
+        .otp-digit { width: 50px; height: 50px; text-align: center; font-size: 1.5rem; font-weight: bold; background: var(--surface); border: 1px solid var(--border-dark); border-radius: var(--radius); transition: all 0.2s; }
+        .otp-digit:focus { outline: none; border-color: var(--secondary); box-shadow: 0 0 0 3px rgba(59,151,151,0.1); }
+        .divider { display: flex; align-items: center; text-align: center; margin: 1.5rem 0; color: var(--text-muted); }
+        .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid var(--border); }
+        .divider::before { margin-right: 1rem; }
+        .divider::after { margin-left: 1rem; }
+        .password-requirements { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.25rem; }
+        .password-requirements.valid { color: var(--success); }
+        .timer-text { font-size: 0.7rem; color: var(--warning); margin-top: 0.5rem; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="logo"><span class="logo-icon"></span><span class="logo-text">SMART OPD</span></div>
+            <div class="nav-buttons">
+                <a href="../index.html" class="btn btn-outline">Home</a>
+                <a href="booking.html" class="btn btn-primary">Book Appointment</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="login-container">
+        <!-- Step 1: Login Type Selection -->
+        <div id="loginTypeScreen" class="login-card">
+            <div style="text-align:center; margin-bottom:1.5rem;">
+                <div style="font-size:3rem;">👤</div>
+                <h2>Patient Portal</h2>
+                <p style="color:var(--text-muted);">Access your health records and appointments</p>
+            </div>
+            <div class="option-card" onclick="showNewPatient()">
+                <div style="font-size:2rem;">📝</div>
+                <h3>New Patient Registration</h3>
+                <p style="color:var(--text-muted);">First time? Register using your Patient ID</p>
+            </div>
+            <div class="divider">OR</div>
+            <div class="option-card" onclick="showExistingPatient()">
+                <div style="font-size:2rem;">🔐</div>
+                <h3>Existing Patient Login</h3>
+                <p style="color:var(--text-muted);">I already have an account</p>
+            </div>
+        </div>
+
+        <!-- ==================== NEW PATIENT FLOW ==================== -->
+        <!-- Step A1: New Patient - Enter Patient ID & Phone -->
+        <div id="newPatientStep1" class="login-card" style="display:none;">
+            <button class="btn btn-outline" style="margin-bottom:1rem;" onclick="backToLoginType()">← Back</button>
+            <h3>New Patient Registration</h3>
+            <p style="color:var(--text-muted); margin-bottom:1rem;">Please enter the details from your OPD card</p>
+            <div class="form-group">
+                <label class="form-label">Patient ID <span class="required">*</span></label>
+                <input type="text" class="form-input" id="regPatientId" placeholder="e.g., PAT123456">
+                <small style="color:var(--text-muted);">Find Patient ID on your OPD card or previous receipt</small>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Phone Number <span class="required">*</span></label>
+                <input type="tel" class="form-input" id="regPhone" placeholder="98XXXXXXXX">
+            </div>
+            <button class="btn btn-primary" style="width:100%" onclick="sendRegistrationOTP()">Send OTP →</button>
+        </div>
+
+        <!-- Step A2: New Patient - OTP Verification (No Password Yet) -->
+        <div id="newPatientStep2" class="login-card" style="display:none;">
+            <button class="btn btn-outline" style="margin-bottom:1rem;" onclick="backToNewPatientStep1()">← Back</button>
+            <h3>Verify Your Mobile Number</h3>
+            <p style="color:var(--text-muted);">We've sent a 6-digit OTP to <strong id="otpPhoneDisplay"></strong></p>
+            <div class="otp-group" id="otpGroup">
+                <input type="text" maxlength="1" class="otp-digit" data-index="0" onkeyup="moveToNext(this,0,'otpGroup')">
+                <input type="text" maxlength="1" class="otp-digit" data-index="1" onkeyup="moveToNext(this,1,'otpGroup')">
+                <input type="text" maxlength="1" class="otp-digit" data-index="2" onkeyup="moveToNext(this,2,'otpGroup')">
+                <input type="text" maxlength="1" class="otp-digit" data-index="3" onkeyup="moveToNext(this,3,'otpGroup')">
+                <input type="text" maxlength="1" class="otp-digit" data-index="4" onkeyup="moveToNext(this,4,'otpGroup')">
+                <input type="text" maxlength="1" class="otp-digit" data-index="5" onkeyup="moveToNext(this,5,'otpGroup')">
+            </div>
+            <div id="otpTimer" class="timer-text" style="text-align:center;"></div>
+            <div style="text-align:center; margin-top:0.5rem;">
+                <button class="btn btn-outline" onclick="resendRegistrationOTP()" id="resendOtpBtn">Resend OTP</button>
+            </div>
+            <button class="btn btn-primary" style="width:100%; margin-top:1rem;" onclick="verifyRegistrationOTP()">Verify OTP →</button>
+        </div>
+
+        <!-- Step A3: New Patient - Create Password (After OTP Verified) -->
+        <div id="newPatientStep3" class="login-card" style="display:none;">
+            <button class="btn btn-outline" style="margin-bottom:1rem;" onclick="backToNewPatientStep2()">← Back</button>
+            <div style="text-align:center; margin-bottom:1rem;">
+                <div style="width:60px;height:60px;background:var(--success);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+                    <span style="color:white; font-size:2rem;">✓</span>
+                </div>
+                <h3>Phone Number Verified!</h3>
+                <p style="color:var(--text-muted);">Now create a password for your account</p>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Create Password <span class="required">*</span></label>
+                <input type="password" class="form-input" id="newPassword" placeholder="Enter password" onkeyup="validatePasswordStrength()">
+                <div class="password-requirements" id="passwordStrength">
+                    Password must be at least 6 characters
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Confirm Password <span class="required">*</span></label>
+                <input type="password" class="form-input" id="confirmPassword" placeholder="Re-enter password" onkeyup="checkPasswordMatch()">
+                <div class="password-requirements" id="passwordMatchMsg"></div>
+            </div>
+            <button class="btn btn-primary" style="width:100%" id="completeRegBtn" onclick="completeRegistration()" disabled>Complete Registration →</button>
+        </div>
+
+        <!-- ==================== EXISTING PATIENT LOGIN ==================== -->
+        <!-- Step B1: Existing Patient - Enter Credentials -->
+        <div id="existingPatientLogin" class="login-card" style="display:none;">
+            <button class="btn btn-outline" style="margin-bottom:1rem;" onclick="backToLoginType()">← Back</button>
+            <h3>Existing Patient Login</h3>
+            <div class="form-group">
+                <label class="form-label">Patient ID <span class="required">*</span></label>
+                <input type="text" class="form-input" id="loginPatientId" placeholder="Enter your Patient ID">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password <span class="required">*</span></label>
+                <input type="password" class="form-input" id="loginPassword" placeholder="Enter your password">
+            </div>
+            <div style="text-align:right; margin-bottom:1rem;">
+                <a href="#" onclick="showForgotPassword()" style="color:var(--secondary);">Forgot Password?</a>
+            </div>
+            <button class="btn btn-primary" style="width:100%" onclick="handleLogin()">Login →</button>
+        </div>
+
+        <!-- ==================== FORGOT PASSWORD FLOW ==================== -->
+        <!-- Step C1: Forgot Password - Enter Phone Number -->
+        <div id="forgotPasswordScreen" class="login-card" style="display:none;">
+            <button class="btn btn-outline" style="margin-bottom:1rem;" onclick="backToExistingLogin()">← Back</button>
+            <h3>Reset Password</h3>
+            <p style="color:var(--text-muted); margin-bottom:1rem;">Enter your registered phone number to reset password</p>
+            <div class="form-group">
+                <label class="form-label">Registered Phone Number <span class="required">*</span></label>
+                <input type="tel" class="form-input" id="forgotPhone" placeholder="98XXXXXXXX">
+            </div>
+            <button class="btn btn-primary" style="width:100%" onclick="sendResetOTP()">Send OTP →</button>
+        </div>
+
+        <!-- Step C2: Forgot Password - OTP Verification -->
+        <div id="resetOtpScreen" class="login-card" style="display:none;">
+            <button class="btn btn-outline" style="margin-bottom:1rem;" onclick="backToForgotPassword()">← Back</button>
+            <h3>Verify Your Identity</h3>
+            <p style="color:var(--text-muted);">We've sent a 6-digit OTP to <strong id="resetPhoneDisplay"></strong></p>
+            <div class="otp-group" id="resetOtpGroup">
+                <input type="text" maxlength="1" class="otp-digit" data-index="0" onkeyup="moveToNext(this,0,'resetOtpGroup')">
+                <input type="text" maxlength="1" class="otp-digit" data-index="1" onkeyup="moveToNext(this,1,'resetOtpGroup')">
+                <input type="text" maxlength="1" class="otp-digit" data-index="2" onkeyup="moveToNext(this,2,'resetOtpGroup')">
+                <input type="text" maxlength="1" class="otp-digit" data-index="3" onkeyup="moveToNext(this,3,'resetOtpGroup')">
+                <input type="text" maxlength="1" class="otp-digit" data-index="4" onkeyup="moveToNext(this,4,'resetOtpGroup')">
+                <input type="text" maxlength="1" class="otp-digit" data-index="5" onkeyup="moveToNext(this,5,'resetOtpGroup')">
+            </div>
+            <div id="resetOtpTimer" class="timer-text" style="text-align:center;"></div>
+            <div style="text-align:center; margin-top:0.5rem;">
+                <button class="btn btn-outline" onclick="resendResetOTP()" id="resendResetOtpBtn">Resend OTP</button>
+            </div>
+            <button class="btn btn-primary" style="width:100%; margin-top:1rem;" onclick="verifyResetOTP()">Verify OTP →</button>
+        </div>
+
+        <!-- Step C3: Forgot Password - Set New Password (After OTP Verified) -->
+        <div id="resetPasswordScreen" class="login-card" style="display:none;">
+            <button class="btn btn-outline" style="margin-bottom:1rem;" onclick="backToResetOtp()">← Back</button>
+            <div style="text-align:center; margin-bottom:1rem;">
+                <div style="width:60px;height:60px;background:var(--success);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+                    <span style="color:white; font-size:2rem;">✓</span>
+                </div>
+                <h3>Identity Verified!</h3>
+                <p style="color:var(--text-muted);">Create a new password for your account</p>
+            </div>
+            <div class="form-group">
+                <label class="form-label">New Password <span class="required">*</span></label>
+                <input type="password" class="form-input" id="resetNewPassword" placeholder="Enter new password" onkeyup="validateResetPasswordStrength()">
+                <div class="password-requirements" id="resetPasswordStrength">
+                    Password must be at least 6 characters
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Confirm New Password <span class="required">*</span></label>
+                <input type="password" class="form-input" id="resetConfirmPassword" placeholder="Re-enter new password" onkeyup="checkResetPasswordMatch()">
+                <div class="password-requirements" id="resetPasswordMatchMsg"></div>
+            </div>
+            <button class="btn btn-primary" style="width:100%" id="completeResetBtn" onclick="completeResetPassword()" disabled>Reset Password →</button>
+        </div>
+    </div>
+
+    <script src="../js/app.js"></script>
+    <script src="../js/app.js"></script>
+    <script src="../js/api.js"></script>
+    <script>
+        // Global variables
+        let regData = {};
+        let resetData = {};
+        let otpTimer = null;
+        let timeLeft = 60;
+        
+        // ==================== NAVIGATION FUNCTIONS ====================
+        function backToLoginType() {
+            document.querySelectorAll('.login-card').forEach(c => c.style.display = 'none');
+            document.getElementById('loginTypeScreen').style.display = 'block';
+            stopTimer();
+        }
+        
+        function showNewPatient() {
+            document.getElementById('loginTypeScreen').style.display = 'none';
+            document.getElementById('newPatientStep1').style.display = 'block';
+        }
+        
+        function showExistingPatient() {
+            document.getElementById('loginTypeScreen').style.display = 'none';
+            document.getElementById('existingPatientLogin').style.display = 'block';
+        }
+        
+        function backToNewPatientStep1() {
+            document.getElementById('newPatientStep2').style.display = 'none';
+            document.getElementById('newPatientStep1').style.display = 'block';
+            stopTimer();
+        }
+        
+        function backToNewPatientStep2() {
+            document.getElementById('newPatientStep3').style.display = 'none';
+            document.getElementById('newPatientStep2').style.display = 'block';
+        }
+        
+        function backToExistingLogin() {
+            document.getElementById('forgotPasswordScreen').style.display = 'none';
+            document.getElementById('existingPatientLogin').style.display = 'block';
+            stopTimer();
+        }
+        
+        function backToForgotPassword() {
+            document.getElementById('resetOtpScreen').style.display = 'none';
+            document.getElementById('forgotPasswordScreen').style.display = 'block';
+            stopTimer();
+        }
+        
+        function backToResetOtp() {
+            document.getElementById('resetPasswordScreen').style.display = 'none';
+            document.getElementById('resetOtpScreen').style.display = 'block';
+        }
+        
+        function showForgotPassword() {
+            document.getElementById('existingPatientLogin').style.display = 'none';
+            document.getElementById('forgotPasswordScreen').style.display = 'block';
+        }
+        
+        // ==================== TIMER FUNCTIONS ====================
+        function startTimer(timerElementId, onExpire) {
+            timeLeft = 60;
+            const timerElement = document.getElementById(timerElementId);
+            if (!timerElement) return;
+            
+            if (otpTimer) clearInterval(otpTimer);
+            
+            otpTimer = setInterval(() => {
+                timeLeft--;
+                timerElement.innerHTML = `OTP expires in ${timeLeft} seconds`;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(otpTimer);
+                    timerElement.innerHTML = 'OTP expired. Please request a new one.';
+                    if (onExpire) onExpire();
+                }
+            }, 1000);
+        }
+        
+        function stopTimer() {
+            if (otpTimer) {
+                clearInterval(otpTimer);
+                otpTimer = null;
+            }
+        }
+        
+        // ==================== NEW PATIENT REGISTRATION ====================
+        function sendRegistrationOTP() {
+            const id = document.getElementById('regPatientId').value.trim();
+            const phone = document.getElementById('regPhone').value.trim();
+            
+            if (!id || !phone) {
+                Toast.show('Please enter Patient ID and Phone Number', 'error');
+                return;
+            }
+            
+            if (phone.length < 10) {
+                Toast.show('Please enter a valid phone number', 'error');
+                return;
+            }
+            
+            // Check if patient ID already registered
+            const users = JSON.parse(localStorage.getItem('smartOPD_users') || '[]');
+            const existingUser = users.find(u => u.patientId === id);
+            if (existingUser) {
+                Toast.show('This Patient ID is already registered. Please login.', 'error');
+                return;
+            }
+            
+            regData = { id, phone };
+            document.getElementById('otpPhoneDisplay').innerHTML = phone;
+            
+            document.getElementById('newPatientStep1').style.display = 'none';
+            document.getElementById('newPatientStep2').style.display = 'block';
+            
+            // Clear OTP inputs
+            document.querySelectorAll('#otpGroup .otp-digit').forEach((input, idx) => {
+                input.value = '';
+                if (idx === 0) input.focus();
+            });
+            
+            // Start OTP timer
+            startTimer('otpTimer', () => {
+                document.getElementById('resendOtpBtn').disabled = false;
+            });
+            document.getElementById('resendOtpBtn').disabled = true;
+            
+            Toast.show('OTP sent to your phone number', 'success');
+        }
+        
+        function verifyRegistrationOTP() {
+            let otp = '';
+            document.querySelectorAll('#otpGroup .otp-digit').forEach(i => otp += i.value);
+            
+            if (otp.length !== 6) {
+                Toast.show('Please enter the 6-digit OTP', 'error');
+                return;
+            }
+            
+            // Simulate OTP verification (in real app, verify with backend)
+            // For demo, any 6-digit OTP works
+            stopTimer();
+            
+            Toast.show('Phone number verified successfully!', 'success');
+            
+            // Move to password creation step
+            document.getElementById('newPatientStep2').style.display = 'none';
+            document.getElementById('newPatientStep3').style.display = 'block';
+            
+            // Reset password fields
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+            document.getElementById('completeRegBtn').disabled = true;
+            document.getElementById('passwordStrength').innerHTML = 'Password must be at least 6 characters';
+            document.getElementById('passwordStrength').className = 'password-requirements';
+            document.getElementById('passwordMatchMsg').innerHTML = '';
+        }
+        
+        function validatePasswordStrength() {
+            const password = document.getElementById('newPassword').value;
+            const strengthMsg = document.getElementById('passwordStrength');
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (password.length >= 6) {
+                strengthMsg.innerHTML = '✓ Password strength: Good';
+                strengthMsg.className = 'password-requirements valid';
+            } else {
+                strengthMsg.innerHTML = 'Password must be at least 6 characters';
+                strengthMsg.className = 'password-requirements';
+            }
+            
+            // Check match if confirm has value
+            if (confirmPassword) {
+                checkPasswordMatch();
+            }
+            
+            // Enable/disable register button
+            enableRegisterButton();
+        }
+        
+        function checkPasswordMatch() {
+            const password = document.getElementById('newPassword').value;
+            const confirm = document.getElementById('confirmPassword').value;
+            const matchMsg = document.getElementById('passwordMatchMsg');
+            
+            if (confirm.length > 0) {
+                if (password === confirm) {
+                    matchMsg.innerHTML = '✓ Passwords match';
+                    matchMsg.className = 'password-requirements valid';
+                } else {
+                    matchMsg.innerHTML = '✗ Passwords do not match';
+                    matchMsg.className = 'password-requirements';
+                }
+            } else {
+                matchMsg.innerHTML = '';
+            }
+            
+            enableRegisterButton();
+        }
+        
+        function enableRegisterButton() {
+            const password = document.getElementById('newPassword').value;
+            const confirm = document.getElementById('confirmPassword').value;
+            const btn = document.getElementById('completeRegBtn');
+            
+            if (password.length >= 6 && password === confirm) {
+                btn.disabled = false;
+            } else {
+                btn.disabled = true;
+            }
+        }
+        
+        function completeRegistration() {
+            const password = document.getElementById('newPassword').value;
+            const fullName = regData.id ? `Patient ${regData.id}` : `Patient ${regData.phone}`;
+
+            LoadingOverlay.show();
+            API.patientRegister({
+                full_name: fullName,
+                phone: regData.phone,
+                password: password,
+            }).then(res => {
+                LoadingOverlay.hide();
+                if (!res.success) {
+                    Toast.show(res.error || 'Registration failed', 'error');
+                    return;
+                }
+                StorageManager.setUser({
+                    patientId: res.patient.patient_id,
+                    phone: res.patient.phone,
+                    name: res.patient.name,
+                    isLoggedIn: true,
+                });
+                Toast.show('Registration successful! Redirecting to dashboard...', 'success');
+                setTimeout(() => window.location.href = 'dashboard.html', 1500);
+            });
+        }
+        
+        function resendRegistrationOTP() {
+            Toast.show('OTP resent to your phone number', 'success');
+            startTimer('otpTimer', () => {
+                document.getElementById('resendOtpBtn').disabled = false;
+            });
+            document.getElementById('resendOtpBtn').disabled = true;
+        }
+        
+        // ==================== EXISTING PATIENT LOGIN ====================
+        function handleLogin() {
+            const id = document.getElementById('loginPatientId').value.trim();
+            const pwd = document.getElementById('loginPassword').value;
+
+            if (!id || !pwd) {
+                Toast.show('Please enter Patient ID and Password', 'error');
+                return;
+            }
+
+            LoadingOverlay.show();
+            API.patientLogin({ patient_id: id, password: pwd }).then(res => {
+                LoadingOverlay.hide();
+                if (!res.success) {
+                    Toast.show(res.error || 'Invalid credentials', 'error');
+                    return;
+                }
+                StorageManager.setUser({
+                    patientId: res.patient.patient_id,
+                    phone: res.patient.phone,
+                    name: res.patient.name,
+                    isLoggedIn: true,
+                });
+                Toast.show('Login successful! Redirecting...', 'success');
+                setTimeout(() => window.location.href = 'dashboard.html', 1500);
+            });
+        }
+        
+        // ==================== FORGOT PASSWORD ====================
+        function sendResetOTP() {
+            const phone = document.getElementById('forgotPhone').value.trim();
+            
+            if (!phone) {
+                Toast.show('Please enter your phone number', 'error');
+                return;
+            }
+            
+            const users = JSON.parse(localStorage.getItem('smartOPD_users') || '[]');
+            const user = users.find(u => u.phone === phone);
+            
+            if (!user) {
+                Toast.show('Phone number not found. Please register first.', 'error');
+                return;
+            }
+            
+            resetData = { phone, patientId: user.patientId };
+            document.getElementById('resetPhoneDisplay').innerHTML = phone;
+            
+            document.getElementById('forgotPasswordScreen').style.display = 'none';
+            document.getElementById('resetOtpScreen').style.display = 'block';
+            
+            // Clear OTP inputs
+            document.querySelectorAll('#resetOtpGroup .otp-digit').forEach((input, idx) => {
+                input.value = '';
+                if (idx === 0) input.focus();
+            });
+            
+            // Start OTP timer
+            startTimer('resetOtpTimer', () => {
+                document.getElementById('resendResetOtpBtn').disabled = false;
+            });
+            document.getElementById('resendResetOtpBtn').disabled = true;
+            
+            Toast.show('OTP sent to your phone number', 'success');
+        }
+        
+        function verifyResetOTP() {
+            let otp = '';
+            document.querySelectorAll('#resetOtpGroup .otp-digit').forEach(i => otp += i.value);
+            
+            if (otp.length !== 6) {
+                Toast.show('Please enter the 6-digit OTP', 'error');
+                return;
+            }
+            
+            stopTimer();
+            Toast.show('Phone number verified successfully!', 'success');
+            
+            // Move to reset password step
+            document.getElementById('resetOtpScreen').style.display = 'none';
+            document.getElementById('resetPasswordScreen').style.display = 'block';
+            
+            // Reset password fields
+            document.getElementById('resetNewPassword').value = '';
+            document.getElementById('resetConfirmPassword').value = '';
+            document.getElementById('completeResetBtn').disabled = true;
+            document.getElementById('resetPasswordStrength').innerHTML = 'Password must be at least 6 characters';
+            document.getElementById('resetPasswordStrength').className = 'password-requirements';
+            document.getElementById('resetPasswordMatchMsg').innerHTML = '';
+        }
+        
+        function validateResetPasswordStrength() {
+            const password = document.getElementById('resetNewPassword').value;
+            const strengthMsg = document.getElementById('resetPasswordStrength');
+            
+            if (password.length >= 6) {
+                strengthMsg.innerHTML = '✓ Password strength: Good';
+                strengthMsg.className = 'password-requirements valid';
+            } else {
+                strengthMsg.innerHTML = 'Password must be at least 6 characters';
+                strengthMsg.className = 'password-requirements';
+            }
+            
+            const confirm = document.getElementById('resetConfirmPassword').value;
+            if (confirm) checkResetPasswordMatch();
+            enableResetButton();
+        }
+        
+        function checkResetPasswordMatch() {
+            const password = document.getElementById('resetNewPassword').value;
+            const confirm = document.getElementById('resetConfirmPassword').value;
+            const matchMsg = document.getElementById('resetPasswordMatchMsg');
+            
+            if (confirm.length > 0) {
+                if (password === confirm) {
+                    matchMsg.innerHTML = '✓ Passwords match';
+                    matchMsg.className = 'password-requirements valid';
+                } else {
+                    matchMsg.innerHTML = '✗ Passwords do not match';
+                    matchMsg.className = 'password-requirements';
+                }
+            } else {
+                matchMsg.innerHTML = '';
+            }
+            
+            enableResetButton();
+        }
+        
+        function enableResetButton() {
+            const password = document.getElementById('resetNewPassword').value;
+            const confirm = document.getElementById('resetConfirmPassword').value;
+            const btn = document.getElementById('completeResetBtn');
+            
+            if (password.length >= 6 && password === confirm) {
+                btn.disabled = false;
+            } else {
+                btn.disabled = true;
+            }
+        }
+        
+        function completeResetPassword() {
+            const newPassword = document.getElementById('resetNewPassword').value;
+            LoadingOverlay.show();
+            API.patientResetPassword({ phone: resetData.phone, password: newPassword }).then(res => {
+                LoadingOverlay.hide();
+                if (!res.success) {
+                    Toast.show(res.error || 'Reset failed', 'error');
+                    return;
+                }
+                Toast.show('Password reset successful! Please login with your new password.', 'success');
+                setTimeout(() => {
+                    document.getElementById('resetPasswordScreen').style.display = 'none';
+                    document.getElementById('existingPatientLogin').style.display = 'block';
+                    document.getElementById('loginPassword').value = '';
+                }, 1500);
+            });
+        }
+        
+        function resendResetOTP() {
+            Toast.show('OTP resent to your phone number', 'success');
+            startTimer('resetOtpTimer', () => {
+                document.getElementById('resendResetOtpBtn').disabled = false;
+            });
+            document.getElementById('resendResetOtpBtn').disabled = true;
+        }
+        
+        // ==================== OTP INPUT NAVIGATION ====================
+        function moveToNext(current, idx, groupId) {
+            if (current.value.length === 1 && idx < 5) {
+                const next = document.querySelector(`#${groupId} .otp-digit[data-index="${idx + 1}"]`);
+                if (next) next.focus();
+            }
+        }
+    </script>
+</body>
+</html>

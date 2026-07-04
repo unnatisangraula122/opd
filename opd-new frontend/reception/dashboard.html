@@ -1,0 +1,1092 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reception Dashboard - Smart OPD</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <style>
+      .search-result {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1rem;
+        margin-top: 1rem;
+        display: none;
+      }
+      .lab-request-item {
+        background: #fff8e7;
+        border-left: 4px solid var(--warning);
+        margin-bottom: 0.5rem;
+        padding: 0.75rem;
+        border-radius: var(--radius);
+      }
+      .throttle-alert {
+        background: #fee2e2;
+        border-left: 4px solid var(--danger);
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+        border-radius: var(--radius);
+        display: none;
+      }
+      .checkin-success {
+        animation: checkinPulse 0.5s ease;
+      }
+      @keyframes checkinPulse {
+        0% {
+          background: var(--success);
+          opacity: 0.5;
+        }
+        100% {
+          background: transparent;
+        }
+      }
+      .priority-badge {
+        display: inline-block;
+        padding: 0.125rem 0.5rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+      }
+      .priority-elderly {
+        background: #fee2e2;
+        color: var(--danger);
+      }
+      .priority-disabled {
+        background: #fef3c7;
+        color: var(--warning);
+      }
+      .priority-pregnant {
+        background: #dbeafe;
+        color: var(--info);
+      }
+      .slot-indicator {
+        display: inline-block;
+        padding: 0.125rem 0.5rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        background: var(--secondary);
+        color: white;
+      }
+      .queue-item.priority-high {
+        border-left: 4px solid var(--danger);
+        background: rgba(239, 68, 68, 0.05);
+      }
+      .queue-item.priority-medium {
+        border-left: 4px solid var(--warning);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sidebar-layout">
+      <div class="sidebar">
+        <div style="padding: 1.5rem">
+          <div class="logo" style="margin-bottom: 2rem">
+            <span class="logo-icon"></span
+            ><span class="logo-text">SMART OPD</span>
+          </div>
+          <div style="text-align: center; margin-bottom: 2rem">
+            <div
+              style="
+                width: 70px;
+                height: 70px;
+                background: rgba(59, 151, 151, 0.1);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 2rem;
+                margin: 0 auto 1rem;
+              "
+            >
+              👩‍💼
+            </div>
+            <h4>Reception Desk</h4>
+            <p style="color: var(--text-muted)" id="receptionName">
+              Receptionist
+            </p>
+            <p
+              style="color: var(--text-muted); font-size: 0.75rem"
+              id="currentDateTime"
+            ></p>
+          </div>
+          <nav>
+            <div
+              class="sidebar-nav-item"
+              onclick="window.location.href = 'checkin.html'"
+            >
+              ✅ Check-in Desk
+            </div>
+            <div class="sidebar-nav-item" onclick="showTab('queue')">
+              👥 Waiting Queue
+            </div>
+            <div class="sidebar-nav-item" onclick="showTab('lab-payment')">
+              🧪 Lab Payment
+            </div>
+            <div class="sidebar-nav-item" onclick="showTab('register')">
+              📝 Register Patient
+            </div>
+            <div class="sidebar-nav-item" onclick="showTab('stats')">
+              📊 Today's Stats
+            </div>
+            <div
+              class="sidebar-nav-item"
+              onclick="window.location.href = '../index.html'"
+            >
+              🚪 Logout
+            </div>
+          </nav>
+        </div>
+      </div>
+
+      <div class="main-content">
+        <h1 style="margin-bottom: 1.5rem">Reception Dashboard</h1>
+
+        <!-- Throttle Alert -->
+        <div id="throttleAlert" class="throttle-alert">
+          ⚠️ AUTO-THROTTLING ACTIVE: Doctor queue at 85% capacity. New check-ins
+          temporarily paused.
+        </div>
+
+        <!-- Check-in Tab -->
+        <div id="checkinTab">
+          <div class="card">
+            <h3 style="margin-bottom: 1rem">Patient Check-in</h3>
+            <div class="alert alert-info" style="margin-bottom: 1rem">
+              <span>ℹ️</span>
+              <div>
+                Check-in is only allowed within the patient's slot time. Slots
+                end at: Morning 11:00 AM, Afternoon 2:00 PM, Evening 5:00 PM
+              </div>
+            </div>
+            <div style="display: flex; gap: 1rem">
+              <input
+                type="text"
+                class="form-input"
+                id="searchInput"
+                placeholder="Enter Token Number"
+                style="flex: 1"
+              />
+              <button class="btn btn-primary" onclick="searchPatient()">
+                Search Token
+              </button>
+            </div>
+            <div id="searchResult" class="search-result"></div>
+          </div>
+          <div class="card" style="margin-top: 1rem">
+            <h3>Today's Appointments by Slot</h3>
+            <div class="table-container">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Token</th>
+                    <th>Patient</th>
+                    <th>Doctor</th>
+                    <th>Slot</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="appointmentsList"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Queue Tab - Shows queues organized by slot -->
+        <div id="queueTab" style="display: none">
+          <div class="card">
+            <h3>Waiting Queues by Slot</h3>
+            <div id="queueContainer"></div>
+          </div>
+        </div>
+
+        <!-- Lab Payment Tab -->
+        <div id="labPaymentTab" style="display: none">
+          <div class="card">
+            <h3>Pending Lab Test Payments</h3>
+            <div id="pendingLabPayments"></div>
+          </div>
+        </div>
+
+        <!-- Register Tab -->
+        <div id="registerTab" style="display: none">
+          <div class="card">
+            <h3>Register New Patient</h3>
+            <div class="alert alert-info">
+              After registration, the patient will receive a Patient ID. Use
+              this ID for future check-ins.
+            </div>
+            <div class="grid grid-2">
+              <input
+                type="text"
+                class="form-input"
+                id="regFirstName"
+                placeholder="First Name *"
+              />
+              <input
+                type="text"
+                class="form-input"
+                id="regLastName"
+                placeholder="Last Name *"
+              />
+              <input
+                type="tel"
+                class="form-input"
+                id="regPhone"
+                placeholder="Phone Number *"
+              />
+              <input
+                type="number"
+                class="form-input"
+                id="regAge"
+                placeholder="Age *"
+              />
+              <select class="form-select" id="regGender">
+                <option value="">Select Gender *</option>
+                <option>Male</option>
+                <option>Female</option>
+                <option>Other</option>
+              </select>
+              <input
+                type="text"
+                class="form-input"
+                id="regAddress"
+                placeholder="Address"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Priority Status (if applicable)</label>
+              <div style="display: flex; gap: 1rem; flex-wrap: wrap">
+                <label
+                  ><input type="checkbox" id="priorityElderly" /> Elderly (60+
+                  years)</label
+                >
+                <label
+                  ><input type="checkbox" id="priorityDisabled" />
+                  Disabled</label
+                >
+                <label
+                  ><input type="checkbox" id="priorityPregnant" />
+                  Pregnant</label
+                >
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="registerPatient()">
+              Register Patient
+            </button>
+          </div>
+        </div>
+
+        <!-- Stats Tab -->
+        <div id="statsTab" style="display: none">
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-icon">📋</div>
+              <div class="kpi-info">
+                <div class="kpi-label">Total Appointments</div>
+                <div class="kpi-value" id="statsTotal">0</div>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon">✅</div>
+              <div class="kpi-info">
+                <div class="kpi-label">Checked In</div>
+                <div class="kpi-value" id="statsCheckedIn">0</div>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon">👥</div>
+              <div class="kpi-info">
+                <div class="kpi-label">In Queue</div>
+                <div class="kpi-value" id="statsInQueue">0</div>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon">⏰</div>
+              <div class="kpi-info">
+                <div class="kpi-label">Completed</div>
+                <div class="kpi-value" id="statsCompleted">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- New Patient Registration Modal (for check-in flow) -->
+    <div id="newPatientModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>New Patient Registration</h3>
+          <button onclick="closeNewPatientModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info">
+            Please complete registration to continue check-in
+          </div>
+          <div class="grid grid-2">
+            <div class="form-group">
+              <input
+                type="text"
+                class="form-input"
+                id="modalFirstName"
+                placeholder="First Name *"
+              />
+            </div>
+            <div class="form-group">
+              <input
+                type="text"
+                class="form-input"
+                id="modalLastName"
+                placeholder="Last Name *"
+              />
+            </div>
+            <div class="form-group">
+              <input
+                type="tel"
+                class="form-input"
+                id="modalPhone"
+                placeholder="Phone Number *"
+              />
+            </div>
+            <div class="form-group">
+              <input
+                type="number"
+                class="form-input"
+                id="modalAge"
+                placeholder="Age *"
+              />
+            </div>
+            <div class="form-group">
+              <select class="form-select" id="modalGender">
+                <option>Male</option>
+                <option>Female</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <input
+                type="text"
+                class="form-input"
+                id="modalAddress"
+                placeholder="Address"
+              />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Priority Status</label>
+            <div style="display: flex; gap: 1rem">
+              <label
+                ><input type="checkbox" id="modalElderly" /> Elderly
+                (60+)</label
+              >
+              <label
+                ><input type="checkbox" id="modalDisabled" /> Disabled</label
+              >
+              <label
+                ><input type="checkbox" id="modalPregnant" /> Pregnant</label
+              >
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeNewPatientModal()">
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary"
+            onclick="completeRegistrationAndCheckIn()"
+          >
+            Register & Check-in
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Lab Test Payment</h3>
+          <button onclick="closePaymentModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="paymentModalBody"></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closePaymentModal()">
+            Cancel
+          </button>
+          <button class="btn btn-success" onclick="confirmPayment()">
+            Confirm Payment
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="../js/app.js"></script>
+    <script src="../js/api.js"></script>
+    <script>
+      // Slot time definitions
+      const SLOT_CONFIG = {
+        MORNING: {
+          startHour: 9,
+          endHour: 11,
+          displayTime: "Morning (9:00 - 11:00)",
+        },
+        AFTERNOON: {
+          startHour: 12,
+          endHour: 14,
+          displayTime: "Afternoon (12:00 - 2:00)",
+        },
+        EVENING: {
+          startHour: 15,
+          endHour: 17,
+          displayTime: "Evening (3:00 - 5:00)",
+        },
+      };
+
+      // Priority scores (higher = more priority)
+      const PRIORITY_SCORES = {
+        ELDERLY: 100,
+        DISABLED: 90,
+        PREGNANT: 80,
+        NORMAL: 0,
+      };
+
+      // Check if slot is still active
+      function isSlotActive(slotType) {
+        const now = new Date();
+        const currentHour = now.getHours();
+        const slot = SLOT_CONFIG[slotType];
+        if (!slot) return false;
+        return currentHour >= slot.startHour && currentHour < slot.endHour;
+      }
+
+      // Get current slot based on time
+      function getCurrentSlot() {
+        const now = new Date();
+        const hour = now.getHours();
+        if (hour >= 9 && hour < 11) return "MORNING";
+        if (hour >= 12 && hour < 14) return "AFTERNOON";
+        if (hour >= 15 && hour < 17) return "EVENING";
+        return null;
+      }
+
+      // Initialize data structures
+      let allAppointments = [
+        {
+          token: "M10",
+          patient: "Ram Prasad",
+          doctor: "Dr. Sharma",
+          slot: "MORNING",
+          time: "9:00 AM",
+          status: "pending",
+          isNewPatient: false,
+          patientId: "PAT001",
+          priority: "ELDERLY",
+        },
+        {
+          token: "M11",
+          patient: "Sita Gurung",
+          doctor: "Dr. Sharma",
+          slot: "MORNING",
+          time: "10:00 AM",
+          status: "pending",
+          isNewPatient: false,
+          patientId: "PAT002",
+          priority: "NORMAL",
+        },
+        {
+          token: "M12",
+          patient: "Samikshya Shrestha",
+          doctor: "Dr. Sharma",
+          slot: "MORNING",
+          time: "11:00 AM",
+          status: "pending",
+          isNewPatient: true,
+          patientId: null,
+          priority: "NORMAL",
+        },
+        {
+          token: "A05",
+          patient: "John Doe",
+          doctor: "Dr. Kharbuja",
+          slot: "AFTERNOON",
+          time: "12:30 PM",
+          status: "pending",
+          isNewPatient: false,
+          patientId: "PAT003",
+          priority: "NORMAL",
+        },
+        {
+          token: "A06",
+          patient: "Hari Prasad",
+          doctor: "Dr. Kharbuja",
+          slot: "AFTERNOON",
+          time: "1:30 PM",
+          status: "pending",
+          isNewPatient: false,
+          patientId: "PAT004",
+          priority: "DISABLED",
+        },
+        {
+          token: "E01",
+          patient: "Gita Sharma",
+          doctor: "Dr. Thapa",
+          slot: "EVENING",
+          time: "3:30 PM",
+          status: "pending",
+          isNewPatient: false,
+          patientId: "PAT005",
+          priority: "PREGNANT",
+        },
+      ];
+
+      // Queue organized by slot
+      let queues = {
+        MORNING: [],
+        AFTERNOON: [],
+        EVENING: [],
+      };
+
+      let pendingLabPayments = [];
+      let currentTokenForCheckin = null;
+      let currentSearchResult = null;
+
+      // Load data from Django API
+      async function refreshReceptionData() {
+        const [aptRes, queueRes, labRes, throttleRes] = await Promise.all([
+          API.receptionAppointments(),
+          API.waitingQueue(),
+          API.receptionLabPayments(),
+          API.throttleStatus(),
+        ]);
+        if (aptRes.success) {
+          allAppointments = aptRes.appointments.map(a => ({
+            token_id: a.token_id,
+            token: a.token_number,
+            patient: a.patient_name,
+            doctor: a.doctor_name,
+            slot: (a.slot_type || a.slot_type_raw || '').toUpperCase(),
+            time: a.estimated_time,
+            status: a.status === 'booked' ? 'pending' : a.status === 'checked_in' ? 'checked-in' : a.status,
+            patientId: a.patient_user_id,
+            is_elderly: a.is_elderly,
+            is_disabled: a.is_disabled,
+          }));
+        }
+        if (queueRes.success) {
+          queues = { MORNING: [], AFTERNOON: [], EVENING: [] };
+          queueRes.queue.forEach(q => {
+            const slot = (q.slot_type || q.slot_type_raw || 'MORNING').toUpperCase();
+            if (!queues[slot]) queues[slot] = [];
+            queues[slot].push({
+              token: q.token_number,
+              patientName: q.patient_name,
+              age: q.patient_age,
+              doctor: q.doctor_name,
+              slot: slot,
+              priority: q.is_elderly || q.is_disabled ? 'ELDERLY' : 'NORMAL',
+              status: 'waiting',
+            });
+          });
+        }
+        if (labRes.success) {
+          pendingLabPayments = labRes.lab_payments.map(p => ({
+            id: p.order_id,
+            order_id: p.order_id,
+            patient: p.patient_name,
+            token: p.token_number,
+            tests: [p.test_name],
+            amount: p.amount || 500,
+          }));
+        }
+        renderAppointments();
+        renderAllQueues();
+        renderStats();
+        renderLabPayments();
+      }
+
+      function loadData() { refreshReceptionData(); }
+
+      // Save data to localStorage
+      function saveData() {
+        localStorage.setItem("smartOPD_queues", JSON.stringify(queues));
+        localStorage.setItem(
+          "smartOPD_appointments",
+          JSON.stringify(allAppointments),
+        );
+      }
+
+      // Calculate priority score for sorting
+      function getPriorityScore(priority) {
+        return PRIORITY_SCORES[priority] || 0;
+      }
+
+      // Sort queue by priority (higher priority first, then token number)
+      function sortQueueByPriority(queueArray) {
+        return [...queueArray].sort((a, b) => {
+          // First by priority score (higher first)
+          if (a.priorityScore !== b.priorityScore) {
+            return b.priorityScore - a.priorityScore;
+          }
+          // Then by token number
+          const aNum = parseInt(a.token.match(/\d+/)?.[0] || 0);
+          const bNum = parseInt(b.token.match(/\d+/)?.[0] || 0);
+          return aNum - bNum;
+        });
+      }
+
+      // Add patient to queue
+      function addToQueue(token, patientInfo, slot, doctor, priority) {
+        const priorityScore = getPriorityScore(priority);
+        const queueItem = {
+          token: token,
+          patientName: patientInfo.name,
+          patientId: patientInfo.id,
+          age: patientInfo.age,
+          doctor: doctor,
+          slot: slot,
+          checkInTime: new Date().toLocaleTimeString(),
+          priority: priority,
+          priorityScore: priorityScore,
+          status: "waiting",
+        };
+
+        queues[slot].push(queueItem);
+        queues[slot] = sortQueueByPriority(queues[slot]);
+        saveData();
+        renderAllQueues();
+        renderStats();
+      }
+
+      // Search patient by token or phone (API)
+      async function searchPatient() {
+        const token = document.getElementById("searchInput").value.trim();
+        if (!token) { Toast.show("Please enter a token number or phone", "error"); return; }
+        LoadingOverlay.show();
+        const res = await API.searchPatient(token);
+        LoadingOverlay.hide();
+        if (!res.success || !res.patients.length) {
+          document.getElementById("searchResult").innerHTML = `<div class="alert alert-danger"><span>✗</span><div>No patient found.</div></div>`;
+          document.getElementById("searchResult").style.display = "block";
+          return;
+        }
+        const appointment = res.patients[0];
+        currentSearchResult = appointment;
+        if (['checked_in','consulting'].includes(appointment.status)) {
+          document.getElementById("searchResult").innerHTML = `<div class="alert alert-warning"><span>⚠️</span><div>Already checked in.</div></div>`;
+          document.getElementById("searchResult").style.display = "block";
+          return;
+        }
+        if (appointment.status !== 'booked') {
+          document.getElementById("searchResult").innerHTML = `<div class="alert alert-danger"><span>✗</span><div>Status: ${appointment.status}</div></div>`;
+          document.getElementById("searchResult").style.display = "block";
+          return;
+        }
+        document.getElementById("searchResult").innerHTML = `
+          <div class="alert alert-success"><span>✓</span><div>
+            <strong>${appointment.patient_name}</strong><br>
+            Token: ${appointment.token_number} | ${appointment.doctor_name}
+          </div></div>
+          <div style="margin-top:0.5rem;">
+            <label><input type="checkbox" id="checkinElderly" ${appointment.is_elderly?'checked':''}> Elderly</label>
+            <label style="margin-left:1rem;"><input type="checkbox" id="checkinDisabled" ${appointment.is_disabled?'checked':''}> Disabled</label>
+          </div>
+          <button class="btn btn-success" style="margin-top:1rem;width:100%;" onclick="confirmCheckin(${appointment.token_id})">Confirm Check-in →</button>`;
+        document.getElementById("searchResult").style.display = "block";
+      }
+
+      // Register new patient and check in — kept for UI compatibility
+      async function registerNewPatientAndCheckin() {
+        const firstName = document.getElementById("checkinFirstName")?.value;
+        const lastName = document.getElementById("checkinLastName")?.value;
+        const phone = document.getElementById("checkinPhone")?.value;
+        const age = document.getElementById("checkinAge")?.value;
+        const gender = document.getElementById("checkinGender")?.value;
+        const address = document.getElementById("checkinAddress")?.value;
+
+        if (!firstName || !lastName || !phone || !age) {
+          Toast.show("Please fill all required fields", "error");
+          return;
+        }
+
+        // Generate Patient ID
+        const patientId = "PAT" + Math.floor(Math.random() * 1000000);
+
+        // Determine priority
+        let priority = "NORMAL";
+        if (document.getElementById("checkinElderly")?.checked)
+          priority = "ELDERLY";
+        else if (document.getElementById("checkinDisabled")?.checked)
+          priority = "DISABLED";
+        else if (document.getElementById("checkinPregnant")?.checked)
+          priority = "PREGNANT";
+
+        // Save patient to users list
+        const users = JSON.parse(
+          localStorage.getItem("smartOPD_users") || "[]",
+        );
+        users.push({
+          patientId: patientId,
+          name: `${firstName} ${lastName}`,
+          phone: phone,
+          age: age,
+          gender: gender,
+          address: address,
+          priority: priority,
+          createdAt: new Date().toISOString(),
+        });
+        localStorage.setItem("smartOPD_users", JSON.stringify(users));
+
+        // Update appointment
+        const appointment = allAppointments.find(
+          (a) => a.token === currentSearchResult?.token,
+        );
+        if (appointment) {
+          appointment.patient = `${firstName} ${lastName}`;
+          appointment.patientId = patientId;
+          appointment.isNewPatient = false;
+          appointment.priority = priority;
+          appointment.status = "checked-in";
+          appointment.checkedInTime = new Date().toISOString();
+
+          // Add to queue
+          addToQueue(
+            appointment.token,
+            { name: `${firstName} ${lastName}`, id: patientId, age: age },
+            appointment.slot,
+            appointment.doctor,
+            priority,
+          );
+
+          saveData();
+          renderAppointments();
+          renderAllQueues();
+          renderStats();
+
+          document.getElementById("searchResult").innerHTML = `
+                    <div class="alert alert-success">
+                        <span>✓</span>
+                        <div>Patient registered and checked in successfully!<br>Patient ID: ${patientId}</div>
+                    </div>
+                `;
+          Toast.show(
+            `Patient registered and checked in successfully! ID: ${patientId}`,
+            "success",
+          );
+
+          setTimeout(() => {
+            document.getElementById("searchResult").style.display = "none";
+            document.getElementById("searchInput").value = "";
+          }, 3000);
+        }
+      }
+
+      // Confirm check-in for existing patient
+      async function confirmCheckin(tokenId) {
+        const is_elderly = document.getElementById('checkinElderly')?.checked || false;
+        const is_disabled = document.getElementById('checkinDisabled')?.checked || false;
+        LoadingOverlay.show();
+        const res = await API.checkIn(tokenId, { is_elderly, is_disabled });
+        LoadingOverlay.hide();
+        if (!res.success) {
+          Toast.show(res.error || 'Check-in failed', 'error');
+          return;
+        }
+        await refreshReceptionData();
+        document.getElementById("searchResult").innerHTML = `<div class="alert alert-success"><span>✓</span><div>Patient checked in successfully!</div></div>`;
+        Toast.show(res.message, 'success');
+        setTimeout(() => {
+          document.getElementById("searchResult").style.display = "none";
+          document.getElementById("searchInput").value = "";
+        }, 2000);
+      }
+
+      // Render all appointments by slot
+      function renderAppointments() {
+        const morningApps = allAppointments.filter((a) => a.slot === "MORNING");
+        const afternoonApps = allAppointments.filter(
+          (a) => a.slot === "AFTERNOON",
+        );
+        const eveningApps = allAppointments.filter((a) => a.slot === "EVENING");
+
+        const allApps = [...morningApps, ...afternoonApps, ...eveningApps];
+
+        document.getElementById("appointmentsList").innerHTML = allApps
+          .map((apt) => {
+            const isActive = isSlotActive(apt.slot);
+            const canCheckIn = apt.status === "pending" && isActive;
+            const isExpired = apt.status === "pending" && !isActive;
+
+            let priorityBadge = "";
+            if (apt.priority === "ELDERLY")
+              priorityBadge =
+                '<span class="priority-badge priority-elderly">Elderly</span>';
+            else if (apt.priority === "DISABLED")
+              priorityBadge =
+                '<span class="priority-badge priority-disabled">Disabled</span>';
+            else if (apt.priority === "PREGNANT")
+              priorityBadge =
+                '<span class="priority-badge priority-pregnant">Pregnant</span>';
+
+            return `
+                    <tr class="${isExpired ? "expired-row" : ""}">
+                        <td>${apt.token}${priorityBadge ? "<br>" + priorityBadge : ""}</td>
+                        <td>${apt.patient}${apt.isNewPatient ? ' <span class="badge badge-warning">New</span>' : ""}</td>
+                        <td>${apt.doctor}</td>
+                        <td><span class="slot-indicator">${apt.slot}</span></td>
+                        <td>${apt.time}</td>
+                        <td>
+                            ${
+                              apt.status === "checked-in"
+                                ? '<span class="badge badge-success">Checked In</span>'
+                                : isExpired
+                                  ? '<span class="badge badge-danger">Expired</span>'
+                                  : '<span class="badge badge-warning">Pending</span>'
+                            }
+                        </td>
+                        <td>
+                            ${
+                              canCheckIn
+                                ? `<button class="btn btn-primary" onclick="searchAndCheckin('${apt.token}')">Check In</button>`
+                                : apt.status === "checked-in"
+                                  ? "✓ In Queue"
+                                  : isExpired
+                                    ? "⛔ Passed"
+                                    : ""
+                            }
+                         </td>
+                    </tr>
+                `;
+          })
+          .join("");
+      }
+
+      // Helper to search and checkin
+      function searchAndCheckin(token) {
+        document.getElementById("searchInput").value = token;
+        searchPatient();
+      }
+
+      // Render all queues organized by slot
+      function renderAllQueues() {
+        const container = document.getElementById("queueContainer");
+        if (!container) return;
+
+        let html = "";
+        for (const [slotName, queue] of Object.entries(queues)) {
+          const slotInfo = SLOT_CONFIG[slotName];
+          html += `
+                    <div style="margin-bottom: 2rem;">
+                        <h4 style="background: var(--surface); padding: 0.5rem; border-radius: var(--radius); margin-bottom: 1rem;">
+                            ${slotInfo.displayTime}
+                            <span class="badge badge-info" style="margin-left: 0.5rem;">${queue.length} waiting</span>
+                        </h4>
+                        <div id="queue-${slotName}">
+                            ${renderQueueForSlot(queue, slotName)}
+                        </div>
+                    </div>
+                `;
+        }
+
+        if (Object.values(queues).every((q) => q.length === 0)) {
+          html = '<div class="alert alert-info">No patients in any queue</div>';
+        }
+
+        container.innerHTML = html;
+      }
+
+      function renderQueueForSlot(queue, slotName) {
+        if (queue.length === 0) {
+          return '<div class="alert alert-info">No patients waiting in this slot</div>';
+        }
+
+        return queue
+          .map((item, idx) => {
+            let priorityClass = "";
+            let priorityLabel = "";
+            if (item.priority === "ELDERLY") {
+              priorityClass = "priority-high";
+              priorityLabel =
+                '<span class="priority-badge priority-elderly">Priority</span>';
+            } else if (item.priority === "DISABLED") {
+              priorityClass = "priority-high";
+              priorityLabel =
+                '<span class="priority-badge priority-disabled">Priority</span>';
+            } else if (item.priority === "PREGNANT") {
+              priorityClass = "priority-medium";
+              priorityLabel =
+                '<span class="priority-badge priority-pregnant">Priority</span>';
+            }
+
+            return `
+                    <div class="queue-item ${priorityClass}">
+                        <div style="display:flex; gap:1rem; align-items:center;">
+                            <div class="queue-position">${idx + 1}</div>
+                            <div>
+                                <h4>${item.patientName} ${priorityLabel}</h4>
+                                <p>Token: ${item.token} | Checked in: ${item.checkInTime}</p>
+                                <p style="font-size:0.8rem; color:var(--text-muted);">Patient ID: ${item.patientId}</p>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="callPatient('${item.token}', '${slotName}')">Call Patient</button>
+                    </div>
+                `;
+          })
+          .join("");
+      }
+
+      function callPatient(token, slotName) {
+        Toast.show(
+          `Calling patient with token ${token} to Doctor's chamber`,
+          "success",
+        );
+      }
+
+      function renderStats() {
+        const total = allAppointments.length;
+        const checkedIn = allAppointments.filter(
+          (a) => a.status === "checked-in",
+        ).length;
+        const inQueue = Object.values(queues).reduce(
+          (sum, q) => sum + q.length,
+          0,
+        );
+        const completed = allAppointments.filter(
+          (a) => a.status === "completed",
+        ).length;
+
+        document.getElementById("statsTotal").innerText = total;
+        document.getElementById("statsCheckedIn").innerText = checkedIn;
+        document.getElementById("statsInQueue").innerText = inQueue;
+        document.getElementById("statsCompleted").innerText = completed;
+      }
+
+      let currentPaymentOrderId = null;
+      function openPaymentModal(orderId) {
+        currentPaymentOrderId = orderId;
+        const p = pendingLabPayments.find(x => x.id === orderId);
+        document.getElementById('paymentModalBody').innerHTML = p ? `<p><strong>${p.patient}</strong> — ${p.tests.join(', ')}<br>Amount: Rs. ${p.amount}</p>` : '';
+        document.getElementById('paymentModal').classList.add('active');
+      }
+      function closePaymentModal() {
+        document.getElementById('paymentModal').classList.remove('active');
+      }
+      async function confirmPayment() {
+        if (!currentPaymentOrderId) return;
+        const res = await API.payLabFee(currentPaymentOrderId, { amount: 500 });
+        Toast.show(res.success ? 'Lab fee paid' : (res.error || 'Failed'), res.success ? 'success' : 'error');
+        if (res.success) { closePaymentModal(); refreshReceptionData(); }
+      }
+
+      function renderLabPayments() {
+        const container = document.getElementById("pendingLabPayments");
+        if (!container) return;
+
+        if (pendingLabPayments.length === 0) {
+          container.innerHTML =
+            '<div class="alert alert-info">No pending lab payments</div>';
+          return;
+        }
+
+        container.innerHTML = pendingLabPayments
+          .map(
+            (p) => `
+                <div class="lab-request-item">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <strong>${p.patient}</strong> (Token: ${p.token})<br>
+                            Tests: ${p.tests.join(", ")}<br>
+                            Amount: Rs. ${p.amount}
+                        </div>
+                        <button class="btn btn-primary" onclick="openPaymentModal(${p.id})">Process Payment</button>
+                    </div>
+                </div>
+            `,
+          )
+          .join("");
+      }
+
+      function registerPatient() {
+        const firstName = document.getElementById("regFirstName")?.value;
+        const lastName = document.getElementById("regLastName")?.value;
+        const phone = document.getElementById("regPhone")?.value;
+        const age = document.getElementById("regAge")?.value;
+        const gender = document.getElementById("regGender")?.value;
+        const address = document.getElementById("regAddress")?.value;
+
+        if (!firstName || !lastName || !phone || !age || !gender) {
+          Toast.show("Please fill all required fields", "error");
+          return;
+        }
+
+        let priority = "NORMAL";
+        if (document.getElementById("priorityElderly")?.checked)
+          priority = "ELDERLY";
+        else if (document.getElementById("priorityDisabled")?.checked)
+          priority = "DISABLED";
+        else if (document.getElementById("priorityPregnant")?.checked)
+          priority = "PREGNANT";
+
+        const patientId = "PAT" + Math.floor(Math.random() * 1000000);
+        const users = JSON.parse(
+          localStorage.getItem("smartOPD_users") || "[]",
+        );
+        users.push({
+          patientId: patientId,
+          name: `${firstName} ${lastName}`,
+          phone: phone,
+          age: age,
+          gender: gender,
+          address: address,
+          priority: priority,
+          createdAt: new Date().toISOString(),
+        });
+        localStorage.setItem("smartOPD_users", JSON.stringify(users));
+
+        Toast.show(
+          `Patient registered successfully! ID: ${patientId}`,
+          "success",
+        );
+
+        // Clear form
+        document.getElementById("regFirstName").value = "";
+        document.getElementById("regLastName").value = "";
+        document.getElementById("regPhone").value = "";
+        document.getElementById("regAge").value = "";
+        document.getElementById("regGender").value = "";
+        document.getElementById("regAddress").value = "";
+        document.getElementById("priorityElderly").checked = false;
+        document.getElementById("priorityDisabled").checked = false;
+        document.getElementById("priorityPregnant").checked = false;
+      }
+
+      function showTab(tab) {
+        document
+          .querySelectorAll('[id$="Tab"]')
+          .forEach((el) => (el.style.display = "none"));
+        document.getElementById(`${tab}Tab`).style.display = "block";
+        if (tab === "queue") renderAllQueues();
+        if (tab === "checkin") renderAppointments();
+        if (tab === "stats") renderStats();
+        if (tab === "lab-payment") renderLabPayments();
+      }
+
+      // Update current time display
+      function updateDateTime() {
+        const now = new Date();
+        document.getElementById("currentDateTime").innerHTML =
+          now.toLocaleString();
+      }
+      setInterval(updateDateTime, 1000);
+      updateDateTime();
+
+      // Initialize
+      API.requireStaff(['receptionist', 'admin']).then(user => {
+        if (user) loadData();
+      });
+      setInterval(refreshReceptionData, 15000);
+    </script>
+  </body>
+</html>

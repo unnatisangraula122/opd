@@ -1,0 +1,167 @@
+from datetime import timedelta
+from decimal import Decimal
+
+from django.db import models
+from django.utils import timezone
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+
+from accounts.models import User
+from core.models import ConsultationSlot, Payment, Token
+from core.permissions import IsPatient, IsReceptionistOrAdmin
+from core.utils import (
+    CONSULTATION_BASE_FEE,
+    ensure_today_tomorrow_slots,
+    serialize_slot,
+    serialize_token,
+    consultation_fee_with_charge,
+)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def available_slots(request):
+    ensure_today_tomorrow_slots()
+    today = timezone.localdate()
+    tomorrow = today + timedelta(days=1)
+    date_filter = request.query_params.get('date')
+
+    slots = ConsultationSlot.objects.filter(
+        date__in=[today, tomorrow],
+        doctor__is_available=True,
+    ).select_related('doctor__user')
+
+    if date_filter == 'today':
+        slots = slots.filter(date=today)
+    elif date_filter == 'tomorrow':
+        slots = slots.filter(date=tomorrow)
+
+    available = []
+    grouped = {}
+    for slot in slots:
+        if slot.is_full:
+            continue
+        serialized = serialize_slot(slot)
+        available.append(serialized)
+        key = 'today' if slot.date == today else 'tomorrow'
+        grouped.setdefault(key, []).append(serialized)
+
+    return Response({
+        'success': True,
+        'count': len(available),
+        'slots': available,
+        'grouped': grouped,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def book_token(request):
+    ensure_today_tomorrow_slots()
+    slot_id = request.data.get('slot_id')
+    patient_name = request.data.get('patient_name')
+    patient_age = request.data.get('patient_age')
+    patient_phone = request.data.get('patient_phone')
+    patient_address = request.data.get('patient_address', '')
+    is_disabled = request.data.get('is_disabled', False)
+    payment_method = request.data.get('payment_method', 'esewa')
+    amount = request.data.get('amount')
+    patient_id = request.data.get('patient_id')
+
+    if not all([slot_id, patient_name, patient_age]) and not patient_id:
+        return Response({'success': False, 'error': 'Missing required fields'}, status=400)
+
+    if patient_id and not patient_phone:
+        patient_user = User.resolve_patient_id(patient_id)
+        if patient_user:
+            patient_phone = patient_user.phone
+            patient_name = patient_name or (patient_user.get_full_name() or patient_user.username)
+            patient_age = patient_age or patient_user.age or 30
+
+    if not patient_phone:
+        return Response({'success': False, 'error': 'Patient phone required'}, status=400)
+
+    try:
+        patient_age = int(patient_age)
+    except (TypeError, ValueError):
+        return Response({'success': False, 'error': 'Invalid age'}, status=400)
+
+    try:
+        slot = ConsultationSlot.objects.select_related('doctor').get(id=slot_id)
+    except ConsultationSlot.DoesNotExist:
+        return Response({'success': False, 'error': 'Slot not found'}, status=404)
+
+    if slot.is_full:
+        return Response({'success': False, 'error': f'Slot is full! Maximum {slot.max_tokens} tokens allowed.'}, status=400)
+
+    if slot.doctor.is_throttled:
+        return Response({'success': False, 'error': 'Doctor queue is at capacity. Check-in throttled.'}, status=400)
+
+    patient_user = None
+    if request.user.is_authenticated and request.user.role == 'patient':
+        patient_user = request.user
+    elif patient_id:
+        patient_user = User.resolve_patient_id(patient_id)
+        if patient_user and not patient_name:
+            patient_name = patient_user.get_full_name() or patient_user.username
+        if patient_user and not patient_phone:
+            patient_phone = patient_user.phone
+        if patient_user and patient_user.age and not patient_age:
+            patient_age = patient_user.age
+    elif patient_phone:
+        patient_user = User.objects.filter(phone=patient_phone, role='patient').first()
+
+    token = Token.objects.create(
+        slot=slot,
+        patient=patient_user,
+        patient_name=patient_name,
+        patient_age=patient_age,
+        patient_phone=patient_phone,
+        patient_address=patient_address,
+        is_disabled=bool(is_disabled),
+    )
+
+    base, service, total = consultation_fee_with_charge()
+    paid_amount = Decimal(str(amount)) if amount is not None else total
+    Payment.objects.create(
+        token=token,
+        payment_type='consultation_fee',
+        amount=paid_amount,
+        status='paid',
+        reference_number=f'{payment_method}-{token.id}',
+        paid_at=timezone.now(),
+    )
+
+    return Response({
+        'success': True,
+        'message': 'Token booked successfully!',
+        'token': serialize_token(token),
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsPatient])
+def cancel_token(request, token_id):
+    try:
+        token = Token.objects.get(id=token_id, patient_phone=request.user.phone)
+    except Token.DoesNotExist:
+        return Response({'success': False, 'error': 'Token not found'}, status=404)
+    try:
+        token.cancel()
+    except Exception as exc:
+        return Response({'success': False, 'error': str(exc)}, status=400)
+    return Response({'success': True, 'message': f'Token {token.token_number} cancelled'})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def cancel_token_public(request, token_id):
+    try:
+        token = Token.objects.get(id=token_id)
+    except Token.DoesNotExist:
+        return Response({'success': False, 'error': 'Token not found'}, status=404)
+    if token.status != 'booked':
+        return Response({'success': False, 'error': f'Cannot cancel. Status: {token.status}'}, status=400)
+    token.cancel()
+    return Response({'success': True, 'message': f'Token {token.token_number} cancelled'})
