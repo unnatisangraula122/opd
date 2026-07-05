@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from accounts.models import User
 from core.models import ConsultationSlot, Payment, Token
 from core.permissions import IsPatient, IsReceptionistOrAdmin
+from core.services.sms import sms_token_booking
 from core.utils import (
     CONSULTATION_BASE_FEE,
     ensure_today_tomorrow_slots,
@@ -73,14 +74,18 @@ def book_token(request):
         return Response({'success': False, 'error': 'Missing required fields'}, status=400)
 
     if patient_id and not patient_phone:
-        patient_user = User.resolve_patient_id(patient_id)
-        if patient_user:
-            patient_phone = patient_user.phone
-            patient_name = patient_name or (patient_user.get_full_name() or patient_user.username)
-            patient_age = patient_age or patient_user.age or 30
+        return Response({'success': False, 'error': 'Patient phone required for returning patients'}, status=400)
 
-    if not patient_phone:
-        return Response({'success': False, 'error': 'Patient phone required'}, status=400)
+    patient_user = None
+    if patient_id:
+        patient_user = User.resolve_patient_id(patient_id)
+        if not patient_user:
+            return Response({'success': False, 'error': 'Patient ID not found'}, status=404)
+        if patient_user.phone != patient_phone:
+            return Response({'success': False, 'error': 'Phone number does not match patient record'}, status=400)
+        patient_name = patient_name or (patient_user.get_full_name() or patient_user.username)
+        patient_age = patient_age or patient_user.age or 30
+        patient_address = patient_address or patient_user.address or ''
 
     try:
         patient_age = int(patient_age)
