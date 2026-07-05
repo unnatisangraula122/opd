@@ -1,8 +1,10 @@
 from .common import health_check, csrf_token
 from .auth import (
-    patient_register, patient_login, patient_logout, get_current_patient,
-    patient_reset_password, staff_login, staff_logout, auth_me,
+    patient_register, patient_login, patient_login_otp, patient_logout,
+    get_current_patient, patient_reset_password, staff_login, staff_logout, auth_me,
 )
+from .otp import otp_send, otp_verify
+from .patient_lookup import validate_old_patient, lookup_patient
 from .booking import available_slots, book_token, cancel_token, cancel_token_public
 from .reception import (
     search_patient, check_in_patient, register_walkin_patient,

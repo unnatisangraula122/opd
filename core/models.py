@@ -678,6 +678,45 @@ class FollowupRule(models.Model):
         return f"Follow-up exemption: {self.exempt_within_days} days ({'active' if self.is_active else 'inactive'})"
 
 
+class OTPVerification(models.Model):
+    """Secure OTP storage with expiry and retry limits."""
+    PURPOSE_CHOICES = (
+        ('registration', 'Registration'),
+        ('login', 'Login'),
+        ('password_reset', 'Password Reset'),
+    )
+    phone = models.CharField(max_length=15, db_index=True)
+    otp_hash = models.CharField(max_length=128)
+    purpose = models.CharField(max_length=20, choices=PURPOSE_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    attempts = models.IntegerField(default=0)
+    max_attempts = models.IntegerField(default=5)
+    is_verified = models.BooleanField(default=False)
+    verified_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"OTP {self.phone} ({self.purpose})"
+
+
+class SlotOptimizationRecommendation(models.Model):
+    """Admin recommendations from analytics feedback loop."""
+    doctor = models.ForeignKey(DoctorProfile, on_delete=models.CASCADE, related_name='slot_recommendations')
+    configured_avg_minutes = models.IntegerField()
+    actual_avg_minutes = models.DecimalField(max_digits=6, decimal_places=2)
+    variance_percent = models.DecimalField(max_digits=6, decimal_places=2)
+    recommended_avg_minutes = models.IntegerField()
+    message = models.TextField()
+    is_acknowledged = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
 class DailyAnalytics(models.Model):
     """
     Pre-aggregated summary table — computed by a scheduled job (e.g.

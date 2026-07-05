@@ -6,6 +6,8 @@ from rest_framework.response import Response
 
 from accounts.models import User
 from core.permissions import STAFF_ROLES, IsPatient, IsStaff
+from core.services.otp import is_otp_verified, verify_otp
+from core.services.sms import sms_patient_registration
 from core.utils import get_doctor_for_user
 
 
@@ -35,9 +37,55 @@ def patient_register(request):
     password = request.data.get('password')
     age = request.data.get('age')
     address = request.data.get('address', '')
+    otp = request.data.get('otp')
+    patient_id = request.data.get('patient_id')
 
-    if not all([full_name, phone, password]):
-        return Response({'success': False, 'error': 'Full name, phone, and password required'}, status=400)
+    if not all([phone, password]):
+        return Response({'success': False, 'error': 'Phone and password required'}, status=400)
+
+    if not is_otp_verified(phone, 'registration') and otp:
+        result = verify_otp(phone, otp, 'registration')
+        if not result.get('success'):
+            return Response({'success': False, 'error': result.get('error', 'OTP verification required')}, status=400)
+    elif not is_otp_verified(phone, 'registration'):
+        return Response({'success': False, 'error': 'OTP verification required before registration'}, status=400)
+
+    # Activate online account for existing walk-in patient (Patient ID + phone)
+    if patient_id:
+        existing = User.resolve_patient_id(patient_id)
+        if not existing:
+            return Response({'success': False, 'error': 'Patient ID not found'}, status=404)
+        if existing.phone != phone:
+            return Response({'success': False, 'error': 'Phone number does not match patient record'}, status=400)
+        if existing.has_usable_password() and not existing.check_password(''):
+            try:
+                if User.objects.filter(phone=phone, role='patient').exclude(pk=existing.pk).exists():
+                    pass
+            except Exception:
+                pass
+        existing.password = make_password(password)
+        if full_name:
+            existing.first_name = full_name.split()[0] if ' ' in full_name else full_name
+            existing.last_name = ' '.join(full_name.split()[1:]) if ' ' in full_name else ''
+        if age:
+            existing.age = int(age)
+        if address:
+            existing.address = address
+        existing.save()
+        login(request, existing)
+        return Response({
+            'success': True,
+            'message': 'Account activated successfully!',
+            'patient': {
+                'id': existing.id,
+                'patient_id': existing.patient_id,
+                'name': existing.get_full_name() or full_name,
+                'phone': phone,
+            },
+        })
+
+    if not full_name:
+        return Response({'success': False, 'error': 'Full name required for new registration'}, status=400)
 
     if User.objects.filter(phone=phone, role='patient').exists():
         return Response({'success': False, 'error': 'Phone number already registered'}, status=400)
@@ -46,7 +94,7 @@ def patient_register(request):
     if User.objects.filter(username=username).exists():
         username = f'pat_{phone}_{User.objects.count()}'
 
-    user = User.objects.create(
+    user = User(
         username=username,
         phone=phone,
         password=make_password(password),
@@ -56,6 +104,9 @@ def patient_register(request):
         age=int(age) if age else None,
         address=address,
     )
+    user.assign_patient_code()
+    user.save()
+    sms_patient_registration(user.patient_id, phone)
 
     return Response({
         'success': True,
@@ -111,11 +162,47 @@ def get_current_patient(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+def patient_login_otp(request):
+    """OTP-based patient login using registered phone number."""
+    phone = request.data.get('phone', '').strip()
+    otp = request.data.get('otp', '').strip()
+
+    if not phone or not otp:
+        return Response({'success': False, 'error': 'Phone and OTP required'}, status=400)
+
+    result = verify_otp(phone, otp, 'login')
+    if not result.get('success'):
+        return Response({'success': False, 'error': result.get('error', 'Invalid OTP')}, status=401)
+
+    try:
+        user = User.objects.get(phone=phone, role='patient')
+    except User.DoesNotExist:
+        return Response({'success': False, 'error': 'No patient account for this phone number'}, status=404)
+
+    login(request, user)
+    return Response({
+        'success': True,
+        'message': 'Welcome back!',
+        'patient': _user_payload(user),
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
 def patient_reset_password(request):
     phone = request.data.get('phone')
     password = request.data.get('password')
+    otp = request.data.get('otp')
     if not phone or not password:
         return Response({'success': False, 'error': 'Phone and new password required'}, status=400)
+
+    if not is_otp_verified(phone, 'password_reset') and otp:
+        result = verify_otp(phone, otp, 'password_reset')
+        if not result.get('success'):
+            return Response({'success': False, 'error': result.get('error', 'OTP verification required')}, status=400)
+    elif not is_otp_verified(phone, 'password_reset'):
+        return Response({'success': False, 'error': 'OTP verification required before password reset'}, status=400)
+
     try:
         user = User.objects.get(phone=phone, role='patient')
     except User.DoesNotExist:

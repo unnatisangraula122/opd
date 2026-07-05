@@ -9,11 +9,16 @@ urlpatterns = [
     path('auth/staff/login/', views.staff_login, name='staff-login'),
     path('auth/staff/logout/', views.staff_logout, name='staff-logout'),
     path('auth/me/', views.auth_me, name='auth-me'),
+    path('otp/send/', views.otp_send, name='otp-send'),
+    path('otp/verify/', views.otp_verify, name='otp-verify'),
     path('patient/register/', views.patient_register, name='patient-register'),
     path('patient/login/', views.patient_login, name='patient-login'),
+    path('patient/login/otp/', views.patient_login_otp, name='patient-login-otp'),
     path('patient/logout/', views.patient_logout, name='patient-logout'),
     path('patient/me/', views.get_current_patient, name='patient-me'),
     path('patient/reset-password/', views.patient_reset_password, name='patient-reset-password'),
+    path('patient/validate/', views.validate_old_patient, name='patient-validate'),
+    path('patient/lookup/', views.lookup_patient, name='patient-lookup'),
 
     # Booking
     path('slots/', views.available_slots, name='slots'),
