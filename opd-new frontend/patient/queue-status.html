@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Queue Status - Smart OPD</title>
+    <title>Queue Status - General OPD</title>
     <link rel="stylesheet" href="../css/style.css">
     <style>
         .live-queue-card { background: linear-gradient(135deg, var(--primary-light), var(--primary)); border-radius: var(--radius-lg); padding: 2rem; text-align: center; color: white; }
@@ -15,7 +15,9 @@
         .priority-icon { color: var(--danger); }
         .refresh-btn { position: fixed; bottom: 2rem; right: 2rem; width: 56px; height: 56px; border-radius: 50%; background: var(--secondary); border: none; color: white; font-size: 1.5rem; cursor: pointer; transition: transform 0.3s; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-lg); }
         .refresh-btn:hover { transform: rotate(180deg); }
+        .refresh-btn .med-icon-svg { stroke: #fff; }
         .sound-toggle { position: fixed; bottom: 2rem; left: 2rem; width: 48px; height: 48px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); }
+        .sound-toggle .med-icon-svg { stroke: var(--secondary-dark); }
         .slot-info { background: rgba(255,255,255,0.2); border-radius: var(--radius); padding: 0.5rem 1rem; margin-top: 1rem; font-size: 0.875rem; }
         .status-timeline { display: flex; justify-content: space-between; margin-top: 1.5rem; }
         .status-step { text-align: center; flex: 1; }
@@ -30,7 +32,7 @@
 <body>
     <nav class="navbar">
         <div class="container">
-            <div class="logo"><span class="logo-icon">⚡</span><span class="logo-text">SMART OPD</span></div>
+            <div class="logo"><span class="logo-icon"></span><span class="logo-text">GENERAL OPD</span></div>
             <div class="nav-buttons">
                 <a href="dashboard.html" class="btn btn-outline">Dashboard</a>
                 <a href="../index.html" class="btn btn-primary">Home</a>
@@ -42,9 +44,10 @@
         <!-- Content will be dynamically populated based on time validation -->
     </div>
 
-    <div class="refresh-btn" onclick="refreshQueue()">🔄</div>
-    <div class="sound-toggle" onclick="toggleSound()" id="soundToggle">🔔</div>
+    <div class="refresh-btn" onclick="refreshQueue()" data-icon="refresh" data-icon-size="20"></div>
+    <div class="sound-toggle" onclick="toggleSound()" id="soundToggle" data-icon="bell" data-icon-size="22"></div>
 
+    <script src="../js/icons.js"></script>
     <script src="../js/app.js"></script>
     <script src="../js/api.js"></script>
     <script>
@@ -83,7 +86,7 @@
             if (slotStatus.isUpcoming && !checkedIn) {
                 container.innerHTML = `
                     <div class="alert-card">
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">⏰</div>
+                        <div class="med-icon-box lg" style="margin:0 auto 1rem;" data-icon="clock" data-icon-size="36"></div>
                         <h2 style="color: var(--warning); margin-bottom: 1rem;">Slot Not Started Yet</h2>
                         <p>Your slot (${SLOT_CONFIG[currentPatient.slotType]?.displayTime || currentPatient.slotType}) hasn't started yet. Check-in opens 15 minutes before slot start.</p>
                         <div class="slot-info" style="background: var(--background); color: var(--text-primary); margin-top: 1.5rem;">
@@ -100,7 +103,7 @@
             if (slotStatus.isPassed && !checkedIn) {
                 container.innerHTML = `
                     <div class="alert-card">
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">⛔</div>
+                        <div style="margin-bottom: 1rem;">${medIconSvg('warning', 36)}</div>
                         <h2 style="color: var(--danger); margin-bottom: 1rem;">Slot Expired</h2>
                         <p>Your slot has ended. Please book a new appointment.</p>
                         <a href="booking.html" class="btn btn-primary" style="margin-top: 1.5rem;">Book New Appointment →</a>
@@ -111,7 +114,7 @@
             if (!checkedIn) {
                 container.innerHTML = `
                     <div class="alert-card">
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">🏥</div>
+                        <div style="margin-bottom: 1rem;">${medIconSvg('hospital', 36)}</div>
                         <h2 style="color: var(--warning); margin-bottom: 1rem;">Not Checked In Yet</h2>
                         <p>Please check in at reception to join the live queue.</p>
                         <div class="slot-info" style="background: var(--background); color: var(--text-primary); margin-top: 1.5rem;">
@@ -203,7 +206,8 @@
 
         function toggleSound() {
             soundEnabled = !soundEnabled;
-            document.getElementById('soundToggle').innerHTML = soundEnabled ? '🔔' : '🔕';
+            const el = document.getElementById('soundToggle');
+            el.innerHTML = medIconSvg(soundEnabled ? 'bell' : 'bellOff', 22);
             Toast.show(`Sound alerts ${soundEnabled ? 'enabled' : 'disabled'}`, 'info');
         }
 

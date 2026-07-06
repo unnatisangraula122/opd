@@ -1,5 +1,5 @@
 """
-Add test data for Smart OPD testing
+Add test data for General OPD testing
 Run: python add_test_data.py
 """
 
@@ -16,7 +16,7 @@ from django.contrib.auth.hashers import make_password
 from datetime import date
 
 print("=" * 50)
-print("ADDING TEST DATA TO SMART OPD")
+print("ADDING TEST DATA TO GENERAL OPD")
 print("=" * 50)
 
 # 1. Create Doctor User

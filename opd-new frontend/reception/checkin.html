@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Check-in Management - Smart OPD</title>
+    <title>Check-in Management - General OPD</title>
     <link rel="stylesheet" href="../css/style.css" />
     <style>
       .checkin-container {
@@ -145,7 +145,7 @@
       <div class="container">
         <div class="logo">
           <span class="logo-icon"></span
-          ><span class="logo-text">SMART OPD</span>
+          ><span class="logo-text">GENERAL OPD</span>
         </div>
         <div class="nav-buttons">
           <a href="dashboard.html" class="btn btn-outline">Main Dashboard</a>
@@ -270,6 +270,7 @@
                 class="form-input"
                 id="modalAge"
                 placeholder="Age *"
+                oninput="PatientPriority.syncModalElderlyCheckbox('modalAge', 'modalElderly')"
               />
             </div>
             <div class="form-group">
@@ -293,8 +294,8 @@
             <label>Priority Status (if applicable)</label>
             <div style="display: flex; gap: 1rem; flex-wrap: wrap">
               <label
-                ><input type="checkbox" id="modalElderly" /> Elderly (60+
-                years)</label
+                ><input type="checkbox" id="modalElderly" disabled /> Elderly (70+
+                years — automatic)</label
               >
               <label
                 ><input type="checkbox" id="modalDisabled" /> Disabled</label
@@ -316,6 +317,7 @@
       </div>
     </div>
 
+    <script src="../js/icons.js"></script>
     <script src="../js/app.js"></script>
     <script src="../js/api.js"></script>
     <script>
@@ -394,8 +396,8 @@
         document.getElementById('modalPhone').value = appointment.patient_phone || appointment.phone || '';
         document.getElementById('modalAge').value = appointment.patient_age || '';
         document.getElementById('modalAddress').value = appointment.patient_address || '';
-        document.getElementById('modalElderly').checked = !!appointment.is_elderly;
         document.getElementById('modalDisabled').checked = !!appointment.is_disabled;
+        PatientPriority.syncModalElderlyCheckbox('modalAge', 'modalElderly');
       }
 
       // Determine check-in status based on arrival time
@@ -424,11 +426,11 @@
         currentTokenData = appointment;
         if (['checked_in', 'consulting'].includes(appointment.status)) {
           const pos = getQueuePosition(appointment.token_number);
-          resultDiv.innerHTML = `<div class="alert alert-warning"><span>⚠️</span><div>Already checked in${pos ? ` — Queue position #${pos}` : ''}.</div></div>`;
+          resultDiv.innerHTML = `<div class="alert alert-warning"><span data-icon="warning" data-icon-size="18"></span><div>Already checked in${pos ? ` — Queue position #${pos}` : ''}.</div></div>`;
           return;
         }
         if (appointment.status !== 'booked') {
-          resultDiv.innerHTML = `<div class="alert alert-warning"><span>⚠️</span><div>Status: ${appointment.status}</div></div>`;
+          resultDiv.innerHTML = `<div class="alert alert-warning"><span data-icon="warning" data-icon-size="18"></span><div>Status: ${appointment.status}</div></div>`;
           return;
         }
         const slotStatus = TimeUtils.getAppointmentSlotStatus({
@@ -439,10 +441,19 @@
           status: 'booked',
         });
         if (slotStatus.isPassed) {
-          resultDiv.innerHTML = `<div class="alert alert-danger"><span>⛔</span><div>This slot has passed.</div></div>`;
+          resultDiv.innerHTML = `<div class="alert alert-danger"><span>${medIconSvg('warning', 18)}</span><div>This slot has passed.</div></div>`;
           return;
         }
         const needsRegistration = !appointment.patient_id;
+        const checkInReason = !slotStatus.canCheckIn && !needsRegistration
+          ? TimeUtils.getCheckInUnavailableReason({
+              date: appointment.date,
+              slot: (appointment.slot_type || appointment.slot_type_raw || '').toUpperCase(),
+              start_time: appointment.start_time,
+              end_time: appointment.end_time,
+              status: 'booked',
+            })
+          : null;
         resultDiv.innerHTML = `
           <div class="card" style="padding:1rem; margin-bottom:0.75rem;">
             <h4 style="margin-bottom:0.75rem;">Patient Details</h4>
@@ -459,9 +470,10 @@
             </div>
           </div>
           <div style="margin-top:0.5rem;">
-            <label><input type="checkbox" id="searchElderly" ${appointment.is_elderly ? 'checked' : ''}> Elderly</label>
+            ${PatientPriority.elderlyCheckboxHtml(appointment.patient_age, 'searchElderly')}
             <label style="margin-left:1rem;"><input type="checkbox" id="searchDisabled" ${appointment.is_disabled ? 'checked' : ''}> Disabled</label>
           </div>
+          ${checkInReason ? `<div class="alert alert-info" style="margin-top:0.75rem;"><span>ℹ</span><div>${checkInReason}</div></div>` : ''}
           ${needsRegistration
             ? `<button class="btn btn-primary" style="width:100%;margin-top:1rem;" onclick="startRegisterAndCheckin()">Register & Check In →</button>`
             : `<button class="btn btn-success" style="width:100%;margin-top:1rem;" ${slotStatus.canCheckIn ? '' : 'disabled'} onclick="performCheckin(${appointment.token_id})">Check In →</button>`
@@ -475,7 +487,7 @@
       }
 
       async function performCheckin(tokenId) {
-        const is_elderly = document.getElementById('searchElderly')?.checked || false;
+        const is_elderly = PatientPriority.resolveElderlyFromAge(currentTokenData?.patient_age);
         const is_disabled = document.getElementById('searchDisabled')?.checked || false;
         LoadingOverlay.show();
         const res = await API.checkIn(tokenId, { is_elderly, is_disabled });
@@ -521,7 +533,7 @@
           Toast.show(regRes.error || 'Registration failed', 'error');
           return;
         }
-        const is_elderly = document.getElementById('modalElderly')?.checked || false;
+        const is_elderly = PatientPriority.resolveElderlyFromAge(age);
         const is_disabled = document.getElementById('modalDisabled')?.checked || false;
         const checkRes = await API.checkIn(tokenId, { is_elderly, is_disabled });
         LoadingOverlay.hide();
@@ -529,7 +541,7 @@
         await refreshCheckinData();
         if (!checkRes.success) {
           document.getElementById('tokenSearchResult').innerHTML = `
-            <div class="alert alert-warning"><span>⚠️</span><div>
+            <div class="alert alert-warning"><span data-icon="warning" data-icon-size="18"></span><div>
               Registered — Patient ID: <strong>${regRes.patient.patient_id}</strong><br>
               Check-in failed: ${checkRes.error}
             </div></div>`;
@@ -555,10 +567,10 @@
             return {
               text: `In Queue (#${queuePos})`,
               class: "status-queued",
-              icon: "⏳",
+              statusKey: "in_queue",
             };
           }
-          return { text: "Checked In", class: "status-ontime", icon: "✓" };
+          return { text: "Checked In", class: "status-ontime", statusKey: "completed" };
         }
 
         const slotStatus = TimeUtils.getAppointmentSlotStatus({
@@ -569,15 +581,15 @@
           status: apt.status === 'pending' ? 'booked' : apt.status,
         });
         if (slotStatus.isPassed) {
-          return { text: "Expired", class: "status-expired", icon: "⛔" };
+          return { text: "Expired", class: "status-expired", statusKey: "passed" };
         }
         if (slotStatus.isUpcoming) {
-          return { text: "Upcoming", class: "status-waiting", icon: "📅" };
+          return { text: "Upcoming", class: "status-waiting", statusKey: "upcoming" };
         }
         if (apt.status === "pending") {
-          return { text: "Pending", class: "status-waiting", icon: "⏳" };
+          return { text: "Pending", class: "status-waiting", statusKey: "pending" };
         }
-        return { text: "Unknown", class: "", icon: "?" };
+        return { text: "Unknown", class: "", statusKey: "unknown" };
       }
 
       // Render appointments table
@@ -646,7 +658,7 @@
                         <td>${apt.doctor}</td>
                         <td><span class="slot-tag">${apt.slot}</span></td>
                         <td>${apt.scheduledTime}</td>
-                        <td><span class="status-badge ${status.class}">${status.icon} ${status.text}</span> ${checkinStatusDisplay}</td>
+                        <td><span class="status-badge ${status.class}">${statusIconSvg(status.statusKey)} ${status.text}</span> ${checkinStatusDisplay}</td>
                         <td>${queuePos ? `<span class="queue-position-badge">Position #${queuePos}</span>` : "-"}</td>
                         <td>
                             ${

@@ -8,10 +8,11 @@ from datetime import datetime, timedelta
 from django.contrib.auth import login, logout
 from django.contrib.auth.hashers import make_password
 from accounts.models import User
+from core.utils import format_local_time
 
 # ========== HEALTH CHECK ==========
 def health_check(request):
-    return JsonResponse({'status': 'ok', 'message': 'Smart OPD API is running'})
+    return JsonResponse({'status': 'ok', 'message': 'General OPD API is running'})
 
 
 # ========== BOOKING API ==========
@@ -100,7 +101,7 @@ def book_token(request):
             'token_number': token.token_number,
             'patient_name': token.patient_name,
             'patient_age': token.patient_age,
-            'estimated_time': token.estimated_time.strftime("%I:%M %p"),
+            'estimated_time': format_local_time(token.estimated_time),
             'status': token.status,
             'is_elderly': token.is_elderly
         }
@@ -133,7 +134,7 @@ def search_patient(request):
             'patient_age': token.patient_age,
             'patient_phone': token.patient_phone,
             'status': token.status,
-            'estimated_time': token.estimated_time.strftime("%I:%M %p") if token.estimated_time else None,
+            'estimated_time': format_local_time(token.estimated_time),
             'doctor_name': str(token.slot.doctor),
             'is_elderly': token.is_elderly
         })
@@ -168,7 +169,7 @@ def check_in_patient(request, token_id):
             'token_id': token.id,
             'token_number': token.token_number,
             'status': token.status,
-            'checked_in_at': token.checked_in_at.strftime("%I:%M %p") if token.checked_in_at else None
+            'checked_in_at': format_local_time(token.checked_in_at),
         }
     })
 
@@ -197,7 +198,7 @@ def waiting_queue(request, doctor_id=None):
             'patient_age': token.patient_age,
             'is_elderly': token.is_elderly,
             'doctor_name': str(token.slot.doctor),
-            'checked_in_at': token.checked_in_at.strftime("%I:%M %p") if token.checked_in_at else None
+            'checked_in_at': format_local_time(token.checked_in_at),
         })
     
     queue_list.sort(key=lambda x: (not x['is_elderly'], x['token_number']))
@@ -473,7 +474,7 @@ def get_patient_tokens(request):
             'doctor_name': str(token.slot.doctor),
             'date': token.slot.date,
             'slot_type': token.slot.slot_type,
-            'estimated_time': token.estimated_time.strftime("%I:%M %p") if token.estimated_time else None,
+            'estimated_time': format_local_time(token.estimated_time),
             'status': token.status,
             'is_elderly': token.is_elderly
         })

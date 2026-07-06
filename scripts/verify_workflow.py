@@ -151,7 +151,7 @@ def verify_patient_portal(client, phone, patient_id, token_id):
 
 
 def main():
-    print('\n=== Smart OPD Workflow Verification ===\n')
+    print('\n=== General OPD Workflow Verification ===\n')
     client = Client(enforce_csrf_checks=False)
 
     code, health = jget(client, f'{BASE}/health/')

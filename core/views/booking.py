@@ -16,6 +16,7 @@ from core.utils import (
     ensure_today_tomorrow_slots,
     get_daily_slots_for_dates,
     serialize_slot,
+    format_local_time,
     serialize_token,
     consultation_fee_with_charge,
 )
@@ -128,7 +129,7 @@ def book_token(request):
         paid_at=timezone.now(),
     )
 
-    estimated_str = token.estimated_time.strftime('%I:%M %p') if token.estimated_time else ''
+    estimated_str = format_local_time(token.estimated_time) or ''
     sms_result = sms_token_booking(
         token.token_number,
         estimated_str,

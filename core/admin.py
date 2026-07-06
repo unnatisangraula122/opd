@@ -351,6 +351,6 @@ class DailyAnalyticsAdmin(admin.ModelAdmin):
 # ============================================================
 # Custom Admin Site Settings
 # ============================================================
-admin.site.site_header = "Smart OPD Administration"
-admin.site.site_title = "Smart OPD"
-admin.site.index_title = "Welcome to Smart OPD Management"
+admin.site.site_header = "General OPD Administration"
+admin.site.site_title = "General OPD"
+admin.site.index_title = "Welcome to General OPD Management"

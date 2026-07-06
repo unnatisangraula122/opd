@@ -38,9 +38,9 @@ class Command(BaseCommand):
             self.stdout.write(f'  User: {username} / {password} ({role})')
 
         doctors = [
-            ('doctor1', 'Cardiologist', 'MD, DM', 10),
-            ('doctor2', 'Neurologist', 'MD, DM', 10),
-            ('doctor3', 'Pediatrician', 'MD', 10),
+            ('doctor1', 'General Physician', 'MBBS', 10),
+            ('doctor2', 'General Physician', 'MBBS', 10),
+            ('doctor3', 'General Physician', 'MBBS', 10),
         ]
         for username, spec, qual, avg in doctors:
             user = User.objects.get(username=username)

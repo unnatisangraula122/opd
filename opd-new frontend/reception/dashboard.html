@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Reception Dashboard - Smart OPD</title>
+    <title>Reception Dashboard - General OPD</title>
     <link rel="stylesheet" href="../css/style.css" />
     <style>
       .search-result {
@@ -100,7 +100,7 @@
         <div style="padding: 1.5rem">
           <div class="logo" style="margin-bottom: 2rem">
             <span class="logo-icon"></span
-            ><span class="logo-text">SMART OPD</span>
+            ><span class="logo-text">GENERAL OPD</span>
           </div>
           <div style="text-align: center; margin-bottom: 2rem">
             <div
@@ -116,7 +116,7 @@
                 margin: 0 auto 1rem;
               "
             >
-              👩‍💼
+              <span class="med-icon-box sm" style="margin:0 auto 1rem;" data-icon="reception" data-icon-size="22"></span>
             </div>
             <h4>Reception Desk</h4>
             <p style="color: var(--text-muted)" id="receptionName">
@@ -132,25 +132,25 @@
               class="sidebar-nav-item"
               onclick="window.location.href = 'checkin.html'"
             >
-              ✅ Check-in Desk
+              <span data-icon="checkin" data-icon-size="18"></span> Check-in Desk
             </div>
             <div class="sidebar-nav-item" onclick="showTab('queue')">
-              👥 Waiting Queue
+              <span data-icon="users" data-icon-size="18"></span> Waiting Queue
             </div>
             <div class="sidebar-nav-item" onclick="showTab('lab-payment')">
-              🧪 Lab Payment
+              <span data-icon="flask" data-icon-size="18"></span> Lab Payment
             </div>
             <div class="sidebar-nav-item" onclick="showTab('register')">
-              📝 Register Patient
+              <span data-icon="register" data-icon-size="18"></span> Register Patient
             </div>
             <div class="sidebar-nav-item" onclick="showTab('stats')">
-              📊 Today's Stats
+              <span data-icon="chart" data-icon-size="18"></span> Today's Stats
             </div>
             <div
               class="sidebar-nav-item"
               onclick="window.location.href = '../index.html'"
             >
-              🚪 Logout
+              <span data-icon="logout" data-icon-size="18"></span> Logout
             </div>
           </nav>
         </div>
@@ -161,7 +161,7 @@
 
         <!-- Throttle Alert -->
         <div id="throttleAlert" class="throttle-alert">
-          ⚠️ AUTO-THROTTLING ACTIVE: Doctor queue at 85% capacity. New check-ins
+          <span data-icon="warning" data-icon-size="16" style="vertical-align:middle;margin-right:0.35rem;"></span> AUTO-THROTTLING ACTIVE: Doctor queue at 85% capacity. New check-ins
           temporarily paused.
         </div>
 
@@ -170,7 +170,7 @@
           <div class="card">
             <h3 style="margin-bottom: 1rem">Patient Check-in</h3>
             <div class="alert alert-info" style="margin-bottom: 1rem">
-              <span>ℹ️</span>
+              <span data-icon="info" data-icon-size="18"></span>
               <div>
                 Check-in is only allowed within the patient's slot time. Slots
                 end at: Morning 11:00 AM, Afternoon 2:00 PM, Evening 5:00 PM
@@ -278,8 +278,8 @@
               <label class="form-label">Priority Status (if applicable)</label>
               <div style="display: flex; gap: 1rem; flex-wrap: wrap">
                 <label
-                  ><input type="checkbox" id="priorityElderly" /> Elderly (60+
-                  years)</label
+                  ><input type="checkbox" id="priorityElderly" disabled /> Elderly (70+
+                  years — automatic)</label
                 >
                 <label
                   ><input type="checkbox" id="priorityDisabled" />
@@ -311,28 +311,28 @@
         <div id="statsTab" style="display: none">
           <div class="kpi-grid">
             <div class="kpi-card">
-              <div class="kpi-icon">📋</div>
+              <div class="kpi-icon" data-icon="clipboard" data-icon-size="20"></div>
               <div class="kpi-info">
                 <div class="kpi-label">Total Appointments</div>
                 <div class="kpi-value" id="statsTotal">0</div>
               </div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-icon">✅</div>
+              <div class="kpi-icon success" data-icon="checkCircle" data-icon-size="20"></div>
               <div class="kpi-info">
                 <div class="kpi-label">Checked In</div>
                 <div class="kpi-value" id="statsCheckedIn">0</div>
               </div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-icon">👥</div>
+              <div class="kpi-icon" data-icon="users" data-icon-size="20"></div>
               <div class="kpi-info">
                 <div class="kpi-label">In Queue</div>
                 <div class="kpi-value" id="statsInQueue">0</div>
               </div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-icon">⏰</div>
+              <div class="kpi-icon" data-icon="clock" data-icon-size="20"></div>
               <div class="kpi-info">
                 <div class="kpi-label">Completed</div>
                 <div class="kpi-value" id="statsCompleted">0</div>
@@ -385,6 +385,7 @@
                 class="form-input"
                 id="modalAge"
                 placeholder="Age *"
+                oninput="PatientPriority.syncModalElderlyCheckbox('modalAge', 'modalElderly')"
               />
             </div>
             <div class="form-group">
@@ -407,8 +408,8 @@
             <label>Priority Status</label>
             <div style="display: flex; gap: 1rem">
               <label
-                ><input type="checkbox" id="modalElderly" /> Elderly
-                (60+)</label
+                ><input type="checkbox" id="modalElderly" disabled /> Elderly (70+
+                years — automatic)</label
               >
               <label
                 ><input type="checkbox" id="modalDisabled" /> Disabled</label
@@ -452,6 +453,7 @@
       </div>
     </div>
 
+    <script src="../js/icons.js"></script>
     <script src="../js/app.js"></script>
     <script src="../js/api.js"></script>
     <script>
@@ -513,8 +515,8 @@
         document.getElementById('modalPhone').value = appointment.patient_phone || '';
         document.getElementById('modalAge').value = appointment.patient_age || '';
         document.getElementById('modalAddress').value = appointment.patient_address || '';
-        document.getElementById('modalElderly').checked = !!appointment.is_elderly;
         document.getElementById('modalDisabled').checked = !!appointment.is_disabled;
+        PatientPriority.syncModalElderlyCheckbox('modalAge', 'modalElderly');
       }
 
       // Load data from Django API
@@ -628,7 +630,7 @@
         const appointment = res.patients[0];
         currentSearchResult = appointment;
         if (['checked_in', 'consulting'].includes(appointment.status)) {
-          resultEl.innerHTML = `<div class="alert alert-warning"><span>⚠️</span><div>Already checked in.</div></div>`;
+          resultEl.innerHTML = `<div class="alert alert-warning"><span data-icon="warning" data-icon-size="18"></span><div>Already checked in.</div></div>`;
           resultEl.style.display = "block";
           return;
         }
@@ -645,12 +647,21 @@
           status: 'booked',
         });
         if (slotStatus.isPassed) {
-          resultEl.innerHTML = `<div class="alert alert-danger"><span>⛔</span><div>This slot has passed. Token cannot be checked in.</div></div>`;
+          resultEl.innerHTML = `<div class="alert alert-danger"><span>${medIconSvg('warning', 18)}</span><div>This slot has passed. Token cannot be checked in.</div></div>`;
           resultEl.style.display = "block";
           return;
         }
         const needsRegistration = !appointment.patient_id;
         const checkInDisabled = !slotStatus.canCheckIn && !needsRegistration;
+        const checkInReason = checkInDisabled
+          ? TimeUtils.getCheckInUnavailableReason({
+              date: appointment.date,
+              slot: (appointment.slot_type || appointment.slot_type_raw || '').toUpperCase(),
+              start_time: appointment.start_time,
+              end_time: appointment.end_time,
+              status: 'booked',
+            })
+          : null;
         resultEl.innerHTML = `
           <div class="card" style="margin-bottom:1rem; padding:1rem;">
             <h4 style="margin-bottom:0.75rem;">Patient Details</h4>
@@ -667,12 +678,13 @@
             </div>
           </div>
           <div style="margin-top:0.5rem;">
-            <label><input type="checkbox" id="checkinElderly" ${appointment.is_elderly ? 'checked' : ''}> Elderly (priority)</label>
+            ${PatientPriority.elderlyCheckboxHtml(appointment.patient_age, 'checkinElderly')}
             <label style="margin-left:1rem;"><input type="checkbox" id="checkinDisabled" ${appointment.is_disabled ? 'checked' : ''}> Disabled (priority)</label>
           </div>
+          ${checkInReason ? `<div class="alert alert-info" style="margin-top:1rem;"><span>ℹ</span><div>${checkInReason}</div></div>` : ''}
           ${needsRegistration
             ? `<button class="btn btn-primary" style="margin-top:1rem;width:100%;" onclick="startRegisterAndCheckin()">Register Patient & Check In →</button>`
-            : `<button class="btn btn-success" style="margin-top:1rem;width:100%;" ${checkInDisabled ? 'disabled title="Check-in opens 15 minutes before slot start"' : ''} onclick="confirmCheckin(${appointment.token_id})">Confirm Check-in →</button>`
+            : `<button class="btn btn-success" style="margin-top:1rem;width:100%;" ${checkInDisabled ? 'disabled' : ''} onclick="confirmCheckin(${appointment.token_id})">Confirm Check-in →</button>`
           }`;
         resultEl.style.display = "block";
       }
@@ -714,7 +726,7 @@
           return;
         }
 
-        const is_elderly = document.getElementById('modalElderly')?.checked || false;
+        const is_elderly = PatientPriority.resolveElderlyFromAge(age);
         const is_disabled = document.getElementById('modalDisabled')?.checked || false;
         const checkRes = await API.checkIn(tokenId, { is_elderly, is_disabled });
         LoadingOverlay.hide();
@@ -741,7 +753,7 @@
 
       // Confirm check-in for existing patient
       async function confirmCheckin(tokenId) {
-        const is_elderly = document.getElementById('checkinElderly')?.checked || false;
+        const is_elderly = PatientPriority.resolveElderlyFromAge(currentSearchResult?.patient_age);
         const is_disabled = document.getElementById('checkinDisabled')?.checked || false;
         LoadingOverlay.show();
         const res = await API.checkIn(tokenId, { is_elderly, is_disabled });
@@ -812,7 +824,7 @@
                                 : apt.status === "checked-in"
                                   ? "✓ In Queue"
                                   : isExpired
-                                    ? "⛔ Passed"
+                                  ? "Passed"
                                     : ""
                             }
                          </td>

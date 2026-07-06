@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pharmacy Dashboard - Smart OPD</title>
+    <title>Pharmacy Dashboard - General OPD</title>
     <link rel="stylesheet" href="../css/style.css">
     <style>
         .prescription-card {
@@ -294,20 +294,20 @@
         <div class="sidebar">
             <div style="padding:1.5rem;">
                 <div class="logo" style="margin-bottom:2rem;">
-                    <span class="logo-icon">⚡</span>
-                    <span class="logo-text">SMART OPD</span>
+                    <span class="logo-icon"></span>
+                    <span class="logo-text">GENERAL OPD</span>
                 </div>
                 <div style="text-align:center; margin-bottom:2rem;">
-                    <div style="width:70px;height:70px;background:rgba(59,151,151,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 1rem;">💊</div>
+                    <div style="width:70px;height:70px;background:rgba(59,151,151,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 1rem;"><span class="med-icon-box sm" style="margin:0 auto 1rem;" data-icon="pharmacy" data-icon-size="22"></span></div>
                     <h4>Pharmacy</h4>
                     <p style="color:var(--text-muted);" id="pharmacistName">Pharmacist</p>
                 </div>
                 <nav>
-                    <div class="sidebar-nav-item active" onclick="showTab('queue')">📋 Prescription Queue</div>
-                    <div class="sidebar-nav-item" onclick="showTab('processing')">⚙️ Processing</div>
-                    <div class="sidebar-nav-item" onclick="showTab('dispensed')">✅ Dispensed</div>
+                    <div class="sidebar-nav-item active" onclick="showTab('queue')"><span data-icon="clipboard" data-icon-size="18"></span> Prescription Queue</div>
+                    <div class="sidebar-nav-item" onclick="showTab('processing')"><span data-icon="settings" data-icon-size="18"></span> Processing</div>
+                    <div class="sidebar-nav-item" onclick="showTab('dispensed')"><span data-icon="checkCircle" data-icon-size="18"></span> Dispensed</div>
                     <div class="sidebar-nav-item" onclick="showTab('inventory')">📦 Inventory</div>
-                    <div class="sidebar-nav-item" onclick="window.location.href='../index.html'">🚪 Logout</div>
+                    <div class="sidebar-nav-item" onclick="window.location.href='../index.html'"><span data-icon="logout" data-icon-size="18"></span> Logout</div>
                 </nav>
             </div>
         </div>
@@ -355,7 +355,7 @@
             <div id="inventoryTab" style="display:none;">
                 <div class="card">
                     <h3 style="margin-bottom:1rem;">Medicine Inventory</h3>
-                    <div class="alert alert-info">⚠️ Low stock items are highlighted in yellow. Please reorder.</div>
+                    <div class="alert alert-info"><span data-icon="warning" data-icon-size="16" style="vertical-align:middle;margin-right:0.35rem;"></span> Low stock items are highlighted in yellow. Please reorder.</div>
                     <div class="table-container">
                         <table class="table">
                             <thead>
@@ -385,6 +385,7 @@
         </div>
     </div>
 
+    <script src="../js/icons.js"></script>
     <script src="../js/app.js"></script>
     <script src="../js/api.js"></script>
     <script>
@@ -492,7 +493,7 @@
                         <div>
                             <div style="display:flex; align-items:center; gap:0.5rem;">
                                 <h4>${p.patient}</h4>
-                                <span class="status-badge status-processing">⚙️ Processing</span>
+                                <span class="status-badge status-processing"><span data-icon="settings" data-icon-size="18"></span> Processing</span>
                             </div>
                             <p style="color:var(--text-muted); font-size:0.875rem;">
                                 Token: ${p.token} | Doctor: ${p.doctor}
@@ -525,7 +526,7 @@
                         <div>
                             <div style="display:flex; align-items:center; gap:0.5rem;">
                                 <h4>${p.patient}</h4>
-                                <span class="status-badge status-dispensed">✅ Dispensed</span>
+                                <span class="status-badge status-dispensed"><span data-icon="checkCircle" data-icon-size="18"></span> Dispensed</span>
                             </div>
                             <p style="color:var(--text-muted); font-size:0.875rem;">
                                 Token: ${p.token} | Doctor: ${p.doctor}
@@ -601,7 +602,7 @@
             modalBody.innerHTML = `
                 <div class="prescription-slip">
                     <div class="header">
-                        <h3>SMART OPD</h3>
+                        <h3>GENERAL OPD</h3>
                         <div class="subtitle">Digital Prescription</div>
                     </div>
 

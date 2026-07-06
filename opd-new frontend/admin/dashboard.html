@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Dashboard - Smart OPD</title>
-    <link rel="stylesheet" href="../css/style.css" />
+    <title>Admin Dashboard - General OPD</title>
+    <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
     <div class="sidebar-layout">
@@ -12,7 +12,7 @@
             <div class="sidebar-brand">
                 <div class="logo">
                     <span class="logo-icon"></span>
-                    <span class="logo-text">SMART OPD</span>
+                    <span class="logo-text">GENERAL OPD</span>
                 </div>
             </div>
             <div class="sidebar-user">
@@ -41,7 +41,7 @@
                 </div>
             </nav>
             <div class="sidebar-footer">
-                <div class="sidebar-nav-item" onclick="API.staffLogout().then(() => window.location.href = '../staff/login.html')">
+                <div class="sidebar-nav-item" onclick="API.staffLogout().then(() => window.location.href = '/staff/login.html')">
                     <span class="nav-icon">↩</span> Sign Out
                 </div>
             </div>
@@ -62,22 +62,22 @@
             <div id="overviewSection">
                 <div class="kpi-grid">
                     <div class="stat-card-modern">
-                        <div class="kpi-icon primary">👥</div>
+                        <div class="kpi-icon primary" data-icon="users" data-icon-size="20"></div>
                         <div class="kpi-label">Patients Today</div>
                         <div class="stat-value-modern" id="kpiTotalPatients">—</div>
                     </div>
                     <div class="stat-card-modern">
-                        <div class="kpi-icon warning">⏱</div>
+                        <div class="kpi-icon warning" data-icon="clock" data-icon-size="20"></div>
                         <div class="kpi-label">Avg Wait Time</div>
                         <div class="stat-value-modern" id="kpiAvgWait">—</div>
                     </div>
                     <div class="stat-card-modern">
-                        <div class="kpi-icon success">✓</div>
+                        <div class="kpi-icon success" data-icon="checkCircle" data-icon-size="20"></div>
                         <div class="kpi-label">Completed</div>
                         <div class="stat-value-modern" id="kpiCompleted">—</div>
                     </div>
                     <div class="stat-card-modern">
-                        <div class="kpi-icon info">⊘</div>
+                        <div class="kpi-icon info" data-icon="warning" data-icon-size="20"></div>
                         <div class="kpi-label">No-Show Rate</div>
                         <div class="stat-value-modern" id="kpiNoShowRate">—</div>
                     </div>
@@ -250,8 +250,9 @@
         </main>
     </div>
 
-    <script src="../js/app.js"></script>
-    <script src="../js/api.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/api.js"></script>
     <script>
         let analyticsData = null;
         const sectionTitles = {

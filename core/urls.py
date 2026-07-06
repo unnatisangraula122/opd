@@ -46,6 +46,9 @@ urlpatterns = [
     path('next-patient/<int:doctor_id>/', views.next_patient, name='next-patient-id'),
     path('start-consult/<int:token_id>/', views.start_consultation, name='start-consult'),
     path('complete-consult/<int:token_id>/', views.complete_consultation, name='complete-consult'),
+    path('doctor/completed-today/', views.doctor_completed_today, name='doctor-completed-today'),
+    path('doctor/consultation/<int:token_id>/', views.doctor_consultation_detail, name='doctor-consultation-detail'),
+    path('patient-history/<int:token_id>/', views.patient_history, name='patient-history'),
 
     # Lab
     path('lab/queue/', views.lab_queue, name='lab-queue'),

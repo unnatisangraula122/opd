@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -7,14 +8,22 @@ from rest_framework.response import Response
 
 from core.models import ConsultationSlot, FollowupRule, LabOrder, Payment, Prescription, Token
 from core.permissions import IsPatient
-from core.utils import serialize_token
+from core.utils import format_local_time, serialize_token
+
+
+def _patient_token_filter(user, prefix=''):
+    """Match tokens by linked account or phone number."""
+    q = Q(**{f'{prefix}patient_phone': user.phone})
+    if user.id:
+        q |= Q(**{f'{prefix}patient_id': user.id})
+    return q
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsPatient])
 def get_patient_tokens(request):
     tokens = Token.objects.filter(
-        patient_phone=request.user.phone
+        _patient_token_filter(request.user)
     ).select_related('slot__doctor__user').order_by('-created_at')
 
     tokens_data = [serialize_token(t, include_queue=True) for t in tokens]
@@ -26,7 +35,7 @@ def get_patient_tokens(request):
 def patient_queue_status(request):
     today = timezone.localdate()
     token = Token.objects.filter(
-        patient_phone=request.user.phone,
+        _patient_token_filter(request.user),
         slot__date=today,
         status__in=['booked', 'checked_in', 'consulting'],
     ).select_related('slot__doctor', 'queue_entry').order_by('-created_at').first()
@@ -57,11 +66,12 @@ def patient_queue_status(request):
 @permission_classes([IsAuthenticated, IsPatient])
 def patient_prescriptions(request):
     prescriptions = Prescription.objects.filter(
-        token__patient_phone=request.user.phone
-    ).select_related('token', 'consultation').order_by('-id')
+        _patient_token_filter(request.user, 'token__')
+    ).select_related('token', 'consultation', 'token__slot__doctor').order_by('-id')
 
     data = []
     for p in prescriptions:
+        consult = getattr(p, 'consultation', None)
         data.append({
             'token_number': p.token.token_number,
             'medicine_name': p.medicine_name,
@@ -72,6 +82,8 @@ def patient_prescriptions(request):
             'dispensed': p.dispensed,
             'date': p.token.slot.date.isoformat(),
             'doctor_name': str(p.token.slot.doctor),
+            'diagnosis': consult.diagnosis if consult else '',
+            'symptoms': consult.symptoms if consult else '',
         })
     return Response({'success': True, 'prescriptions': data})
 
@@ -80,18 +92,21 @@ def patient_prescriptions(request):
 @permission_classes([IsAuthenticated, IsPatient])
 def patient_lab_reports(request):
     orders = LabOrder.objects.filter(
-        token__patient_phone=request.user.phone,
+        _patient_token_filter(request.user, 'token__'),
         status='completed',
-    ).select_related('report', 'token')
+    ).select_related('report', 'token', 'token__slot__doctor').order_by('-ordered_at')
     data = []
     for order in orders:
         report = getattr(order, 'report', None)
         data.append({
+            'order_id': order.id,
             'token_number': order.token.token_number,
             'test_name': order.test_name,
             'findings': report.findings if report else '',
             'uploaded_at': report.uploaded_at.isoformat() if report else None,
+            'report_url': report.report_file.url if report and report.report_file else None,
             'date': order.token.slot.date.isoformat(),
+            'doctor_name': str(order.token.slot.doctor),
         })
     return Response({'success': True, 'lab_reports': data})
 
@@ -100,16 +115,21 @@ def patient_lab_reports(request):
 @permission_classes([IsAuthenticated, IsPatient])
 def patient_bills(request):
     payments = Payment.objects.filter(
-        token__patient_phone=request.user.phone
-    ).select_related('token').order_by('-paid_at')
+        _patient_token_filter(request.user, 'token__')
+    ).select_related('token', 'token__slot__doctor').order_by('-paid_at')
     data = []
     for pay in payments:
         data.append({
+            'payment_id': pay.id,
             'token_number': pay.token.token_number,
             'payment_type': pay.payment_type,
             'amount': float(pay.amount),
             'status': pay.status,
+            'reference_number': pay.reference_number or '',
             'paid_at': pay.paid_at.isoformat() if pay.paid_at else None,
+            'paid_at_display': format_local_time(pay.paid_at, '%d %b %Y, %I:%M %p') if pay.paid_at else None,
+            'doctor_name': str(pay.token.slot.doctor),
+            'visit_date': pay.token.slot.date.isoformat(),
         })
     return Response({'success': True, 'bills': data})
 
@@ -118,7 +138,7 @@ def patient_bills(request):
 @permission_classes([IsAuthenticated, IsPatient])
 def create_followup(request, token_id):
     try:
-        original = Token.objects.get(id=token_id, patient_phone=request.user.phone)
+        original = Token.objects.filter(_patient_token_filter(request.user)).get(id=token_id)
     except Token.DoesNotExist:
         return Response({'success': False, 'error': 'Token not found'}, status=404)
 

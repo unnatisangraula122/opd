@@ -11,7 +11,7 @@ class Command(BaseCommand):
         parser.add_argument('phone', help='Recipient phone (e.g. 9801234567)')
         parser.add_argument(
             '--message',
-            default='Smart OPD: Test SMS — your notification system is working.',
+            default='General OPD: Test SMS — your notification system is working.',
             help='Message body',
         )
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Patient Login - Smart OPD</title>
+    <title>Patient Login - General OPD</title>
     <link rel="stylesheet" href="../css/style.css">
     <style>
         .login-container { max-width: 480px; margin: 100px auto 2rem; padding: 0 1.5rem; }
@@ -43,7 +43,7 @@
 <body>
     <nav class="navbar">
         <div class="container">
-            <div class="logo"><span class="logo-icon"></span><span class="logo-text">SMART OPD</span></div>
+            <div class="logo"><span class="logo-icon"></span><span class="logo-text">GENERAL OPD</span></div>
             <div class="nav-buttons">
                 <a href="../index.html" class="btn btn-outline">Home</a>
                 <a href="booking.html" class="btn btn-primary">Book Appointment</a>
@@ -55,18 +55,18 @@
         <!-- Step 1: Login Type Selection -->
         <div id="loginTypeScreen" class="login-card">
             <div style="text-align:center; margin-bottom:1.5rem;">
-                <div style="font-size:3rem;">👤</div>
+                <div style="font-size:3rem;"><span class="med-icon-box sm" style="margin:0 auto 1rem;" data-icon="user" data-icon-size="22"></span></div>
                 <h2>Patient Portal</h2>
                 <p style="color:var(--text-muted);">Access your health records and appointments</p>
             </div>
             <div class="option-card" onclick="showNewPatient()">
-                <div style="font-size:2rem;">📝</div>
+                <div class="med-icon-box" style="margin:0 auto 1rem;" data-icon="edit" data-icon-size="28"></div>
                 <h3>New Patient Registration</h3>
                 <p style="color:var(--text-muted);">First time? Register using your Patient ID</p>
             </div>
             <div class="divider">OR</div>
             <div class="option-card" onclick="showExistingPatient()">
-                <div style="font-size:2rem;">🔐</div>
+                <div class="med-icon-box" style="margin:0 auto 1rem;" data-icon="lock" data-icon-size="28"></div>
                 <h3>Existing Patient Login</h3>
                 <p style="color:var(--text-muted);">Login with Patient ID or Phone OTP</p>
             </div>
@@ -248,6 +248,7 @@
         </div>
     </div>
 
+    <script src="../js/icons.js"></script>
     <script src="../js/app.js"></script>
     <script src="../js/api.js"></script>
     <script>

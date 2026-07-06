@@ -21,7 +21,22 @@ def serve_frontend_file(request, filepath='index.html'):
     return FileResponse(open(full_path, 'rb'), content_type=content_type or 'text/html')
 
 
-urlpatterns = [
+# Frontend static assets — must be registered before Django admin at /admin/
+_frontend_static = [
+    re_path(r'^css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
+    re_path(r'^js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
+    re_path(r'^images/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'images'}),
+    re_path(r'^admin/css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
+    re_path(r'^admin/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
+    re_path(
+        r'^admin/dashboard\.html$',
+        serve_frontend_file,
+        {'filepath': 'admin/dashboard.html'},
+        name='admin-dashboard',
+    ),
+]
+
+urlpatterns = _frontend_static + [
     path('admin/', admin.site.urls),
     path('api/core/', include('core.urls')),
     re_path(r'^(?P<filepath>.*\.html)$', serve_frontend_file, name='frontend-html'),
@@ -30,8 +45,6 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += [
-        re_path(r'^css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
-        re_path(r'^js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
         re_path(r'^patient/css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
         re_path(r'^patient/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
         re_path(r'^reception/css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
@@ -42,10 +55,9 @@ if settings.DEBUG:
         re_path(r'^lab/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
         re_path(r'^pharmacy/css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
         re_path(r'^pharmacy/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
-        re_path(r'^admin/css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
-        re_path(r'^admin/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
         re_path(r'^staff/css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
         re_path(r'^staff/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
+        re_path(r'^patient/images/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'images'}),
     ]
     urlpatterns += [
         re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),

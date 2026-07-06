@@ -9,7 +9,7 @@ from accounts.models import User
 from core.models import DoctorProfile, LabOrder, Payment, Token
 from core.permissions import IsReceptionist, IsReceptionistOrAdmin
 from core.services.sms import sms_patient_registration
-from core.utils import serialize_token
+from core.utils import is_elderly_by_age, serialize_token
 
 
 @api_view(['GET'])
@@ -44,10 +44,8 @@ def check_in_patient(request, token_id):
             'throttled': True,
         }, status=400)
 
-    is_elderly = request.data.get('is_elderly')
     is_disabled = request.data.get('is_disabled')
-    if is_elderly is not None:
-        token.is_elderly = bool(is_elderly)
+    token.is_elderly = is_elderly_by_age(token.patient_age)
     if is_disabled is not None:
         token.is_disabled = bool(is_disabled)
     token.save(update_fields=['is_elderly', 'is_disabled'])

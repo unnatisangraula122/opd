@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Book Appointment - Smart OPD</title>
+    <title>Book Appointment - General OPD</title>
     <link rel="stylesheet" href="../css/style.css">
     <style>
         .date-card, .doctor-card {
@@ -21,8 +21,17 @@
         .booking-sidebar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; position: sticky; top: 100px; }
         .payment-method { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem; cursor: pointer; transition: all 0.3s; }
         .payment-method:hover, .payment-method.selected { border-color: var(--secondary); background: rgba(59,151,151,0.05); }
-        .token-display { background: linear-gradient(135deg, var(--primary-light), var(--primary)); border-radius: var(--radius-lg); padding: 2rem; text-align: center; color: white; }
-        .token-number { font-size: 4rem; font-weight: bold; letter-spacing: 4px; color: var(--accent); }
+        .token-display { background: #fff; border: 2px solid #000; border-radius: 0; padding: 1.5rem; text-align: center; color: #000; max-width: 420px; margin: 0 auto; font-family: 'Courier New', Courier, monospace; }
+        .token-number { font-size: 2.5rem; font-weight: bold; letter-spacing: 6px; color: #000; border: 2px solid #000; display: inline-block; padding: 0.5rem 1.25rem; margin: 0.75rem 0; }
+        .token-receipt-row { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.35rem; text-align: left; }
+        .token-receipt-divider { border-top: 1px dashed #000; margin: 0.75rem 0; }
+        .token-receipt-note { font-size: 0.8rem; text-align: left; margin-top: 0.75rem; padding: 0.5rem; border: 1px dashed #000; }
+        @media print {
+            body * { visibility: hidden; }
+            #tokenDisplay, #tokenDisplay * { visibility: visible; }
+            #tokenDisplay { position: absolute; left: 0; top: 0; width: 100%; border: none; }
+            .steps, .navbar, .booking-sidebar, .btn { display: none !important; }
+        }
         .coupon-input-group { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
         .discount-badge { background: rgba(59,151,151,0.1); color: var(--secondary); padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; display: inline-block; margin-right: 0.5rem; margin-bottom: 0.5rem; }
         .voucher-card { background: rgba(59,151,151,0.1); border: 1px dashed var(--secondary); border-radius: var(--radius-md); padding: 0.75rem; margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
@@ -42,7 +51,7 @@
 <body>
     <nav class="navbar">
         <div class="container">
-            <div class="logo"><span class="logo-icon"></span><span class="logo-text">SMART OPD</span></div>
+            <div class="logo"><span class="logo-icon"></span><span class="logo-text">GENERAL OPD</span></div>
             <div class="nav-buttons"><a href="../index.html" class="btn btn-outline">Home</a><a href="login.html" class="btn btn-primary">Login</a></div>
         </div>
     </nav>
@@ -78,12 +87,13 @@
 </div></div><div class="booking-sidebar" id="bookingSummary"></div></div><div style="display:flex; gap:1rem; margin-top:2rem;"><button class="btn btn-outline" onclick="goToStep(2)">← Back</button><button class="btn btn-primary" onclick="proceedToPayment()">Proceed to Payment →</button></div></div>
 
         <!-- Step 4: Payment -->
-        <div id="step4" style="display:none;"><div class="grid grid-2" style="gap:2rem;"><div><h2 style="margin-bottom:1.5rem;">Select Payment Method</h2><div class="payment-method" onclick="selectPayment('esewa')" id="paymentEsewa"><div style="display:flex; justify-content:space-between;"><div style="display:flex; gap:1rem;"><span style="font-size:2rem;">💳</span><div><strong>eSewa</strong><div style="font-size:0.75rem;">Nepal's Digital Wallet</div></div></div><span id="esewaAmount" style="font-weight:bold; color:var(--secondary);"></span></div></div><div class="payment-method" onclick="selectPayment('khalti')" id="paymentKhalti"><div style="display:flex; justify-content:space-between;"><div style="display:flex; gap:1rem;"><span style="font-size:2rem;">🏦</span><div><strong>Khalti</strong><div style="font-size:0.75rem;">Digital Wallet</div></div></div><span id="khaltiAmount" style="font-weight:bold; color:var(--secondary);"></span></div></div><div class="form-group" style="margin-top:1.5rem;"><label class="form-label">🎫 Voucher / Coupon Code</label><div class="coupon-input-group"><input type="text" class="form-input" id="voucherCode" placeholder="Enter coupon code"><button class="btn btn-outline" onclick="applyVoucher()">Apply</button></div><div id="voucherMessage" style="font-size:0.75rem; margin-top:0.5rem;"></div><div id="appliedVoucher" style="display:none;"></div></div><div style="margin-top:1rem;"><span class="discount-badge">💡 SMART10 (10% off)</span><span class="discount-badge">💡 WELCOME20 (Rs.20 off)</span><span class="discount-badge">💡 FIRST50 (Rs.50 off)</span><span class="discount-badge">💡 HEALTHCARE15 (15% off)</span></div></div><div class="booking-sidebar" id="paymentSummary"></div></div><div style="display:flex; gap:1rem; margin-top:2rem;"><button class="btn btn-outline" onclick="goToStep(3)">← Back</button><button class="btn btn-success" onclick="processPayment()">Pay Now →</button></div></div>
+        <div id="step4" style="display:none;"><div class="grid grid-2" style="gap:2rem;"><div><h2 style="margin-bottom:1.5rem;">Select Payment Method</h2><div class="payment-method" onclick="selectPayment('esewa')" id="paymentEsewa"><div style="display:flex; justify-content:space-between;"><div style="display:flex; gap:1rem;"><span class="payment-icon-box" data-icon="card" data-icon-size="22"></span><div><strong>eSewa</strong><div style="font-size:0.75rem;">Nepal's Digital Wallet</div></div></div><span id="esewaAmount" style="font-weight:bold; color:var(--secondary);"></span></div></div><div class="payment-method" onclick="selectPayment('khalti')" id="paymentKhalti"><div style="display:flex; justify-content:space-between;"><div style="display:flex; gap:1rem;"><span class="payment-icon-box" data-icon="bank" data-icon-size="22"></span><div><strong>Khalti</strong><div style="font-size:0.75rem;">Digital Wallet</div></div></div><span id="khaltiAmount" style="font-weight:bold; color:var(--secondary);"></span></div></div><div class="form-group" style="margin-top:1.5rem;"><label class="form-label">🎫 Voucher / Coupon Code</label><div class="coupon-input-group"><input type="text" class="form-input" id="voucherCode" placeholder="Enter coupon code"><button class="btn btn-outline" onclick="applyVoucher()">Apply</button></div><div id="voucherMessage" style="font-size:0.75rem; margin-top:0.5rem;"></div><div id="appliedVoucher" style="display:none;"></div></div><div style="margin-top:1rem;"><span class="discount-badge">💡 SMART10 (10% off)</span><span class="discount-badge">💡 WELCOME20 (Rs.20 off)</span><span class="discount-badge">💡 FIRST50 (Rs.50 off)</span><span class="discount-badge">💡 HEALTHCARE15 (15% off)</span></div></div><div class="booking-sidebar" id="paymentSummary"></div></div><div style="display:flex; gap:1rem; margin-top:2rem;"><button class="btn btn-outline" onclick="goToStep(3)">← Back</button><button class="btn btn-success" onclick="processPayment()">Pay Now →</button></div></div>
 
         <!-- Step 5: Confirmation -->
         <div id="step5" style="display:none;"><div class="token-display" id="tokenDisplay"></div></div>
     </div>
 
+    <script src="../js/icons.js"></script>
     <script src="../js/app.js"></script>
     <script src="../js/api.js"></script>
     <script>
@@ -104,6 +114,8 @@
             return !isSlotPassed(slot.slot_type_display || slot.slot_type.toUpperCase());
         }
 
+        const DOCTOR_ROLE_LABEL = 'General Physician';
+
         async function loadSlots() {
             LoadingOverlay.show();
             const res = await API.getSlots();
@@ -117,7 +129,7 @@
                     id: s.slot_id,
                     slot_id: s.slot_id,
                     name: s.doctor_name,
-                    specialization: s.specialization,
+                    specialization: DOCTOR_ROLE_LABEL,
                     degree: s.qualification || '',
                     slot: (s.slot_type_display || s.slot_type).toUpperCase(),
                     slot_type: s.slot_type,
@@ -158,12 +170,12 @@
                 <div class="date-card ${!hasBookableToday ? 'disabled' : ''}" onclick="${hasBookableToday ? "selectDate('today')" : ""}" id="dateToday">
                     <div style="font-size:1.25rem; font-weight:bold;">Today</div>
                     <div style="color:var(--text-muted);">${todayDateStr}</div>
-                    ${!hasBookableToday ? '<div class="slot-status slot-passed" style="margin-top:0.5rem;">⛔ No slots available</div>' : ''}
+                    ${!hasBookableToday ? '<div class="slot-status slot-passed" style="margin-top:0.5rem;">No slots available</div>' : ''}
                 </div>
                 <div class="date-card" onclick="selectDate('tomorrow')" id="dateTomorrow">
                     <div style="font-size:1.25rem; font-weight:bold;">Tomorrow</div>
                     <div style="color:var(--text-muted);">${tomorrowDateStr}</div>
-                    <div class="slot-status slot-available" style="margin-top:0.5rem;">✓ Available</div>
+                    <div class="slot-status slot-available" style="margin-top:0.5rem;">Available</div>
                 </div>
             `;
         }
@@ -186,25 +198,22 @@
                 const isSlotPassedToday = (selectedDate === 'today') && isSlotPassed(d.slot);
                 const isFull = d.booked >= d.total;
                 const isBookable = !isSlotPassedToday && !isFull;
-                const slotLabel = d.slot === 'MORNING' ? '🌅 Morning' : d.slot === 'AFTERNOON' ? '☀️ Afternoon' : '🌆 Evening';
+                const slotLabel = d.slot === 'MORNING' ? 'Morning' : d.slot === 'AFTERNOON' ? 'Afternoon' : 'Evening';
                 
                 return `<div class="doctor-card ${!isBookable ? 'disabled' : ''}" onclick="${isBookable ? `selectDoctor(${d.slot_id})` : ''}" data-doctor-id="${d.slot_id}">
-                    <div style="display:flex; gap:1rem;">
-                        <div style="font-size:3rem;">👨‍⚕️</div>
-                        <div style="flex:1;">
-                            <h3>${slotLabel} — ${d.name}</h3>
-                            <p style="color:var(--secondary);">${d.specialization} • ${d.degree}</p>
-                            <div style="margin:0.5rem 0;">
-                                <span class="discount-badge">⏰ ${d.time}</span>
-                                <span class="discount-badge">💰 Rs.${d.fee}</span>
-                                ${isSlotPassedToday ? '<span class="slot-status slot-passed">⛔ Slot Passed</span>' : ''}
-                                ${isFull ? '<span class="slot-status slot-full">📅 Fully Booked</span>' : ''}
-                            </div>
-                            <div class="progress-bar"><div class="progress-fill" style="width:${(d.booked/d.total)*100}%"></div></div>
-                            <div style="display:flex; justify-content:space-between; margin-top:0.5rem;">
-                                <span>${d.booked}/${d.total} booked</span>
-                                <span style="color:var(--secondary);">${d.total-d.booked} available</span>
-                            </div>
+                    <div>
+                        <h3 style="margin-bottom:0.35rem;">${slotLabel} — ${d.name}</h3>
+                        <p style="color:var(--text-muted); margin-bottom:0.5rem;">${DOCTOR_ROLE_LABEL}${d.degree ? ` · ${d.degree}` : ''}</p>
+                        <div style="margin:0.5rem 0; display:flex; flex-wrap:wrap; gap:0.5rem;">
+                            <span class="discount-badge">${d.time}</span>
+                            <span class="discount-badge">Rs.${d.fee}</span>
+                            ${isSlotPassedToday ? '<span class="slot-status slot-passed">Slot passed</span>' : ''}
+                            ${isFull ? '<span class="slot-status slot-full">Fully booked</span>' : ''}
+                        </div>
+                        <div class="progress-bar"><div class="progress-fill" style="width:${(d.booked/d.total)*100}%"></div></div>
+                        <div style="display:flex; justify-content:space-between; margin-top:0.5rem; font-size:0.875rem;">
+                            <span>${d.booked}/${d.total} booked</span>
+                            <span style="color:var(--secondary);">${d.total-d.booked} available</span>
                         </div>
                     </div>
                 </div>`;
@@ -229,7 +238,7 @@
                 <h3 style="margin-bottom:1rem;">Booking Summary</h3>
                 <div style="border-bottom:1px solid var(--border); padding-bottom:0.5rem;">
                     <p><strong>Doctor:</strong> ${selectedDoctor.name}</p>
-                    <p><strong>Specialization:</strong> ${selectedDoctor.specialization}</p>
+                    <p><strong>Physician:</strong> ${DOCTOR_ROLE_LABEL}</p>
                     <p><strong>Date:</strong> ${selectedDate==='today'?'Today':'Tomorrow'}</p>
                     <p><strong>Time:</strong> ${selectedDoctor.time}</p>
                 </div>
@@ -380,7 +389,7 @@
                 } 
                 document.getElementById('esewaAmount').innerHTML=`Rs.${Math.round(total)}`; 
                 document.getElementById('khaltiAmount').innerHTML=`Rs.${Math.round(total)}`; 
-                document.getElementById('paymentSummary').innerHTML=`<h3>Payment Summary</h3><div style="border-bottom:1px solid var(--border); padding-bottom:0.5rem;"><p><strong>${selectedDoctor.name}</strong> - ${selectedDoctor.specialization}</p><p style="color:var(--text-muted);">${selectedDate==='today'?'Today':'Tomorrow'} at ${selectedDoctor.time}</p></div><p><strong>Subtotal:</strong> Rs.${fee+sc}</p>${appliedDiscount.code?`<p><strong>Discount (${appliedDiscount.code}):</strong> -Rs.${appliedDiscount.type==='percentage'?Math.round((fee+sc)*appliedDiscount.value/100):appliedDiscount.value}</p>`:''}<hr style="border-color:var(--border);"><p style="font-size:1.25rem;"><strong>Total:</strong> Rs.${Math.round(total)}</p>`; 
+                document.getElementById('paymentSummary').innerHTML=`<h3>Payment Summary</h3><div style="border-bottom:1px solid var(--border); padding-bottom:0.5rem;"><p><strong>${selectedDoctor.name}</strong> — ${DOCTOR_ROLE_LABEL}</p><p style="color:var(--text-muted);">${selectedDate==='today'?'Today':'Tomorrow'} at ${selectedDoctor.time}</p></div><p><strong>Subtotal:</strong> Rs.${fee+sc}</p>${appliedDiscount.code?`<p><strong>Discount (${appliedDiscount.code}):</strong> -Rs.${appliedDiscount.type==='percentage'?Math.round((fee+sc)*appliedDiscount.value/100):appliedDiscount.value}</p>`:''}<hr style="border-color:var(--border);"><p style="font-size:1.25rem;"><strong>Total:</strong> Rs.${Math.round(total)}</p>`; 
             } 
         }
         
@@ -398,7 +407,7 @@
                 appliedDiscount={type:coupon.type,value:coupon.value,code:code}; 
                 document.getElementById('voucherMessage').innerHTML=`<span style="color:var(--success);">✓ Coupon applied! ${coupon.description}</span>`; 
                 document.getElementById('appliedVoucher').style.display='block'; 
-                document.getElementById('appliedVoucher').innerHTML=`<div class="voucher-card"><div>🎫 ${code} applied</div><button class="btn btn-outline" style="padding:0.25rem 0.75rem;" onclick="removeVoucher()">Remove</button></div>`; 
+                document.getElementById('appliedVoucher').innerHTML=`<div class="voucher-card"><div style="display:flex;align-items:center;gap:0.5rem;">${medIconSvg('token', 18)} ${code} applied</div><button class="btn btn-outline" style="padding:0.25rem 0.75rem;" onclick="removeVoucher()">Remove</button></div>`; 
                 const fee=selectedDoctor.fee, sc=Math.round(fee*0.015); 
                 let total=fee+sc; 
                 if(appliedDiscount.type==='percentage') total=total-(total*appliedDiscount.value/100); 
@@ -406,7 +415,7 @@
                 total=Math.max(total,0); 
                 document.getElementById('esewaAmount').innerHTML=`Rs.${Math.round(total)}`; 
                 document.getElementById('khaltiAmount').innerHTML=`Rs.${Math.round(total)}`; 
-                document.getElementById('paymentSummary').innerHTML=`<h3>Payment Summary</h3><div style="border-bottom:1px solid var(--border); padding-bottom:0.5rem;"><p><strong>${selectedDoctor.name}</strong> - ${selectedDoctor.specialization}</p><p style="color:var(--text-muted);">${selectedDate==='today'?'Today':'Tomorrow'} at ${selectedDoctor.time}</p></div><p><strong>Subtotal:</strong> Rs.${fee+sc}</p><p><strong>Discount (${code}):</strong> -Rs.${appliedDiscount.type==='percentage'?Math.round((fee+sc)*appliedDiscount.value/100):appliedDiscount.value}</p><hr style="border-color:var(--border);"><p style="font-size:1.25rem;"><strong>Total:</strong> Rs.${Math.round(total)}</p><p style="color:var(--secondary);">✨ You saved Rs.${appliedDiscount.type==='percentage'?Math.round((fee+sc)*appliedDiscount.value/100):appliedDiscount.value}</p>`; 
+                document.getElementById('paymentSummary').innerHTML=`<h3>Payment Summary</h3><div style="border-bottom:1px solid var(--border); padding-bottom:0.5rem;"><p><strong>${selectedDoctor.name}</strong> — ${DOCTOR_ROLE_LABEL}</p><p style="color:var(--text-muted);">${selectedDate==='today'?'Today':'Tomorrow'} at ${selectedDoctor.time}</p></div><p><strong>Subtotal:</strong> Rs.${fee+sc}</p><p><strong>Discount (${code}):</strong> -Rs.${appliedDiscount.type==='percentage'?Math.round((fee+sc)*appliedDiscount.value/100):appliedDiscount.value}</p><hr style="border-color:var(--border);"><p style="font-size:1.25rem;"><strong>Total:</strong> Rs.${Math.round(total)}</p><p style="color:var(--secondary);">You saved Rs.${appliedDiscount.type==='percentage'?Math.round((fee+sc)*appliedDiscount.value/100):appliedDiscount.value}</p>`; 
                 Toast.show(`Coupon ${code} applied!`,'success'); 
             } else { 
                 document.getElementById('voucherMessage').innerHTML='<span style="color:var(--danger);">Invalid coupon code.</span>'; 
@@ -421,7 +430,7 @@
             const fee=selectedDoctor.fee, sc=Math.round(fee*0.015), total=fee+sc; 
             document.getElementById('esewaAmount').innerHTML=`Rs.${total}`; 
             document.getElementById('khaltiAmount').innerHTML=`Rs.${total}`; 
-            document.getElementById('paymentSummary').innerHTML=`<h3>Payment Summary</h3><div style="border-bottom:1px solid var(--border); padding-bottom:0.5rem;"><p><strong>${selectedDoctor.name}</strong> - ${selectedDoctor.specialization}</p><p style="color:var(--text-muted);">${selectedDate==='today'?'Today':'Tomorrow'} at ${selectedDoctor.time}</p></div><p><strong>Consultation Fee:</strong> Rs.${fee}</p><p><strong>Service Charge:</strong> Rs.${sc}</p><hr style="border-color:var(--border);"><p style="font-size:1.25rem;"><strong>Total:</strong> Rs.${total}</p>`; 
+            document.getElementById('paymentSummary').innerHTML=`<h3>Payment Summary</h3><div style="border-bottom:1px solid var(--border); padding-bottom:0.5rem;"><p><strong>${selectedDoctor.name}</strong> — ${DOCTOR_ROLE_LABEL}</p><p style="color:var(--text-muted);">${selectedDate==='today'?'Today':'Tomorrow'} at ${selectedDoctor.time}</p></div><p><strong>Consultation Fee:</strong> Rs.${fee}</p><p><strong>Service Charge:</strong> Rs.${sc}</p><hr style="border-color:var(--border);"><p style="font-size:1.25rem;"><strong>Total:</strong> Rs.${total}</p>`; 
             Toast.show('Coupon removed','info'); 
         }
         
@@ -483,7 +492,27 @@
                     Toast.show(`Booked, but SMS not delivered: ${res.sms_warning}`, 'warning');
                 }
                 const t = res.token;
-                document.getElementById('tokenDisplay').innerHTML=`<div style="font-size:1.25rem; margin-bottom:1rem;">✓ Appointment Confirmed!</div><div class="token-number">${t.token_number}</div><div style="margin:1rem 0;">Your Token Number</div><div class="grid grid-2" style="text-align:left; margin-top:1.5rem;"><div><strong>Patient:</strong> ${t.patient_name}</div><div><strong>Doctor:</strong> ${selectedDoctor.name}</div><div><strong>Specialization:</strong> ${selectedDoctor.specialization}</div><div><strong>Date:</strong> ${selectedDate==='today'?'Today':tomorrowDate.toLocaleDateString()}</div><div><strong>Time Slot:</strong> ${selectedDoctor.time}</div><div><strong>Estimated Time:</strong> ${t.estimated_time}</div><div><strong>Payment:</strong> ${selectedPayment==='esewa'?'eSewa':'Khalti'}</div><div><strong>Amount Paid:</strong> Rs.${Math.round(finalAmount)}</div></div><div class="alert alert-info" style="margin-top:1rem; text-align:left;"><span>⚠️</span><div><strong>Important:</strong> Please arrive at reception 15 minutes before ${t.estimated_time} for check-in.</div></div><div style="display:flex; gap:1rem; margin-top:1.5rem; justify-content:center;"><button class="btn btn-primary" onclick="window.location.href='dashboard.html'">Go to Dashboard</button><button class="btn btn-outline" onclick="window.print()">Print Token</button></div>`;
+                const visitDate = selectedDate === 'today' ? 'Today' : tomorrowDate.toLocaleDateString();
+                document.getElementById('tokenDisplay').innerHTML = `
+                  <div class="token-display">
+                    <div style="font-size:0.75rem; letter-spacing:2px;">GENERAL OPD</div>
+                    <div style="font-size:0.7rem; margin-bottom:0.5rem;">APPOINTMENT TOKEN</div>
+                    <div class="token-number">${t.token_number}</div>
+                    <div class="token-receipt-divider"></div>
+                    <div class="token-receipt-row"><span>Patient</span><span>${t.patient_name}</span></div>
+                    <div class="token-receipt-row"><span>Doctor</span><span>${selectedDoctor.name}</span></div>
+                    <div class="token-receipt-row"><span>Physician</span><span>${DOCTOR_ROLE_LABEL}</span></div>
+                    <div class="token-receipt-row"><span>Date</span><span>${visitDate}</span></div>
+                    <div class="token-receipt-row"><span>Slot</span><span>${selectedDoctor.time}</span></div>
+                    <div class="token-receipt-row"><span>Est. Time</span><span>${t.estimated_time}</span></div>
+                    <div class="token-receipt-row"><span>Payment</span><span>${selectedPayment === 'esewa' ? 'eSewa' : 'Khalti'}</span></div>
+                    <div class="token-receipt-row"><span>Amount</span><span>Rs. ${Math.round(finalAmount)}</span></div>
+                    <div class="token-receipt-note">Arrive at reception 15 minutes before ${t.estimated_time} for check-in.</div>
+                    <div style="display:flex; gap:1rem; margin-top:1.25rem; justify-content:center; font-family: inherit;">
+                      <button class="btn btn-primary" onclick="window.location.href='dashboard.html'">Go to Dashboard</button>
+                      <button class="btn btn-outline" onclick="window.print()">Print Token</button>
+                    </div>
+                  </div>`;
                 goToStep(5);
                 Toast.show('Payment successful! Token booked.','success');
             });

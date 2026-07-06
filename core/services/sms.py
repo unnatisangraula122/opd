@@ -29,7 +29,7 @@ def send_sms(phone: str, message: str) -> SmsDeliveryResult:
 
 def sms_patient_registration(patient_code: str, phone: str) -> SmsDeliveryResult:
     message = (
-        f"Welcome to Smart OPD System.\n"
+        f"Welcome to General OPD System.\n"
         f"Your Patient ID is {patient_code}.\n"
         f"Please keep this ID for future visits, token booking and logging in in your dashboard."
     )
@@ -38,7 +38,7 @@ def sms_patient_registration(patient_code: str, phone: str) -> SmsDeliveryResult
 
 def sms_token_booking(token_number: str, estimated_time: str, phone: str, slot_start: str) -> SmsDeliveryResult:
     message = (
-        f"Smart OPD: Your token is {token_number}.\n"
+        f"General OPD: Your token is {token_number}.\n"
         f"Estimated consultation time: around {estimated_time}.\n"
         f"Please arrive at reception at least 15 minutes earlier (before check-in opens) "
         f"for check-in and registration.\n"
@@ -48,13 +48,13 @@ def sms_token_booking(token_number: str, estimated_time: str, phone: str, slot_s
 
 
 def sms_otp(phone: str, otp_code: str, purpose: str = 'verification') -> SmsDeliveryResult:
-    message = f"Smart OPD: Your OTP for {purpose} is {otp_code}. Valid for 5 minutes. Do not share."
+    message = f"General OPD: Your OTP for {purpose} is {otp_code}. Valid for 5 minutes. Do not share."
     return send_sms(phone, message)
 
 
 def sms_lab_report_ready(patient_name: str, test_name: str, phone: str) -> SmsDeliveryResult:
     message = (
-        f"Smart OPD: Lab report for {test_name} is ready, {patient_name}. "
+        f"General OPD: Lab report for {test_name} is ready, {patient_name}. "
         f"Please visit reception or check your patient dashboard."
     )
     return send_sms(phone, message)
@@ -62,7 +62,7 @@ def sms_lab_report_ready(patient_name: str, test_name: str, phone: str) -> SmsDe
 
 def sms_followup_reminder(patient_name: str, followup_date: str, phone: str) -> SmsDeliveryResult:
     message = (
-        f"Smart OPD Reminder: Dear {patient_name}, you have a follow-up appointment "
+        f"General OPD Reminder: Dear {patient_name}, you have a follow-up appointment "
         f"scheduled on {followup_date}. Please book your token in advance."
     )
     return send_sms(phone, message)

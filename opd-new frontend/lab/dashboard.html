@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Lab Dashboard - Smart OPD</title>
+    <title>Lab Dashboard - General OPD</title>
     <link rel="stylesheet" href="../css/style.css" />
     <style>
       .test-card {
@@ -44,7 +44,7 @@
         <div style="padding: 1.5rem">
           <div class="logo" style="margin-bottom: 2rem">
             <span class="logo-icon"></span
-            ><span class="logo-text">SMART OPD</span>
+            ><span class="logo-text">GENERAL OPD</span>
           </div>
           <div style="text-align: center; margin-bottom: 2rem">
             <div
@@ -60,7 +60,7 @@
                 margin: 0 auto 1rem;
               "
             >
-              🔬
+              <span class="med-icon-box sm" style="margin:0 auto 1rem;" data-icon="microscope" data-icon-size="22"></span>
             </div>
             <h4>Lab Technician</h4>
             <p style="color: var(--text-muted)" id="labTechName">
@@ -69,19 +69,19 @@
           </div>
           <nav>
             <div class="sidebar-nav-item active" onclick="showTab('pending')">
-              🧪 Pending Tests
+              <span data-icon="flask" data-icon-size="18"></span> Pending Tests
             </div>
             <div class="sidebar-nav-item" onclick="showTab('processing')">
-              ⚙️ In Progress
+              <span data-icon="settings" data-icon-size="18"></span> In Progress
             </div>
             <div class="sidebar-nav-item" onclick="showTab('completed')">
-              ✅ Completed
+              <span data-icon="checkCircle" data-icon-size="18"></span> Completed
             </div>
             <div
               class="sidebar-nav-item"
               onclick="window.location.href = '../index.html'"
             >
-              🚪 Logout
+              <span data-icon="logout" data-icon-size="18"></span> Logout
             </div>
           </nav>
         </div>
@@ -172,6 +172,7 @@
       </div>
     </div>
 
+    <script src="../js/icons.js"></script>
     <script src="../js/app.js"></script>
     <script src="../js/api.js"></script>
     <script>
@@ -308,6 +309,10 @@
         if (!test) return;
         const formData = new FormData();
         formData.append('findings', `${result}. ${notes || ''}`);
+        const fileInput = document.getElementById('reportFile');
+        if (fileInput?.files?.[0]) {
+          formData.append('report_file', fileInput.files[0]);
+        }
         const res = await API.labComplete(test.order_id, formData);
         if (!res.success) { Toast.show(res.error || 'Failed', 'error'); return; }
         closeResultModal();

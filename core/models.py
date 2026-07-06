@@ -23,7 +23,7 @@ class DoctorProfile(models.Model):
     is_throttled = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"Dr. {self.user.get_full_name()} - {self.specialization}"
+        return f"Dr. {self.user.get_full_name()} - General Physician"
 
     def check_throttle(self):
         """
@@ -206,7 +206,7 @@ class Token(models.Model):
             )
             self.estimated_time = timezone.make_aware(naive_estimate)
 
-        if self.patient_age >= 60:
+        if is_elderly_by_age(self.patient_age):
             self.is_elderly = True
 
         super().save(*args, **kwargs)

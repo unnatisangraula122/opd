@@ -1,4 +1,12 @@
-// Smart OPD System - Core Utilities
+// General OPD System - Core Utilities
+
+function medIconSvg(name, size = 18) {
+    return (typeof MedIcons !== 'undefined') ? MedIcons.svg(name, size) : '';
+}
+
+function statusIconSvg(statusKey, size = 14) {
+    return (typeof MedIcons !== 'undefined') ? MedIcons.status(statusKey, size) : '';
+}
 
 // Toast Notification
 class Toast {
@@ -8,8 +16,11 @@ class Toast {
         this.init();
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
-        const icons = { success: '✓', error: '✗', warning: '⚠', info: 'ℹ' };
-        toast.innerHTML = `<span style="font-size:1.25rem;">${icons[type] || 'ℹ'}</span><span>${message}</span>`;
+        const icons = { success: 'check', error: 'cross', warning: 'warning', info: 'info' };
+        const iconHtml = (typeof MedIcons !== 'undefined')
+            ? MedIcons.svg(icons[type] || 'info', 18)
+            : '';
+        toast.innerHTML = `<span class="toast-icon">${iconHtml}</span><span>${message}</span>`;
         this.container.appendChild(toast);
         setTimeout(() => { toast.style.animation = 'slideOut 0.3s ease'; setTimeout(() => toast.remove(), 300); }, 3000);
     }
@@ -265,6 +276,67 @@ const TimeUtils = {
         const arrival = this.nowMinutes(checkInTime);
         return arrival >= bounds.checkinOpenMinutes && arrival <= bounds.endMinutes;
     },
+
+    formatMinutesAsTime(totalMinutes) {
+        const hour = Math.floor(totalMinutes / 60);
+        const minute = totalMinutes % 60;
+        const date = new Date(2000, 0, 1, hour, minute);
+        return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    },
+
+    getCheckInUnavailableReason(appointment, now = new Date()) {
+        const slotStatus = this.getAppointmentSlotStatus(appointment, now);
+        if (slotStatus.canCheckIn) return null;
+
+        const bounds = this.getSlotBounds(appointment);
+        const dayRelation = this.compareAppointmentDay(appointment.date, now);
+        const openTime = bounds.checkinOpenMinutes != null
+            ? this.formatMinutesAsTime(bounds.checkinOpenMinutes)
+            : 'the slot start';
+
+        if (dayRelation === 'future') {
+            const aptDate = this.parseDate(appointment.date);
+            const dateLabel = aptDate ? this.formatDate(aptDate) : 'the appointment day';
+            return `Check-in opens on ${dateLabel} at ${openTime} (15 minutes before the slot).`;
+        }
+        if (dayRelation === 'past' || slotStatus.isPassed) {
+            return 'This appointment slot has passed. Check-in is no longer available.';
+        }
+        if (slotStatus.isUpcoming) {
+            return `Check-in opens today at ${openTime} (15 minutes before the slot).`;
+        }
+        return 'Check-in is not available right now.';
+    },
+};
+
+const PatientPriority = {
+    ELDERLY_AGE: 70,
+
+    isElderlyByAge(age) {
+        const value = parseInt(age, 10);
+        return !Number.isNaN(value) && value >= this.ELDERLY_AGE;
+    },
+
+    elderlyCheckboxHtml(age, checkboxId) {
+        const isElderly = this.isElderlyByAge(age);
+        if (isElderly) {
+            return `<label><input type="checkbox" id="${checkboxId}" checked disabled> Elderly (70+ — automatic)</label>`;
+        }
+        return `<label style="opacity:0.65"><input type="checkbox" id="${checkboxId}" disabled> Elderly (70+ only — not applicable)</label>`;
+    },
+
+    resolveElderlyFromAge(age) {
+        return this.isElderlyByAge(age);
+    },
+
+    syncModalElderlyCheckbox(ageInputId, checkboxId) {
+        const ageInput = document.getElementById(ageInputId);
+        const checkbox = document.getElementById(checkboxId);
+        if (!ageInput || !checkbox) return;
+        const isElderly = this.isElderlyByAge(ageInput.value);
+        checkbox.checked = isElderly;
+        checkbox.disabled = true;
+    },
 };
 
 // Export
@@ -272,3 +344,4 @@ window.Toast = Toast;
 window.LoadingOverlay = LoadingOverlay;
 window.StorageManager = StorageManager;
 window.TimeUtils = TimeUtils;
+window.PatientPriority = PatientPriority;

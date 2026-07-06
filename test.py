@@ -26,7 +26,7 @@ def get(url):
         return json.loads(response.read().decode())
 
 print("=" * 50)
-print("TESTING SMART OPD BACKEND")
+print("TESTING GENERAL OPD BACKEND")
 print("=" * 50)
 
 # 1. Health check

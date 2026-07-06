@@ -8,6 +8,19 @@ from .models import DoctorProfile, ConsultationSlot, Token
 CONSULTATION_BASE_FEE = Decimal('660.00')
 SERVICE_CHARGE_RATE = Decimal('0.015')
 SLOT_TYPES = ['morning', 'afternoon', 'evening']
+ELDERLY_AGE_THRESHOLD = 70
+DOCTOR_SPECIALIZATION_LABEL = 'General Physician'
+
+
+def doctor_display_name(doctor):
+    return f"Dr. {doctor.user.get_full_name()} - {DOCTOR_SPECIALIZATION_LABEL}"
+
+
+def is_elderly_by_age(age):
+    try:
+        return int(age) >= ELDERLY_AGE_THRESHOLD
+    except (TypeError, ValueError):
+        return False
 
 
 def slot_type_display(slot_type):
@@ -23,6 +36,13 @@ def slot_time_range(slot_type):
     return ranges.get(slot_type, '')
 
 
+def format_local_time(dt, fmt='%I:%M %p'):
+    """Format a timezone-aware datetime in the project's local timezone."""
+    if not dt:
+        return None
+    return timezone.localtime(dt).strftime(fmt)
+
+
 def serialize_slot(slot):
     tokens_left = slot.max_tokens - slot.tokens_booked
     doctor = slot.doctor
@@ -30,8 +50,8 @@ def serialize_slot(slot):
     return {
         'slot_id': slot.id,
         'doctor_id': doctor.id,
-        'doctor_name': str(doctor),
-        'specialization': doctor.specialization,
+        'doctor_name': f"Dr. {doctor.user.get_full_name()}",
+        'specialization': DOCTOR_SPECIALIZATION_LABEL,
         'qualification': doctor.qualification or '',
         'date': slot.date.isoformat(),
         'slot_type': slot.slot_type,
@@ -58,8 +78,8 @@ def serialize_token(token, include_queue=False):
         'patient_address': token.patient_address or '',
         'status': token.status,
         'checkin_status': token.checkin_status,
-        'estimated_time': token.estimated_time.strftime('%I:%M %p') if token.estimated_time else None,
-        'doctor_name': str(token.slot.doctor),
+        'estimated_time': format_local_time(token.estimated_time),
+        'doctor_name': doctor_display_name(token.slot.doctor),
         'doctor_id': token.slot.doctor_id,
         'date': token.slot.date.isoformat(),
         'slot_type': slot_type_display(token.slot.slot_type),
@@ -70,7 +90,7 @@ def serialize_token(token, include_queue=False):
         'is_disabled': token.is_disabled,
         'is_followup': token.is_followup,
         'fee_exempted': token.fee_exempted,
-        'checked_in_at': token.checked_in_at.strftime('%I:%M %p') if token.checked_in_at else None,
+        'checked_in_at': format_local_time(token.checked_in_at),
     }
     if token.patient_id:
         data['patient_user_id'] = token.patient_id

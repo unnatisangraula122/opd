@@ -8,7 +8,7 @@ from rest_framework.response import Response
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def health_check(request):
-    return JsonResponse({'status': 'ok', 'message': 'Smart OPD API is running'})
+    return JsonResponse({'status': 'ok', 'message': 'General OPD API is running'})
 
 
 @ensure_csrf_cookie

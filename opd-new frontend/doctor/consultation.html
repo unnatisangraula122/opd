@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Consultation - General OPD</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <style>
+      .consultation-wrap { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+      .medicine-row { display: grid; grid-template-columns: 2fr 1fr 1fr 2fr auto; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; }
+      .add-medicine { color: var(--secondary); cursor: pointer; font-size: 0.875rem; margin-top: 0.5rem; }
+      .lab-test-item { display: flex; justify-content: space-between; padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 0.5rem; }
+      .timer-display { font-family: monospace; font-size: 1.5rem; font-weight: bold; color: var(--secondary); }
+      .patient-info-box { background: var(--background); padding: 0.75rem; border-radius: var(--radius); margin-bottom: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+      .patient-info-box .label { color: var(--text-muted); font-size: 0.75rem; }
+      .patient-history-panel { background: #f8fafc; border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; max-height: 280px; overflow-y: auto; font-size: 0.85rem; }
+      .history-visit { border-bottom: 1px dashed var(--border); padding-bottom: 0.75rem; margin-bottom: 0.75rem; }
+      .prescription-slip { font-family: 'Courier New', monospace; background: #fff; color: #000; padding: 2rem; max-width: 650px; margin: 0 auto; border: 1px solid #ccc; }
+      .prescription-slip .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 0.75rem; margin-bottom: 1rem; }
+      .prescription-slip .info-row { display: flex; justify-content: space-between; padding: 0.25rem 0; border-bottom: 1px dashed #ccc; font-size: 0.9rem; }
+      .prescription-slip .section { margin: 1rem 0; border-bottom: 1px dashed #ccc; padding-bottom: 0.5rem; }
+      .prescription-slip .section-title { font-weight: 700; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.5rem; }
+      .prescription-slip .medicine-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+      .prescription-slip .medicine-table th, .prescription-slip .medicine-table td { padding: 0.4rem; border-bottom: 1px solid #ddd; text-align: left; }
+      @media print { body * { visibility: hidden; } .prescription-slip, .prescription-slip * { visibility: visible; } .prescription-slip { position: absolute; left: 0; top: 0; width: 100%; border: none; } .modal-header, .modal-footer { display: none !important; } }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="container" style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="logo"><span class="logo-icon"></span><span class="logo-text">GENERAL OPD — Consultation</span></div>
+        <a href="dashboard.html" class="btn btn-outline">← Back to Queue</a>
+      </div>
+    </nav>
+
+    <div class="consultation-wrap" style="margin-top: 5rem;">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:1rem;">
+          <h2 id="currentPatientName">Loading...</h2>
+          <div class="timer-display" id="consultationTimer">00:00</div>
+        </div>
+        <div id="consultationForm"><p style="color:var(--text-muted);">Loading consultation...</p></div>
+      </div>
+    </div>
+
+    <div id="prescriptionModal" class="modal">
+      <div class="modal-content" style="max-width:700px;">
+        <div class="modal-header"><h3>Digital Prescription</h3><button onclick="closeModal()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button></div>
+        <div class="modal-body" id="prescriptionBody"></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+          <button class="btn btn-primary" onclick="window.print()">Print</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="../js/icons.js"></script>
+    <script src="../js/app.js"></script>
+    <script src="../js/api.js"></script>
+    <script>
+      let currentPatient = null;
+      let doctorName = 'Doctor';
+      let medicines = [];
+      let selectedLabTests = [];
+      let consultationStartTime = null;
+      let timerInterval = null;
+      let patientHistoryData = null;
+      let currentPrescriptionData = null;
+
+      async function loadPatientHistory(tokenId) {
+        patientHistoryData = null;
+        const res = await API.doctorPatientHistory(tokenId);
+        if (res.success) patientHistoryData = res;
+      }
+
+      function renderPatientHistoryPanel() {
+        if (!patientHistoryData) return '<div class="patient-history-panel"><em>Loading patient history...</em></div>';
+        if (!patientHistoryData.is_returning && !patientHistoryData.history.length) {
+          return '<div class="patient-history-panel"><strong>New patient</strong> — no prior visit records.</div>';
+        }
+        const visits = patientHistoryData.history || [];
+        if (!visits.length) {
+          return `<div class="patient-history-panel"><strong>Returning patient</strong> (${patientHistoryData.prior_visit_count} prior visit(s)).</div>`;
+        }
+        return `<div class="patient-history-panel"><strong>Patient History</strong> (${patientHistoryData.prior_visit_count} prior visits)
+          ${visits.map(v => `<div class="history-visit"><strong>${v.date}</strong> · ${v.token_number} · ${v.doctor_name}
+            ${v.consultation?.diagnosis ? `<div><strong>Diagnosis:</strong> ${v.consultation.diagnosis}</div>` : ''}
+            ${v.prescriptions?.length ? `<div><strong>Rx:</strong> ${v.prescriptions.map(p => p.medicine_name).join(', ')}</div>` : ''}
+          </div>`).join('')}</div>`;
+      }
+
+      function startTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+          const elapsed = Math.floor((new Date() - consultationStartTime) / 1000);
+          const m = Math.floor(elapsed / 60).toString().padStart(2, '0');
+          const s = (elapsed % 60).toString().padStart(2, '0');
+          document.getElementById('consultationTimer').textContent = `${m}:${s}`;
+        }, 1000);
+      }
+
+      function renderConsultationForm() {
+        medicines = [];
+        selectedLabTests = [];
+        document.getElementById('consultationForm').innerHTML = `
+          ${renderPatientHistoryPanel()}
+          <div class="patient-info-box">
+            <div><span class="label">Patient</span><br><span class="value">${currentPatient.patient}</span></div>
+            <div><span class="label">Token</span><br><span class="value">${currentPatient.token}</span></div>
+            <div><span class="label">Age</span><br><span class="value">${currentPatient.age} years</span></div>
+            <div><span class="label">Type</span><br><span class="value">${currentPatient.is_followup ? 'Follow-up' : currentPatient.category || 'General'}</span></div>
+          </div>
+          <div class="form-group"><label class="form-label">Symptoms *</label><textarea class="form-textarea" id="symptoms" rows="3"></textarea></div>
+          <div class="form-group"><label class="form-label">Diagnosis *</label><input class="form-input" id="diagnosis" placeholder="Enter diagnosis"></div>
+          <div class="form-group"><label class="form-label">Medicines</label><div id="medicinesList"></div><div class="add-medicine" onclick="addMedicine()">+ Add Medicine</div></div>
+          <div class="form-group"><label class="form-label">Lab Tests</label><div id="labTestsList"></div></div>
+          <div class="form-group"><label class="form-label">Follow-up Date</label><input type="date" class="form-input" id="followUp"><small style="color:var(--text-muted);">Follow-up within 3 days is fee exempt</small></div>
+          <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="notes" rows="2"></textarea></div>
+          <div style="display:flex; gap:1rem; margin-top:1rem;">
+            <button class="btn btn-primary" style="flex:1;" onclick="completeConsultation()">Complete Consultation</button>
+            <button class="btn btn-secondary" style="flex:1;" onclick="window.location.href='dashboard.html'">Back to Queue</button>
+          </div>`;
+        renderMedicines();
+        renderLabTests();
+      }
+
+      function renderMedicines() {
+        const c = document.getElementById('medicinesList');
+        if (!c) return;
+        if (!medicines.length) { c.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">No medicines added.</p>'; return; }
+        c.innerHTML = medicines.map((m, i) => `
+          <div class="medicine-row">
+            <input class="form-input" placeholder="Medicine *" value="${m.name || ''}" onchange="updateMedicine(${i},'name',this.value)">
+            <input class="form-input" placeholder="Dosage *" value="${m.dosage || ''}" onchange="updateMedicine(${i},'dosage',this.value)">
+            <input class="form-input" placeholder="Duration *" value="${m.duration || ''}" onchange="updateMedicine(${i},'duration',this.value)">
+            <input class="form-input" placeholder="Instructions *" value="${m.instructions || ''}" onchange="updateMedicine(${i},'instructions',this.value)">
+            <button class="btn btn-danger btn-sm" onclick="removeMedicine(${i})">X</button>
+          </div>`).join('');
+      }
+      function addMedicine() { medicines.push({ name:'', dosage:'', duration:'', instructions:'' }); renderMedicines(); }
+      function removeMedicine(i) { medicines.splice(i, 1); renderMedicines(); }
+      function updateMedicine(i, f, v) { medicines[i][f] = v; }
+
+      const availableTests = ['Complete Blood Count (CBC)','Lipid Profile','Blood Glucose (Fasting)','Liver Function Test (LFT)','Kidney Function Test (KFT)','ECG (12-lead)','Troponin I','Thyroid Profile (TSH)','Vitamin D3','HbA1c'];
+      function renderLabTests() {
+        const c = document.getElementById('labTestsList');
+        if (!c) return;
+        c.innerHTML = (selectedLabTests.length ? selectedLabTests.map((t, i) => `
+          <div class="lab-test-item"><span>${t}</span><button class="btn btn-outline btn-sm" onclick="removeLabTest(${i})">X</button></div>`).join('') : '') + `
+          <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+            <select class="form-select" id="newLabTest" style="flex:1;"><option value="">-- Select test --</option>
+              ${availableTests.filter(t => !selectedLabTests.includes(t)).map(t => `<option>${t}</option>`).join('')}
+            </select>
+            <button class="btn btn-outline" onclick="addSelectedLabTest()">Add</button>
+          </div>`;
+      }
+      function addSelectedLabTest() { const t = document.getElementById('newLabTest')?.value; if (t && !selectedLabTests.includes(t)) { selectedLabTests.push(t); renderLabTests(); } }
+      function removeLabTest(i) { selectedLabTests.splice(i, 1); renderLabTests(); }
+
+      function completeConsultation() {
+        const symptoms = document.getElementById('symptoms')?.value?.trim();
+        const diagnosis = document.getElementById('diagnosis')?.value?.trim();
+        const notes = document.getElementById('notes')?.value?.trim();
+        const followUp = document.getElementById('followUp')?.value;
+        if (!symptoms) { Toast.show('Please enter symptoms', 'error'); return; }
+        if (!diagnosis) { Toast.show('Please enter diagnosis', 'error'); return; }
+        if (!medicines.length && !selectedLabTests.length) { Toast.show('Add at least one medicine or lab test', 'error'); return; }
+        for (let i = 0; i < medicines.length; i++) {
+          const m = medicines[i];
+          if (!m.name || !m.dosage || !m.duration || !m.instructions) { Toast.show(`Fill all fields for medicine ${i + 1}`, 'error'); return; }
+        }
+        const end = new Date();
+        const duration = Math.floor((end - consultationStartTime) / 1000);
+        currentPrescriptionData = {
+          token: currentPatient.token, patient: currentPatient.patient, age: currentPatient.age, doctor: doctorName,
+          date: new Date().toISOString().split('T')[0], symptoms, diagnosis, medicines, labTests: selectedLabTests,
+          followUp: followUp || 'Not specified', notes: notes || 'No additional notes',
+          consultationStart: consultationStartTime.toLocaleTimeString(), consultationEnd: end.toLocaleTimeString(),
+          consultationDuration: `${Math.floor(duration / 60)}m ${duration % 60}s`,
+        };
+        LoadingOverlay.show();
+        API.completeConsult(currentPatient.token_id, {
+          symptoms, diagnosis, notes,
+          medicines: medicines.map(m => ({ name: m.name, dosage: m.dosage, frequency: m.duration, instructions: m.instructions })),
+          lab_tests: selectedLabTests, followup_date: followUp || null,
+        }).then(res => {
+          LoadingOverlay.hide();
+          if (!res.success) { Toast.show(res.error || 'Failed', 'error'); return; }
+          sessionStorage.removeItem('activeConsultation');
+          showPrescriptionSlip(currentPrescriptionData);
+          Toast.show('Consultation completed', 'success');
+        });
+      }
+
+      function showPrescriptionSlip(data) {
+        const meds = (data.medicines || []).map(m => `<tr><td>${m.name}</td><td>${m.dosage}</td><td>${m.duration}</td><td>${m.instructions}</td></tr>`).join('');
+        document.getElementById('prescriptionBody').innerHTML = `
+          <div class="prescription-slip">
+            <div class="header"><h1>GENERAL OPD</h1><div>Digital Prescription</div></div>
+            <div class="info-row"><span>Patient</span><span>${data.patient}</span></div>
+            <div class="info-row"><span>Token</span><span>${data.token}</span></div>
+            <div class="info-row"><span>Doctor</span><span>${data.doctor}</span></div>
+            <div class="info-row"><span>Time</span><span>${data.consultationStart} - ${data.consultationEnd}</span></div>
+            <div class="section"><div class="section-title">Symptoms</div><div>${data.symptoms}</div></div>
+            <div class="section"><div class="section-title">Diagnosis</div><div>${data.diagnosis}</div></div>
+            ${meds ? `<div class="section"><div class="section-title">Medicines</div><table class="medicine-table"><thead><tr><th>Medicine</th><th>Dosage</th><th>Duration</th><th>Instructions</th></tr></thead><tbody>${meds}</tbody></table></div>` : ''}
+            ${data.labTests?.length ? `<div class="section"><div class="section-title">Lab Tests</div>${data.labTests.map(t => `<div>• ${t}</div>`).join('')}</div>` : ''}
+            <div class="section"><div class="section-title">Follow-up</div><div>${data.followUp}</div></div>
+          </div>`;
+        document.getElementById('prescriptionModal').classList.add('active');
+      }
+      function closeModal() { document.getElementById('prescriptionModal').classList.remove('active'); window.location.href = 'dashboard.html'; }
+
+      async function initConsultation() {
+        const user = await API.requireStaff(['doctor'], '../staff/login.html');
+        if (!user) return;
+        doctorName = user.name || 'Doctor';
+        const tokenId = new URLSearchParams(location.search).get('token_id');
+        if (!tokenId) { window.location.href = 'dashboard.html'; return; }
+
+        let data = null;
+        try {
+          const stored = JSON.parse(sessionStorage.getItem('activeConsultation') || 'null');
+          if (stored && String(stored.token_id) === String(tokenId)) data = stored;
+        } catch (_) {}
+
+        if (!data) {
+          const res = await API.doctorConsultationDetail(tokenId);
+          if (!res.success) { Toast.show(res.error || 'Consultation not found', 'error'); setTimeout(() => window.location.href = 'dashboard.html', 2000); return; }
+          data = {
+            token_id: res.token.token_id,
+            token: res.token.token_number,
+            patient: res.token.patient_name,
+            age: res.token.patient_age,
+            category: res.token.category,
+            is_followup: res.token.is_followup,
+            started_at: res.token.started_at,
+          };
+        }
+
+        currentPatient = data;
+        consultationStartTime = data.started_at ? new Date(data.started_at) : new Date();
+        document.getElementById('currentPatientName').textContent =
+          `${data.patient} (Token: ${data.token})${data.is_followup ? ' · Follow-up' : ''}`;
+        await loadPatientHistory(tokenId);
+        renderConsultationForm();
+        startTimer();
+      }
+
+      initConsultation();
+    </script>
+  </body>
+</html>

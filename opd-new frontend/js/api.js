@@ -1,4 +1,4 @@
-// Smart OPD — Django API client (session + CSRF)
+// General OPD — Django API client (session + CSRF)
 
 const API = {
     base: '/api/core',
@@ -89,6 +89,9 @@ const API = {
     nextPatient() { return this.get('/next-patient/'); },
     startConsult(tokenId) { return this.post(`/start-consult/${tokenId}/`, {}); },
     completeConsult(tokenId, d) { return this.post(`/complete-consult/${tokenId}/`, d); },
+    doctorPatientHistory(tokenId) { return this.get(`/patient-history/${tokenId}/`); },
+    doctorCompletedToday() { return this.get('/doctor/completed-today/'); },
+    doctorConsultationDetail(tokenId) { return this.get(`/doctor/consultation/${tokenId}/`); },
 
     // Lab
     labQueue() { return this.get('/lab/queue/'); },

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Patient Dashboard - Smart OPD</title>
+    <title>Patient Dashboard - General OPD</title>
     <link rel="stylesheet" href="../css/style.css" />
     <style>
       .live-queue-card {
@@ -84,6 +84,54 @@
         padding: 1rem;
         margin-bottom: 1rem;
       }
+      .payment-receipt {
+        background: #fff;
+        border: 2px solid #000;
+        padding: 1.25rem;
+        font-family: 'Courier New', Courier, monospace;
+        color: #000;
+        max-width: 380px;
+        margin: 0 auto;
+      }
+      .payment-receipt .receipt-header {
+        text-align: center;
+        border-bottom: 1px dashed #000;
+        padding-bottom: 0.75rem;
+        margin-bottom: 0.75rem;
+      }
+      .payment-receipt .receipt-header h4 {
+        margin: 0;
+        font-size: 1rem;
+        letter-spacing: 1px;
+      }
+      .payment-receipt .receipt-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.85rem;
+        margin-bottom: 0.35rem;
+      }
+      .payment-receipt .receipt-total {
+        border-top: 1px dashed #000;
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+        font-weight: bold;
+        font-size: 1rem;
+      }
+      @media print {
+        body * { visibility: hidden; }
+        #receiptModal.active,
+        #receiptModal.active .payment-receipt,
+        #receiptModal.active .payment-receipt * { visibility: visible; }
+        #receiptModal.active {
+          position: fixed; inset: 0; background: #fff; display: flex !important;
+          align-items: flex-start; justify-content: center; padding: 1rem;
+        }
+        #receiptModal .modal-header,
+        #receiptModal .modal-footer { display: none !important; }
+        #receiptModal .payment-receipt {
+          position: absolute; left: 0; top: 0; width: 100%; border: none;
+        }
+      }
       .status-badge {
         display: inline-block;
         padding: 0.25rem 0.75rem;
@@ -135,8 +183,8 @@
       <div class="sidebar">
         <div style="padding: 1.5rem">
           <div class="logo" style="margin-bottom: 2rem">
-            <span class="logo-icon">⚡</span
-            ><span class="logo-text">SMART OPD</span>
+            <span class="logo-icon"></span
+            ><span class="logo-text">GENERAL OPD</span>
           </div>
           <div style="text-align: center; margin-bottom: 2rem">
             <div
@@ -152,7 +200,7 @@
                 margin: 0 auto 1rem;
               "
             >
-              👤
+              <span class="med-icon-box sm" style="margin:0 auto 1rem;" data-icon="user" data-icon-size="22"></span>
             </div>
             <h4 id="patientName">Patient Name</h4>
             <p style="color: var(--text-muted)" id="patientId">ID: ---</p>
@@ -160,33 +208,33 @@
           <nav>
             <div
               class="sidebar-nav-item active"
-              onclick="showSection('overview')"
+              onclick="showSection('overview', this)"
             >
-              📊 Overview
+              <span data-icon="chart" data-icon-size="18"></span> Overview
             </div>
-            <div class="sidebar-nav-item" onclick="showSection('queue')">
-              ⏰ Live Queue
+            <div class="sidebar-nav-item" onclick="showSection('queue', this)">
+              <span data-icon="clock" data-icon-size="18"></span> Live Queue
             </div>
-            <div class="sidebar-nav-item" onclick="showSection('appointments')">
-              📅 Appointments
+            <div class="sidebar-nav-item" onclick="showSection('appointments', this)">
+              <span data-icon="calendar" data-icon-size="18"></span> Appointments
             </div>
             <div
               class="sidebar-nav-item"
-              onclick="showSection('prescriptions')"
+              onclick="showSection('prescriptions', this)"
             >
-              💊 Prescriptions
+              <span class="med-icon-box sm" style="margin:0 auto 1rem;" data-icon="pharmacy" data-icon-size="22"></span> Prescriptions
             </div>
-            <div class="sidebar-nav-item" onclick="showSection('lab-reports')">
-              🔬 Lab Reports
+            <div class="sidebar-nav-item" onclick="showSection('lab-reports', this)">
+              <span class="med-icon-box sm" style="margin:0 auto 1rem;" data-icon="microscope" data-icon-size="22"></span> Lab Reports
             </div>
-            <div class="sidebar-nav-item" onclick="showSection('bills')">
-              💰 Bills & Payments
+            <div class="sidebar-nav-item" onclick="showSection('bills', this)">
+              <span data-icon="wallet" data-icon-size="18"></span> Bills & Payments
             </div>
             <div
               class="sidebar-nav-item"
               onclick="window.location.href = '../index.html'"
             >
-              🚪 Logout
+              <span data-icon="logout" data-icon-size="18"></span> Logout
             </div>
           </nav>
         </div>
@@ -209,28 +257,28 @@
         <div id="overviewSection">
           <div class="kpi-grid">
             <div class="kpi-card">
-              <div class="kpi-icon">📋</div>
+              <div class="kpi-icon" data-icon="clipboard" data-icon-size="20"></div>
               <div class="kpi-info">
                 <div class="kpi-label">Total Visits</div>
                 <div class="kpi-value" id="totalVisits">0</div>
               </div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-icon">⏰</div>
+              <div class="kpi-icon" data-icon="clock" data-icon-size="20"></div>
               <div class="kpi-info">
                 <div class="kpi-label">Upcoming</div>
                 <div class="kpi-value" id="upcomingCount">0</div>
               </div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-icon">✅</div>
+              <div class="kpi-icon success" data-icon="checkCircle" data-icon-size="20"></div>
               <div class="kpi-info">
                 <div class="kpi-label">Completed</div>
                 <div class="kpi-value" id="completedCount">0</div>
               </div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-icon">💰</div>
+              <div class="kpi-icon" data-icon="wallet" data-icon-size="20"></div>
               <div class="kpi-info">
                 <div class="kpi-label">Total Spent</div>
                 <div class="kpi-value" id="totalSpent">Rs 0</div>
@@ -332,6 +380,22 @@
       </div>
     </div>
 
+    <!-- Payment Receipt Modal -->
+    <div id="receiptModal" class="modal">
+      <div class="modal-content" style="max-width: 420px;">
+        <div class="modal-header">
+          <h3>Payment Receipt</h3>
+          <button type="button" onclick="closeReceiptModal()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button>
+        </div>
+        <div class="modal-body" id="receiptModalBody"></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeReceiptModal()">Close</button>
+          <button class="btn btn-primary" onclick="printReceipt()">Print Receipt</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="../js/icons.js"></script>
     <script src="../js/app.js"></script>
     <script src="../js/api.js"></script>
     <script>
@@ -414,23 +478,44 @@
           const grouped = {};
           rxRes.prescriptions.forEach(p => {
             const key = p.token_number + p.date;
-            if (!grouped[key]) grouped[key] = { id: key, doctor: p.doctor_name, date: p.date, diagnosis: '', medicines: [], followUp: '' };
+            if (!grouped[key]) grouped[key] = { id: key, doctor: p.doctor_name, date: p.date, diagnosis: p.diagnosis || '', medicines: [], followUp: '' };
             grouped[key].medicines.push(`${p.medicine_name} ${p.dosage} - ${p.frequency}`);
           });
           doctorPrescriptions = Object.values(grouped);
         }
-        if (labRes.success) {
-          labReports = labRes.lab_reports.map((l, i) => ({
-            id: i, test: l.test_name, date: l.date, result: l.findings || 'See report', status: 'completed',
-          }));
-        }
+        await refreshLabReportsFromApi();
         if (billsRes.success) {
-          bills = billsRes.bills.map((b, i) => ({
-            id: i, date: (b.paid_at || '').split('T')[0], description: b.payment_type.replace('_', ' '), amount: b.amount, status: b.status,
+          bills = billsRes.bills.map((b) => ({
+            id: b.payment_id,
+            token_number: b.token_number,
+            date: (b.paid_at || '').split('T')[0],
+            paid_at_display: b.paid_at_display || b.paid_at,
+            description: (b.payment_type || '').replace(/_/g, ' '),
+            amount: b.amount,
+            status: b.status,
+            reference_number: b.reference_number,
+            doctor_name: b.doctor_name,
+            visit_date: b.visit_date,
           }));
         }
         renderOverview();
         startDashboardPolling();
+      }
+
+      async function refreshLabReportsFromApi() {
+        const labRes = await API.patientLabReports();
+        if (labRes.success) {
+          labReports = labRes.lab_reports.map((l) => ({
+            id: l.order_id,
+            test: l.test_name,
+            date: l.date,
+            result: l.findings || 'Report uploaded',
+            report_url: l.report_url,
+            doctor: l.doctor_name,
+            token_number: l.token_number,
+            status: 'completed',
+          }));
+        }
       }
 
       function startDashboardPolling() {
@@ -438,12 +523,15 @@
         if (queuePollTimer) clearInterval(queuePollTimer);
         dashboardPollTimer = setInterval(async () => {
           await refreshAppointmentsFromApi();
+          await refreshLabReportsFromApi();
           const overviewVisible = document.getElementById('overviewSection')?.style.display !== 'none';
           const apptVisible = document.getElementById('appointmentsSection')?.style.display !== 'none';
           const queueVisible = document.getElementById('queueSection')?.style.display !== 'none';
+          const labVisible = document.getElementById('labReportsSection')?.style.display !== 'none';
           if (overviewVisible) renderOverview();
           if (apptVisible) renderAllAppointments();
           if (queueVisible) await renderLiveQueue();
+          if (labVisible) renderLabReports();
         }, 5000);
       }
 
@@ -454,11 +542,22 @@
       // ============================================
       // SECTION NAVIGATION
       // ============================================
-      function showSection(section) {
+      function showSection(section, navEl) {
+        const sectionIds = {
+          overview: 'overviewSection',
+          queue: 'queueSection',
+          appointments: 'appointmentsSection',
+          prescriptions: 'prescriptionsSection',
+          'lab-reports': 'labReportsSection',
+          bills: 'billsSection',
+        };
+
         document
           .querySelectorAll('[id$="Section"]')
           .forEach((el) => (el.style.display = "none"));
-        document.getElementById(`${section}Section`).style.display = "block";
+
+        const sectionEl = document.getElementById(sectionIds[section]);
+        if (sectionEl) sectionEl.style.display = "block";
 
         const titles = {
           overview: "Dashboard Overview",
@@ -468,12 +567,12 @@
           "lab-reports": "Lab Reports",
           bills: "Bills & Payments",
         };
-        document.getElementById("sectionTitle").innerText = titles[section];
+        document.getElementById("sectionTitle").innerText = titles[section] || section;
 
         document
           .querySelectorAll(".sidebar-nav-item")
           .forEach((el) => el.classList.remove("active"));
-        event.target.classList.add("active");
+        if (navEl) navEl.classList.add("active");
 
         if (section === "overview") renderOverview();
         if (section === "queue") renderLiveQueue();
@@ -539,7 +638,7 @@
                 <td><strong>${a.token}</strong></td>
                 <td>${a.time}</td>
                 <td>Rs ${a.amount}</td>
-                <td><span class="status-badge ${aptStatus.class}">${aptStatus.icon} ${aptStatus.label}</span></td>
+                <td><span class="status-badge ${aptStatus.class}">${statusIconSvg(aptStatus.status)} ${aptStatus.label}</span></td>
               </tr>
             `;
           })
@@ -566,7 +665,7 @@
           container.innerHTML = `
             <div class="card">
               <div class="alert alert-info">
-                <span>ℹ️</span>
+                <span data-icon="info" data-icon-size="18"></span>
                 <div>Your appointment is scheduled for ${todayAppointment.time}. Please check in at reception when you arrive (check-in opens 15 minutes before your slot).</div>
               </div>
             </div>
@@ -578,7 +677,7 @@
           container.innerHTML = `
             <div class="card">
               <div class="alert alert-danger">
-                <span>⛔</span>
+                <span>${medIconSvg('warning', 18)}</span>
                 <div>Your appointment slot has expired. Please book a new appointment.</div>
               </div>
             </div>
@@ -591,7 +690,7 @@
           container.innerHTML = `
             <div class="card">
               <div class="alert alert-warning">
-                <span>⚠️</span>
+                <span data-icon="warning" data-icon-size="18"></span>
                 <div>You have not checked in yet. Please check in at reception to join the live queue.</div>
               </div>
             </div>
@@ -604,7 +703,7 @@
           container.innerHTML = `
             <div class="card">
               <div class="alert alert-warning">
-                <span>⚠️</span>
+                <span data-icon="warning" data-icon-size="18"></span>
                 <div>You have not checked in yet. Please check in at reception to see your queue position.</div>
               </div>
             </div>
@@ -652,7 +751,7 @@
                 <td><strong>${a.token}</strong></td>
                 <td>${a.time}</td>
                 <td>Rs ${a.amount}</td>
-                <td><span class="status-badge ${aptStatus.class}">${aptStatus.icon} ${aptStatus.label}</span></td>
+                <td><span class="status-badge ${aptStatus.class}">${statusIconSvg(aptStatus.status)} ${aptStatus.label}</span></td>
               </tr>
             `;
           })
@@ -669,6 +768,7 @@
           .map((p) => `
             <div class="prescription-card">
               <div><strong>${p.doctor}</strong><br><small>${p.date}</small></div>
+              ${p.diagnosis ? `<div style="margin-top:0.5rem;"><strong>Diagnosis:</strong> ${p.diagnosis}</div>` : ''}
               <div style="margin-top:1rem;"><strong>Medicines:</strong>
                 <ul>${p.medicines.map((m) => `<li>${m}</li>`).join("")}</ul>
               </div>
@@ -676,34 +776,88 @@
           .join("");
       }
 
+      function viewLabReport(reportId) {
+        const report = labReports.find((r) => r.id === reportId);
+        if (!report) return;
+        if (report.report_url) {
+          window.open(report.report_url, '_blank');
+          return;
+        }
+        Toast.show(report.result || 'No file attached — see findings above.', 'info');
+      }
+
       function renderLabReports() {
+        if (!labReports.length) {
+          document.getElementById("labReportsList").innerHTML =
+            '<div class="alert alert-info">No lab reports yet. Reports appear here after your tests are completed.</div>';
+          return;
+        }
         document.getElementById("labReportsList").innerHTML = labReports
           .map(
             (l) => `
               <div class="lab-report-card">
-                <div style="display:flex; justify-content:space-between;">
-                  <div><strong>${l.test}</strong><br><small>${l.date}</small></div>
-                  <button class="btn btn-outline">View Report</button>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;">
+                  <div>
+                    <strong>${l.test}</strong><br>
+                    <small>${l.date} · Token ${l.token_number || '—'}</small><br>
+                    <small>${l.doctor || ''}</small>
+                  </div>
+                  <button class="btn btn-outline" onclick="viewLabReport(${l.id})">View Report</button>
                 </div>
-                <div style="margin-top:0.5rem;">Result: ${l.result}</div>
+                <div style="margin-top:0.75rem; font-size:0.9rem;"><strong>Findings:</strong> ${l.result}</div>
               </div>
             `
           )
           .join("");
       }
 
+      function openReceiptModal(billId) {
+        const bill = bills.find((b) => b.id === billId);
+        if (!bill) return;
+        document.getElementById('receiptModalBody').innerHTML = `
+          <div class="payment-receipt" id="printableReceipt">
+            <div class="receipt-header">
+              <h4>GENERAL OPD</h4>
+              <div style="font-size:0.75rem;">Payment Receipt</div>
+            </div>
+            <div class="receipt-row"><span>Receipt No.</span><span>${bill.reference_number || bill.id}</span></div>
+            <div class="receipt-row"><span>Date</span><span>${bill.paid_at_display || bill.date}</span></div>
+            <div class="receipt-row"><span>Token</span><span>${bill.token_number || '—'}</span></div>
+            <div class="receipt-row"><span>Doctor</span><span>${bill.doctor_name || '—'}</span></div>
+            <div class="receipt-row"><span>Visit Date</span><span>${bill.visit_date || bill.date}</span></div>
+            <div class="receipt-row"><span>Description</span><span>${bill.description}</span></div>
+            <div class="receipt-row"><span>Status</span><span>${bill.status}</span></div>
+            <div class="receipt-row receipt-total"><span>Amount Paid</span><span>Rs ${bill.amount}</span></div>
+            <div style="text-align:center; margin-top:1rem; font-size:0.7rem;">Thank you for visiting General OPD</div>
+          </div>`;
+        document.getElementById('receiptModal').classList.add('active');
+      }
+
+      function closeReceiptModal() {
+        document.getElementById('receiptModal').classList.remove('active');
+      }
+
+      function printReceipt() {
+        window.print();
+      }
+
       function renderBills() {
         const total = bills.reduce((sum, b) => sum + b.amount, 0);
         document.getElementById("totalPaidAmount").innerText = `Rs ${total}`;
+        if (!bills.length) {
+          document.getElementById("billsList").innerHTML =
+            '<div class="alert alert-info">No payment records found</div>';
+          return;
+        }
         document.getElementById("billsList").innerHTML = bills
           .map(
             (b) => `
               <div class="bill-card">
                 <div style="display:flex; justify-content:space-between;">
-                  <div><strong>${b.description}</strong><br><small>${b.date}</small></div>
+                  <div><strong>${b.description}</strong><br><small>${b.paid_at_display || b.date}</small></div>
                   <div><strong>Rs ${b.amount}</strong><br><span class="status-badge status-completed">${b.status}</span></div>
                 </div>
-                <button class="btn btn-outline" style="margin-top:0.5rem;" onclick="window.print()">Download Receipt</button>
+                <button class="btn btn-outline" style="margin-top:0.5rem;" onclick="openReceiptModal(${b.id})">Download Receipt</button>
               </div>
             `
           )
