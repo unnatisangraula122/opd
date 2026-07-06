@@ -43,9 +43,18 @@ const API = {
     // Auth
     patientRegister(d) { return this.post('/patient/register/', d); },
     patientLogin(d) { return this.post('/patient/login/', d); },
+    patientLoginOtp(d) { return this.post('/patient/login/otp/', d); },
     patientLogout() { return this.post('/patient/logout/', {}); },
     patientMe() { return this.get('/patient/me/'); },
     patientResetPassword(d) { return this.post('/patient/reset-password/', d); },
+    otpSend(d) { return this.post('/otp/send/', d); },
+    otpVerify(d) { return this.post('/otp/verify/', d); },
+    validateOldPatient(d) { return this.post('/patient/validate/', d); },
+    lookupPatient(patientId, phone) {
+        let q = `patient_id=${encodeURIComponent(patientId)}`;
+        if (phone) q += `&phone=${encodeURIComponent(phone)}`;
+        return this.get(`/patient/lookup/?${q}`);
+    },
     staffLogin(d) { return this.post('/auth/staff/login/', d); },
     staffLogout() { return this.post('/auth/staff/logout/', {}); },
     authMe() { return this.get('/auth/me/'); },

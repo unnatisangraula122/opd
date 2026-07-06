@@ -63,7 +63,19 @@
         <div id="step2" style="display:none;"><h2 style="margin-bottom:1.5rem;">Available Doctors for <span id="selectedDateDisplay"></span></h2><div class="grid grid-2" id="doctorsContainer"></div></div>
 
         <!-- Step 3: Patient Details -->
-        <div id="step3" style="display:none;"><div class="grid grid-2" style="gap:2rem;"><div><h2 style="margin-bottom:1.5rem;">Patient Information</h2><div class="form-group"><label class="form-label">Patient Type</label><div style="display:flex; gap:1rem;"><label style="display:flex; align-items:center; gap:0.5rem;"><input type="radio" name="patientType" value="new" onchange="togglePatientForm()"> New Patient</label><label style="display:flex; align-items:center; gap:0.5rem;"><input type="radio" name="patientType" value="old" onchange="togglePatientForm()"> Returning Patient</label></div></div><div id="newPatientForm"><div class="form-group"><input type="text" class="form-input" id="firstName" placeholder="First Name *"></div><div class="form-group"><input type="text" class="form-input" id="lastName" placeholder="Last Name *"></div><div class="form-group"><input type="tel" class="form-input" id="phone" placeholder="Phone Number *"></div><div class="form-group"><input type="number" class="form-input" id="age" placeholder="Age *"></div><div class="form-group"><input type="text" class="form-input" id="address" placeholder="Address"></div></div><div id="oldPatientForm" style="display:none;"><div class="form-group"><input type="text" class="form-input" id="patientId" placeholder="Patient ID *"></div></div></div><div class="booking-sidebar" id="bookingSummary"></div></div><div style="display:flex; gap:1rem; margin-top:2rem;"><button class="btn btn-outline" onclick="goToStep(2)">← Back</button><button class="btn btn-primary" onclick="goToStep(4)">Proceed to Payment →</button></div></div>
+        <div id="step3" style="display:none;"><div class="grid grid-2" style="gap:2rem;"><div><h2 style="margin-bottom:1.5rem;">Patient Information</h2><div class="form-group"><label class="form-label">Patient Type</label><div style="display:flex; gap:1rem;"><label style="display:flex; align-items:center; gap:0.5rem;"><input type="radio" name="patientType" value="new" onchange="togglePatientForm()"> New Patient</label><label style="display:flex; align-items:center; gap:0.5rem;"><input type="radio" name="patientType" value="old" onchange="togglePatientForm()"> Returning Patient</label></div></div><div id="newPatientForm"><div class="form-group"><input type="text" class="form-input" id="firstName" placeholder="First Name *"></div><div class="form-group"><input type="text" class="form-input" id="lastName" placeholder="Last Name *"></div><div class="form-group"><input type="tel" class="form-input" id="phone" placeholder="Phone Number *"></div><div class="form-group"><input type="number" class="form-input" id="age" placeholder="Age *"></div><div class="form-group"><input type="text" class="form-input" id="address" placeholder="Address"></div></div><div id="oldPatientForm" style="display:none;">
+    <div class="form-group"><input type="text" class="form-input" id="oldPatientId" placeholder="Patient ID * (e.g. P0001)"></div>
+    <div class="form-group"><input type="tel" class="form-input" id="oldPhone" placeholder="Phone Number *"></div>
+    <button type="button" class="btn btn-outline" style="width:100%; margin-bottom:1rem;" onclick="validateReturningPatient()">Verify Patient →</button>
+    <div id="oldPatientVerified" style="display:none;">
+        <div class="alert alert-success" style="margin-bottom:1rem;"><span>✓</span><div>Patient verified. Details auto-filled below.</div></div>
+        <div class="form-group"><input type="text" class="form-input" id="oldFirstName" placeholder="First Name" readonly></div>
+        <div class="form-group"><input type="text" class="form-input" id="oldLastName" placeholder="Last Name" readonly></div>
+        <div class="form-group"><input type="tel" class="form-input" id="oldPhoneDisplay" placeholder="Phone Number" readonly></div>
+        <div class="form-group"><input type="number" class="form-input" id="oldAge" placeholder="Age" readonly></div>
+        <div class="form-group"><input type="text" class="form-input" id="oldAddress" placeholder="Address" readonly></div>
+    </div>
+</div></div><div class="booking-sidebar" id="bookingSummary"></div></div><div style="display:flex; gap:1rem; margin-top:2rem;"><button class="btn btn-outline" onclick="goToStep(2)">← Back</button><button class="btn btn-primary" onclick="goToStep(4)">Proceed to Payment →</button></div></div>
 
         <!-- Step 4: Payment -->
         <div id="step4" style="display:none;"><div class="grid grid-2" style="gap:2rem;"><div><h2 style="margin-bottom:1.5rem;">Select Payment Method</h2><div class="payment-method" onclick="selectPayment('esewa')" id="paymentEsewa"><div style="display:flex; justify-content:space-between;"><div style="display:flex; gap:1rem;"><span style="font-size:2rem;">💳</span><div><strong>eSewa</strong><div style="font-size:0.75rem;">Nepal's Digital Wallet</div></div></div><span id="esewaAmount" style="font-weight:bold; color:var(--secondary);"></span></div></div><div class="payment-method" onclick="selectPayment('khalti')" id="paymentKhalti"><div style="display:flex; justify-content:space-between;"><div style="display:flex; gap:1rem;"><span style="font-size:2rem;">🏦</span><div><strong>Khalti</strong><div style="font-size:0.75rem;">Digital Wallet</div></div></div><span id="khaltiAmount" style="font-weight:bold; color:var(--secondary);"></span></div></div><div class="form-group" style="margin-top:1.5rem;"><label class="form-label">🎫 Voucher / Coupon Code</label><div class="coupon-input-group"><input type="text" class="form-input" id="voucherCode" placeholder="Enter coupon code"><button class="btn btn-outline" onclick="applyVoucher()">Apply</button></div><div id="voucherMessage" style="font-size:0.75rem; margin-top:0.5rem;"></div><div id="appliedVoucher" style="display:none;"></div></div><div style="margin-top:1rem;"><span class="discount-badge">💡 SMART10 (10% off)</span><span class="discount-badge">💡 WELCOME20 (Rs.20 off)</span><span class="discount-badge">💡 FIRST50 (Rs.50 off)</span><span class="discount-badge">💡 HEALTHCARE15 (15% off)</span></div></div><div class="booking-sidebar" id="paymentSummary"></div></div><div style="display:flex; gap:1rem; margin-top:2rem;"><button class="btn btn-outline" onclick="goToStep(3)">← Back</button><button class="btn btn-success" onclick="processPayment()">Pay Now →</button></div></div>
@@ -241,7 +253,31 @@
         function togglePatientForm() { 
             const type = document.querySelector('input[name="patientType"]:checked').value; 
             document.getElementById('newPatientForm').style.display = type==='new'?'block':'none'; 
-            document.getElementById('oldPatientForm').style.display = type==='old'?'block':'none'; 
+            document.getElementById('oldPatientForm').style.display = type==='old'?'block':'none';
+            oldPatientVerified = false;
+            document.getElementById('oldPatientVerified').style.display = 'none';
+        }
+
+        let oldPatientVerified = false;
+        let oldPatientData = null;
+
+        async function validateReturningPatient() {
+            const patientId = document.getElementById('oldPatientId').value.trim();
+            const phone = document.getElementById('oldPhone').value.trim();
+            if (!patientId || !phone) { Toast.show('Enter Patient ID and Phone Number', 'error'); return; }
+            LoadingOverlay.show();
+            const res = await API.validateOldPatient({ patient_id: patientId, phone });
+            LoadingOverlay.hide();
+            if (!res.success) { Toast.show(res.error || 'Validation failed', 'error'); return; }
+            oldPatientVerified = true;
+            oldPatientData = res.patient;
+            document.getElementById('oldPatientVerified').style.display = 'block';
+            document.getElementById('oldFirstName').value = res.patient.first_name || '';
+            document.getElementById('oldLastName').value = res.patient.last_name || '';
+            document.getElementById('oldPhoneDisplay').value = res.patient.phone || phone;
+            document.getElementById('oldAge').value = res.patient.age || '';
+            document.getElementById('oldAddress').value = res.patient.address || '';
+            Toast.show('Patient verified successfully', 'success');
         }
         
         function goToStep(step) { 
@@ -328,11 +364,15 @@
                 patientAge=document.getElementById('age').value;
                 patientAddress=document.getElementById('address').value||'';
             } else {
-                if(!document.getElementById('patientId').value){Toast.show('Enter Patient ID','error');return;}
-                patientId=document.getElementById('patientId').value.trim();
-                patientName='Returning Patient';
-                patientPhone='';
-                patientAge=30;
+                if(!document.getElementById('oldPatientId').value || !document.getElementById('oldPhone').value){
+                    Toast.show('Enter Patient ID and Phone Number','error');return;
+                }
+                if(!oldPatientVerified){Toast.show('Please verify patient details first','error');return;}
+                patientId = document.getElementById('oldPatientId').value.trim();
+                patientPhone = document.getElementById('oldPhoneDisplay').value || document.getElementById('oldPhone').value;
+                patientName = `${document.getElementById('oldFirstName').value} ${document.getElementById('oldLastName').value}`.trim() || oldPatientData?.full_name || 'Returning Patient';
+                patientAge = document.getElementById('oldAge').value || oldPatientData?.age || 30;
+                patientAddress = document.getElementById('oldAddress').value || '';
             }
 
             const fee=selectedDoctor.fee, sc=Math.round(fee*0.015);

@@ -138,6 +138,14 @@ def book_token(request):
         paid_at=timezone.now(),
     )
 
+    estimated_str = token.estimated_time.strftime('%I:%M %p') if token.estimated_time else ''
+    sms_token_booking(
+        token.token_number,
+        estimated_str,
+        patient_phone,
+        token.slot.start_time,
+    )
+
     return Response({
         'success': True,
         'message': 'Token booked successfully!',

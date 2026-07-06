@@ -9,6 +9,7 @@ from core.models import (
     Prescription, Token,
 )
 from core.permissions import IsDoctor
+from core.services.analytics import get_next_eligible_token
 from core.utils import get_doctor_for_user, serialize_token
 
 
@@ -94,10 +95,30 @@ def next_patient(request, doctor_id=None):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsDoctor])
 def start_consultation(request, token_id):
+    profile = get_doctor_for_user(request.user)
+    if not profile:
+        return Response({'success': False, 'error': 'Doctor profile not found'}, status=404)
+
     try:
-        token = Token.objects.get(id=token_id, slot__doctor__user=request.user)
+        token = Token.objects.get(id=token_id, slot__doctor=profile)
     except Token.DoesNotExist:
         return Response({'success': False, 'error': 'Token not found'}, status=404)
+
+    next_token = get_next_eligible_token(profile.id)
+    if next_token and next_token.id != token.id:
+        return Response({
+            'success': False,
+            'error': (
+                f'Queue discipline enforced: call token {next_token.token_number} '
+                f'({next_token.patient_name}) first.'
+            ),
+            'next_patient': {
+                'token_id': next_token.id,
+                'token_number': next_token.token_number,
+                'patient_name': next_token.patient_name,
+            },
+        }, status=400)
+
     try:
         token.start_consultation()
     except ValidationError as exc:

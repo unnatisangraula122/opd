@@ -12,6 +12,7 @@ from core.models import (
     ThrottleLog, Token,
 )
 from core.permissions import IsAdmin
+from core.services.analytics import compute_kpis, get_recommendations
 from core.utils import ensure_today_tomorrow_slots, serialize_slot
 
 
@@ -146,34 +147,25 @@ def admin_throttle_logs(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdmin])
 def analytics(request):
-    today = timezone.localdate()
-    today_tokens = Token.objects.filter(slot__date=today)
-
-    completed = today_tokens.filter(status='completed', checked_in_at__isnull=False)
-    wait_times = []
-    for t in completed:
-        if t.consultation_started_at and t.checked_in_at:
-            wait_times.append((t.consultation_started_at - t.checked_in_at).total_seconds() / 60)
-
-    avg_wait = sum(wait_times) / len(wait_times) if wait_times else 0
-    no_shows = today_tokens.filter(status='expired').count()
-    checked_in = today_tokens.filter(status__in=['checked_in', 'consulting', 'completed', 'pending_lab', 'pending_pharmacy']).count()
-
-    doctor_queues = []
-    for doctor in DoctorProfile.objects.all():
-        queue = Token.objects.filter(
-            slot__doctor=doctor, slot__date=today, status='checked_in',
-        ).count()
-        doctor_queues.append({'doctor': str(doctor), 'doctor_id': doctor.id, 'queue': queue})
-
+    kpis = compute_kpis()
+    recommendations = [
+        {
+            'id': r.id,
+            'doctor': str(r.doctor),
+            'configured_avg_minutes': r.configured_avg_minutes,
+            'actual_avg_minutes': float(r.actual_avg_minutes),
+            'variance_percent': float(r.variance_percent),
+            'recommended_avg_minutes': r.recommended_avg_minutes,
+            'message': r.message,
+            'created_at': r.created_at.strftime('%Y-%m-%d %H:%M'),
+        }
+        for r in get_recommendations()
+    ]
     return Response({
         'success': True,
-        'date': today.isoformat(),
-        'total_patients': today_tokens.count(),
-        'completed': today_tokens.filter(status='completed').count(),
-        'checked_in': checked_in,
-        'no_shows': no_shows,
-        'avg_waiting_minutes': round(avg_wait, 1),
-        'doctor_queues': doctor_queues,
-        'throttle_events': ThrottleLog.objects.filter(triggered_at__date=today, action='throttled').count(),
+        **kpis,
+        'recommendations': recommendations,
+        'throttle_events': ThrottleLog.objects.filter(
+            triggered_at__date=timezone.localdate(), action='throttled'
+        ).count(),
     })

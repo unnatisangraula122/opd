@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from accounts.models import User
 from core.models import DoctorProfile, LabOrder, Payment, Token
 from core.permissions import IsReceptionist, IsReceptionistOrAdmin
+from core.services.sms import sms_patient_registration
 from core.utils import serialize_token
 
 
@@ -93,6 +94,8 @@ def register_walkin_patient(request):
         user.age = int(age)
         user.address = address
         user.save()
+    elif created:
+        sms_patient_registration(user.patient_id, phone)
 
     if token_id:
         try:
