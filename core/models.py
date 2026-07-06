@@ -206,8 +206,12 @@ class Token(models.Model):
             )
             self.estimated_time = timezone.make_aware(naive_estimate)
 
-        if is_elderly_by_age(self.patient_age):
-            self.is_elderly = True
+        if self.patient_age is not None:
+            try:
+                if int(self.patient_age) >= 70:
+                    self.is_elderly = True
+            except (TypeError, ValueError):
+                pass
 
         super().save(*args, **kwargs)
 
