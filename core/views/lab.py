@@ -5,6 +5,7 @@ from rest_framework.response import Response
 
 from core.models import ConsultationSlot, LabOrder, LabQueueEntry, LabReport, Token
 from core.permissions import IsLabTech, IsReceptionistOrAdmin
+from core.services.sms import sms_lab_report_ready
 from core.utils import serialize_token
 
 
@@ -86,7 +87,25 @@ def lab_complete_test(request, order_id):
         report.report_file = report_file
         report.save()
 
-    return Response({'success': True, 'message': 'Report uploaded', 'order': _serialize_lab_order(order)})
+    sms_result = None
+    phone = order.token.patient_phone
+    if phone:
+        sms_result = sms_lab_report_ready(
+            order.token.patient_name,
+            order.test_name,
+            phone,
+        )
+
+    payload = {
+        'success': True,
+        'message': 'Report uploaded',
+        'order': _serialize_lab_order(order),
+    }
+    if sms_result is not None:
+        payload['sms_sent'] = sms_result.success
+        if not sms_result.success:
+            payload['sms_warning'] = sms_result.error
+    return Response(payload)
 
 
 @api_view(['GET'])

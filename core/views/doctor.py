@@ -13,9 +13,11 @@ from core.services.analytics import get_next_eligible_token
 from core.utils import get_doctor_for_user, serialize_token
 
 
-def _queue_for_doctor(doctor_id, statuses=('checked_in',)):
+def _queue_for_doctor(doctor_id, slot_type=None, statuses=('checked_in',)):
     today = timezone.localdate()
     doctor_slots = ConsultationSlot.objects.filter(doctor_id=doctor_id, date=today)
+    if slot_type:
+        doctor_slots = doctor_slots.filter(slot_type=slot_type)
     tokens = Token.objects.filter(
         slot__in=doctor_slots,
         status__in=statuses,

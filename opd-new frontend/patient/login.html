@@ -20,6 +20,24 @@
         .password-requirements { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.25rem; }
         .password-requirements.valid { color: var(--success); }
         .timer-text { font-size: 0.7rem; color: var(--warning); margin-top: 0.5rem; }
+        .dev-otp-banner {
+            display: none;
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: var(--radius);
+            background: rgba(13, 148, 136, 0.08);
+            border: 1px dashed var(--secondary);
+            text-align: center;
+        }
+        .dev-otp-banner.visible { display: block; }
+        .dev-otp-code {
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: 0.35rem;
+            color: var(--primary);
+            margin: 0.5rem 0;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
@@ -77,6 +95,7 @@
             <button class="btn btn-outline" style="margin-bottom:1rem;" onclick="backToNewPatientStep1()">← Back</button>
             <h3>Verify Your Mobile Number</h3>
             <p style="color:var(--text-muted);">We've sent a 6-digit OTP to <strong id="otpPhoneDisplay"></strong></p>
+            <div id="regDevOtpBanner" class="dev-otp-banner"></div>
             <div class="otp-group" id="otpGroup">
                 <input type="text" maxlength="1" class="otp-digit" data-index="0" onkeyup="moveToNext(this,0,'otpGroup')">
                 <input type="text" maxlength="1" class="otp-digit" data-index="1" onkeyup="moveToNext(this,1,'otpGroup')">
@@ -155,6 +174,7 @@
             <button class="btn btn-outline" style="margin-bottom:1rem;" onclick="backToForgotPassword()">← Back</button>
             <h3>Verify Your Identity</h3>
             <p style="color:var(--text-muted);">We've sent a 6-digit OTP to <strong id="resetPhoneDisplay"></strong></p>
+            <div id="resetDevOtpBanner" class="dev-otp-banner"></div>
             <div class="otp-group" id="resetOtpGroup">
                 <input type="text" maxlength="1" class="otp-digit" data-index="0" onkeyup="moveToNext(this,0,'resetOtpGroup')">
                 <input type="text" maxlength="1" class="otp-digit" data-index="1" onkeyup="moveToNext(this,1,'resetOtpGroup')">
@@ -168,6 +188,38 @@
                 <button class="btn btn-outline" onclick="resendResetOTP()" id="resendResetOtpBtn">Resend OTP</button>
             </div>
             <button class="btn btn-primary" style="width:100%; margin-top:1rem;" onclick="verifyResetOTP()">Verify OTP →</button>
+        </div>
+
+        <!-- ==================== PHONE OTP LOGIN ==================== -->
+        <div id="phoneOtpLogin" class="login-card" style="display:none;">
+            <button class="btn btn-outline" style="margin-bottom:1rem;" onclick="backToExistingLoginFromOtp()">← Back</button>
+            <h3>Login with OTP</h3>
+            <p style="color:var(--text-muted); margin-bottom:1rem;">Enter your registered phone number</p>
+            <div class="form-group">
+                <label class="form-label">Phone Number <span class="required">*</span></label>
+                <input type="tel" class="form-input" id="loginOtpPhone" placeholder="98XXXXXXXX">
+            </div>
+            <button class="btn btn-primary" style="width:100%" onclick="sendLoginOTP()">Send OTP →</button>
+        </div>
+
+        <div id="loginOtpVerifyScreen" class="login-card" style="display:none;">
+            <button class="btn btn-outline" style="margin-bottom:1rem;" onclick="backToPhoneOtpLogin()">← Back</button>
+            <h3>Enter OTP</h3>
+            <p style="color:var(--text-muted);">We've sent a 6-digit OTP to <strong id="loginOtpPhoneDisplay"></strong></p>
+            <div id="loginDevOtpBanner" class="dev-otp-banner"></div>
+            <div class="otp-group" id="loginOtpGroup">
+                <input type="text" maxlength="1" class="otp-digit" data-index="0" onkeyup="moveToNext(this,0,'loginOtpGroup')">
+                <input type="text" maxlength="1" class="otp-digit" data-index="1" onkeyup="moveToNext(this,1,'loginOtpGroup')">
+                <input type="text" maxlength="1" class="otp-digit" data-index="2" onkeyup="moveToNext(this,2,'loginOtpGroup')">
+                <input type="text" maxlength="1" class="otp-digit" data-index="3" onkeyup="moveToNext(this,3,'loginOtpGroup')">
+                <input type="text" maxlength="1" class="otp-digit" data-index="4" onkeyup="moveToNext(this,4,'loginOtpGroup')">
+                <input type="text" maxlength="1" class="otp-digit" data-index="5" onkeyup="moveToNext(this,5,'loginOtpGroup')">
+            </div>
+            <div id="loginOtpTimer" class="timer-text" style="text-align:center;"></div>
+            <div style="text-align:center; margin-top:0.5rem;">
+                <button class="btn btn-outline" onclick="resendLoginOTP()" id="resendLoginOtpBtn">Resend OTP</button>
+            </div>
+            <button class="btn btn-primary" style="width:100%; margin-top:1rem;" onclick="verifyLoginOTP()">Login →</button>
         </div>
 
         <!-- Step C3: Forgot Password - Set New Password (After OTP Verified) -->
@@ -202,8 +254,84 @@
         // Global variables
         let regData = {};
         let resetData = {};
+        let loginOtpData = {};
         let otpTimer = null;
-        let timeLeft = 60;
+        let timeLeft = 300;
+        const OTP_EXPIRY_SECONDS = 300;
+        const RESEND_COOLDOWN_SECONDS = 60;
+
+        function showDevOtpHint(bannerId, res) {
+            const banner = document.getElementById(bannerId);
+            if (!banner) return;
+            if (res.dev_otp) {
+                banner.className = 'dev-otp-banner visible';
+                banner.innerHTML = `
+                    <div style="font-size:0.8rem; color:var(--text-secondary);">Dummy OTP mode — not sent to your phone</div>
+                    <div class="dev-otp-code">${res.dev_otp}</div>
+                    <div style="font-size:0.75rem; color:var(--text-muted);">Enter this code above. Default dummy OTP is 123456.</div>
+                `;
+            } else {
+                banner.className = 'dev-otp-banner';
+                banner.innerHTML = '';
+            }
+        }
+
+        function getOtpFromGroup(groupId) {
+            let otp = '';
+            document.querySelectorAll(`#${groupId} .otp-digit`).forEach(i => otp += i.value);
+            return otp;
+        }
+
+        function clearOtpGroup(groupId) {
+            document.querySelectorAll(`#${groupId} .otp-digit`).forEach((input, idx) => {
+                input.value = '';
+                if (idx === 0) input.focus();
+            });
+        }
+
+        function startOtpTimer(timerElementId, resendBtnId, seconds = OTP_EXPIRY_SECONDS) {
+            timeLeft = seconds;
+            const timerElement = document.getElementById(timerElementId);
+            const resendBtn = resendBtnId ? document.getElementById(resendBtnId) : null;
+            if (!timerElement) return;
+
+            if (otpTimer) clearInterval(otpTimer);
+            if (resendBtn) resendBtn.disabled = true;
+
+            timerElement.innerHTML = `OTP expires in ${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}`;
+
+            otpTimer = setInterval(() => {
+                timeLeft--;
+                if (timeLeft > 0) {
+                    timerElement.innerHTML = `OTP expires in ${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}`;
+                } else {
+                    clearInterval(otpTimer);
+                    otpTimer = null;
+                    timerElement.innerHTML = 'OTP expired. Please request a new one.';
+                    if (resendBtn) resendBtn.disabled = false;
+                }
+            }, 1000);
+
+            if (resendBtn) {
+                setTimeout(() => { resendBtn.disabled = false; }, RESEND_COOLDOWN_SECONDS * 1000);
+            }
+        }
+
+        function stopTimer() {
+            if (otpTimer) {
+                clearInterval(otpTimer);
+                otpTimer = null;
+            }
+        }
+
+        function savePatientSession(patient) {
+            StorageManager.setUser({
+                patientId: patient.patient_id,
+                phone: patient.phone,
+                name: patient.name,
+                isLoggedIn: true,
+            });
+        }
         
         // ==================== NAVIGATION FUNCTIONS ====================
         function backToLoginType() {
@@ -254,36 +382,27 @@
             document.getElementById('existingPatientLogin').style.display = 'none';
             document.getElementById('forgotPasswordScreen').style.display = 'block';
         }
-        
-        // ==================== TIMER FUNCTIONS ====================
-        function startTimer(timerElementId, onExpire) {
-            timeLeft = 60;
-            const timerElement = document.getElementById(timerElementId);
-            if (!timerElement) return;
-            
-            if (otpTimer) clearInterval(otpTimer);
-            
-            otpTimer = setInterval(() => {
-                timeLeft--;
-                timerElement.innerHTML = `OTP expires in ${timeLeft} seconds`;
-                
-                if (timeLeft <= 0) {
-                    clearInterval(otpTimer);
-                    timerElement.innerHTML = 'OTP expired. Please request a new one.';
-                    if (onExpire) onExpire();
-                }
-            }, 1000);
+
+        function showPhoneOtpLogin() {
+            document.getElementById('existingPatientLogin').style.display = 'none';
+            document.getElementById('phoneOtpLogin').style.display = 'block';
         }
-        
-        function stopTimer() {
-            if (otpTimer) {
-                clearInterval(otpTimer);
-                otpTimer = null;
-            }
+
+        function backToExistingLoginFromOtp() {
+            document.getElementById('phoneOtpLogin').style.display = 'none';
+            document.getElementById('loginOtpVerifyScreen').style.display = 'none';
+            document.getElementById('existingPatientLogin').style.display = 'block';
+            stopTimer();
+        }
+
+        function backToPhoneOtpLogin() {
+            document.getElementById('loginOtpVerifyScreen').style.display = 'none';
+            document.getElementById('phoneOtpLogin').style.display = 'block';
+            stopTimer();
         }
         
         // ==================== NEW PATIENT REGISTRATION ====================
-        function sendRegistrationOTP() {
+        async function sendRegistrationOTP() {
             const id = document.getElementById('regPatientId').value.trim();
             const phone = document.getElementById('regPhone').value.trim();
             
@@ -296,56 +415,51 @@
                 Toast.show('Please enter a valid phone number', 'error');
                 return;
             }
-            
-            // Check if patient ID already registered
-            const users = JSON.parse(localStorage.getItem('smartOPD_users') || '[]');
-            const existingUser = users.find(u => u.patientId === id);
-            if (existingUser) {
-                Toast.show('This Patient ID is already registered. Please login.', 'error');
+
+            LoadingOverlay.show();
+            const validation = await API.validateOldPatient({ patient_id: id, phone });
+            if (!validation.success) {
+                LoadingOverlay.hide();
+                Toast.show(validation.error || 'Patient ID and phone do not match', 'error');
                 return;
             }
-            
-            regData = { id, phone };
+
+            const res = await API.otpSend({ phone, purpose: 'registration' });
+            LoadingOverlay.hide();
+            if (!res.success) {
+                Toast.show(res.error || 'Failed to send OTP', 'error');
+                return;
+            }
+
+            regData = { id, phone, patient: validation.patient };
             document.getElementById('otpPhoneDisplay').innerHTML = phone;
-            
             document.getElementById('newPatientStep1').style.display = 'none';
             document.getElementById('newPatientStep2').style.display = 'block';
-            
-            // Clear OTP inputs
-            document.querySelectorAll('#otpGroup .otp-digit').forEach((input, idx) => {
-                input.value = '';
-                if (idx === 0) input.focus();
-            });
-            
-            // Start OTP timer
-            startTimer('otpTimer', () => {
-                document.getElementById('resendOtpBtn').disabled = false;
-            });
-            document.getElementById('resendOtpBtn').disabled = true;
-            
-            Toast.show('OTP sent to your phone number', 'success');
+            clearOtpGroup('otpGroup');
+            startOtpTimer('otpTimer', 'resendOtpBtn', res.expires_in || OTP_EXPIRY_SECONDS);
+            showDevOtpHint('regDevOtpBanner', res);
+            Toast.show(res.message || 'OTP sent to your phone number', 'success');
         }
         
-        function verifyRegistrationOTP() {
-            let otp = '';
-            document.querySelectorAll('#otpGroup .otp-digit').forEach(i => otp += i.value);
-            
+        async function verifyRegistrationOTP() {
+            const otp = getOtpFromGroup('otpGroup');
             if (otp.length !== 6) {
                 Toast.show('Please enter the 6-digit OTP', 'error');
                 return;
             }
-            
-            // Simulate OTP verification (in real app, verify with backend)
-            // For demo, any 6-digit OTP works
+
+            LoadingOverlay.show();
+            const res = await API.otpVerify({ phone: regData.phone, otp, purpose: 'registration' });
+            LoadingOverlay.hide();
+            if (!res.success) {
+                Toast.show(res.error || 'Invalid OTP', 'error');
+                return;
+            }
+
             stopTimer();
-            
             Toast.show('Phone number verified successfully!', 'success');
-            
-            // Move to password creation step
             document.getElementById('newPatientStep2').style.display = 'none';
             document.getElementById('newPatientStep3').style.display = 'block';
-            
-            // Reset password fields
             document.getElementById('newPassword').value = '';
             document.getElementById('confirmPassword').value = '';
             document.getElementById('completeRegBtn').disabled = true;
@@ -410,36 +524,41 @@
         
         function completeRegistration() {
             const password = document.getElementById('newPassword').value;
-            const fullName = regData.id ? `Patient ${regData.id}` : `Patient ${regData.phone}`;
+            const patient = regData.patient || {};
+            const fullName = patient.full_name || `${patient.first_name || ''} ${patient.last_name || ''}`.trim() || `Patient ${regData.id}`;
 
             LoadingOverlay.show();
             API.patientRegister({
+                patient_id: regData.id,
                 full_name: fullName,
                 phone: regData.phone,
                 password: password,
+                age: patient.age,
+                address: patient.address,
             }).then(res => {
                 LoadingOverlay.hide();
                 if (!res.success) {
                     Toast.show(res.error || 'Registration failed', 'error');
                     return;
                 }
-                StorageManager.setUser({
-                    patientId: res.patient.patient_id,
-                    phone: res.patient.phone,
-                    name: res.patient.name,
-                    isLoggedIn: true,
-                });
-                Toast.show('Registration successful! Redirecting to dashboard...', 'success');
+                savePatientSession(res.patient);
+                Toast.show(res.message || 'Registration successful! Redirecting to dashboard...', 'success');
                 setTimeout(() => window.location.href = 'dashboard.html', 1500);
             });
         }
         
-        function resendRegistrationOTP() {
-            Toast.show('OTP resent to your phone number', 'success');
-            startTimer('otpTimer', () => {
-                document.getElementById('resendOtpBtn').disabled = false;
-            });
-            document.getElementById('resendOtpBtn').disabled = true;
+        async function resendRegistrationOTP() {
+            LoadingOverlay.show();
+            const res = await API.otpSend({ phone: regData.phone, purpose: 'registration' });
+            LoadingOverlay.hide();
+            if (!res.success) {
+                Toast.show(res.error || 'Failed to resend OTP', 'error');
+                return;
+            }
+            clearOtpGroup('otpGroup');
+            startOtpTimer('otpTimer', 'resendOtpBtn', res.expires_in || OTP_EXPIRY_SECONDS);
+            showDevOtpHint('regDevOtpBanner', res);
+            Toast.show(res.message || 'OTP resent to your phone number', 'success');
         }
         
         // ==================== EXISTING PATIENT LOGIN ====================
@@ -459,72 +578,119 @@
                     Toast.show(res.error || 'Invalid credentials', 'error');
                     return;
                 }
-                StorageManager.setUser({
-                    patientId: res.patient.patient_id,
-                    phone: res.patient.phone,
-                    name: res.patient.name,
-                    isLoggedIn: true,
-                });
+                savePatientSession(res.patient);
                 Toast.show('Login successful! Redirecting...', 'success');
                 setTimeout(() => window.location.href = 'dashboard.html', 1500);
             });
         }
-        
-        // ==================== FORGOT PASSWORD ====================
-        function sendResetOTP() {
-            const phone = document.getElementById('forgotPhone').value.trim();
-            
-            if (!phone) {
-                Toast.show('Please enter your phone number', 'error');
+
+        // ==================== PHONE OTP LOGIN ====================
+        async function sendLoginOTP() {
+            const phone = document.getElementById('loginOtpPhone').value.trim();
+            if (!phone || phone.length < 10) {
+                Toast.show('Please enter a valid phone number', 'error');
                 return;
             }
-            
-            const users = JSON.parse(localStorage.getItem('smartOPD_users') || '[]');
-            const user = users.find(u => u.phone === phone);
-            
-            if (!user) {
-                Toast.show('Phone number not found. Please register first.', 'error');
+
+            LoadingOverlay.show();
+            const res = await API.otpSend({ phone, purpose: 'login' });
+            LoadingOverlay.hide();
+            if (!res.success) {
+                Toast.show(res.error || 'Failed to send OTP', 'error');
                 return;
             }
-            
-            resetData = { phone, patientId: user.patientId };
-            document.getElementById('resetPhoneDisplay').innerHTML = phone;
-            
-            document.getElementById('forgotPasswordScreen').style.display = 'none';
-            document.getElementById('resetOtpScreen').style.display = 'block';
-            
-            // Clear OTP inputs
-            document.querySelectorAll('#resetOtpGroup .otp-digit').forEach((input, idx) => {
-                input.value = '';
-                if (idx === 0) input.focus();
-            });
-            
-            // Start OTP timer
-            startTimer('resetOtpTimer', () => {
-                document.getElementById('resendResetOtpBtn').disabled = false;
-            });
-            document.getElementById('resendResetOtpBtn').disabled = true;
-            
-            Toast.show('OTP sent to your phone number', 'success');
+
+            loginOtpData = { phone };
+            document.getElementById('loginOtpPhoneDisplay').innerHTML = phone;
+            document.getElementById('phoneOtpLogin').style.display = 'none';
+            document.getElementById('loginOtpVerifyScreen').style.display = 'block';
+            clearOtpGroup('loginOtpGroup');
+            startOtpTimer('loginOtpTimer', 'resendLoginOtpBtn', res.expires_in || OTP_EXPIRY_SECONDS);
+            showDevOtpHint('loginDevOtpBanner', res);
+            Toast.show(res.message || 'OTP sent to your phone number', 'success');
         }
-        
-        function verifyResetOTP() {
-            let otp = '';
-            document.querySelectorAll('#resetOtpGroup .otp-digit').forEach(i => otp += i.value);
-            
+
+        async function verifyLoginOTP() {
+            const otp = getOtpFromGroup('loginOtpGroup');
             if (otp.length !== 6) {
                 Toast.show('Please enter the 6-digit OTP', 'error');
                 return;
             }
+
+            LoadingOverlay.show();
+            const res = await API.patientLoginOtp({ phone: loginOtpData.phone, otp });
+            LoadingOverlay.hide();
+            if (!res.success) {
+                Toast.show(res.error || 'Login failed', 'error');
+                return;
+            }
+
+            stopTimer();
+            savePatientSession(res.patient);
+            Toast.show('Login successful! Redirecting...', 'success');
+            setTimeout(() => window.location.href = 'dashboard.html', 1500);
+        }
+
+        async function resendLoginOTP() {
+            LoadingOverlay.show();
+            const res = await API.otpSend({ phone: loginOtpData.phone, purpose: 'login' });
+            LoadingOverlay.hide();
+            if (!res.success) {
+                Toast.show(res.error || 'Failed to resend OTP', 'error');
+                return;
+            }
+            clearOtpGroup('loginOtpGroup');
+            startOtpTimer('loginOtpTimer', 'resendLoginOtpBtn', res.expires_in || OTP_EXPIRY_SECONDS);
+            showDevOtpHint('loginDevOtpBanner', res);
+            Toast.show(res.message || 'OTP resent to your phone number', 'success');
+        }
+        
+        // ==================== FORGOT PASSWORD ====================
+        async function sendResetOTP() {
+            const phone = document.getElementById('forgotPhone').value.trim();
             
+            if (!phone || phone.length < 10) {
+                Toast.show('Please enter a valid phone number', 'error');
+                return;
+            }
+
+            LoadingOverlay.show();
+            const res = await API.otpSend({ phone, purpose: 'password_reset' });
+            LoadingOverlay.hide();
+            if (!res.success) {
+                Toast.show(res.error || 'Failed to send OTP', 'error');
+                return;
+            }
+
+            resetData = { phone };
+            document.getElementById('resetPhoneDisplay').innerHTML = phone;
+            document.getElementById('forgotPasswordScreen').style.display = 'none';
+            document.getElementById('resetOtpScreen').style.display = 'block';
+            clearOtpGroup('resetOtpGroup');
+            startOtpTimer('resetOtpTimer', 'resendResetOtpBtn', res.expires_in || OTP_EXPIRY_SECONDS);
+            showDevOtpHint('resetDevOtpBanner', res);
+            Toast.show(res.message || 'OTP sent to your phone number', 'success');
+        }
+        
+        async function verifyResetOTP() {
+            const otp = getOtpFromGroup('resetOtpGroup');
+            if (otp.length !== 6) {
+                Toast.show('Please enter the 6-digit OTP', 'error');
+                return;
+            }
+
+            LoadingOverlay.show();
+            const res = await API.otpVerify({ phone: resetData.phone, otp, purpose: 'password_reset' });
+            LoadingOverlay.hide();
+            if (!res.success) {
+                Toast.show(res.error || 'Invalid OTP', 'error');
+                return;
+            }
+
             stopTimer();
             Toast.show('Phone number verified successfully!', 'success');
-            
-            // Move to reset password step
             document.getElementById('resetOtpScreen').style.display = 'none';
             document.getElementById('resetPasswordScreen').style.display = 'block';
-            
-            // Reset password fields
             document.getElementById('resetNewPassword').value = '';
             document.getElementById('resetConfirmPassword').value = '';
             document.getElementById('completeResetBtn').disabled = true;
@@ -600,12 +766,18 @@
             });
         }
         
-        function resendResetOTP() {
-            Toast.show('OTP resent to your phone number', 'success');
-            startTimer('resetOtpTimer', () => {
-                document.getElementById('resendResetOtpBtn').disabled = false;
-            });
-            document.getElementById('resendResetOtpBtn').disabled = true;
+        async function resendResetOTP() {
+            LoadingOverlay.show();
+            const res = await API.otpSend({ phone: resetData.phone, purpose: 'password_reset' });
+            LoadingOverlay.hide();
+            if (!res.success) {
+                Toast.show(res.error || 'Failed to resend OTP', 'error');
+                return;
+            }
+            clearOtpGroup('resetOtpGroup');
+            startOtpTimer('resetOtpTimer', 'resendResetOtpBtn', res.expires_in || OTP_EXPIRY_SECONDS);
+            showDevOtpHint('resetDevOtpBanner', res);
+            Toast.show(res.message || 'OTP resent to your phone number', 'success');
         }
         
         // ==================== OTP INPUT NAVIGATION ====================

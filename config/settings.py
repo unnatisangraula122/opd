@@ -7,6 +7,17 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key-change-in-pro
 
 DEBUG = config('DEBUG', default=True, cast=bool)
 
+# SMS — SMS_DEBUG=True uses dummy OTP (no real SMS). Set False + Sparrow credentials for live delivery.
+SMS_DEBUG = config('SMS_DEBUG', default=True, cast=bool)
+SMS_DUMMY_OTP = config('SMS_DUMMY_OTP', default='123456')
+SMS_PROVIDER = config('SMS_PROVIDER', default='sparrow')  # sparrow | twilio
+SMS_API_KEY = config('SMS_API_KEY', default='')           # Sparrow API token
+SMS_SENDER_ID = config('SMS_SENDER_ID', default='')       # Sparrow approved sender ID
+SPARROW_SMS_URL = config('SPARROW_SMS_URL', default='http://api.sparrowsms.com/v2/sms/')
+TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')
+TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN', default='')
+TWILIO_FROM_NUMBER = config('TWILIO_FROM_NUMBER', default='')
+
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
 INSTALLED_APPS = [

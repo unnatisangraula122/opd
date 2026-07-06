@@ -106,9 +106,9 @@ def patient_register(request):
     )
     user.assign_patient_code()
     user.save()
-    sms_patient_registration(user.patient_id, phone)
+    sms_result = sms_patient_registration(user.patient_id, phone)
 
-    return Response({
+    payload = {
         'success': True,
         'message': 'Registration successful! Please login.',
         'patient': {
@@ -117,7 +117,11 @@ def patient_register(request):
             'name': full_name,
             'phone': phone,
         },
-    })
+        'sms_sent': sms_result.success,
+    }
+    if not sms_result.success:
+        payload['sms_warning'] = sms_result.error
+    return Response(payload)
 
 
 @api_view(['POST'])

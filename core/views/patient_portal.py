@@ -29,27 +29,27 @@ def patient_queue_status(request):
         patient_phone=request.user.phone,
         slot__date=today,
         status__in=['booked', 'checked_in', 'consulting'],
-    ).select_related('slot__doctor').first()
+    ).select_related('slot__doctor', 'queue_entry').order_by('-created_at').first()
 
     if not token:
         return Response({'success': True, 'has_active': False})
 
     queue_position = None
+    queue_length = 0
     if hasattr(token, 'queue_entry'):
         queue_position = token.queue_entry.queue_position
-
-    ahead = Token.objects.filter(
-        slot__doctor=token.slot.doctor,
-        slot__date=today,
-        status='checked_in',
-    ).count()
+        from core.models import QueueEntry
+        queue_length = QueueEntry.objects.filter(
+            slot=token.slot,
+            queue_status='waiting',
+        ).count()
 
     return Response({
         'success': True,
         'has_active': True,
         'token': serialize_token(token, include_queue=True),
         'queue_position': queue_position,
-        'queue_length': ahead,
+        'queue_length': queue_length,
     })
 
 

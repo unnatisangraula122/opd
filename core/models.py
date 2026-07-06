@@ -119,7 +119,7 @@ class ConsultationSlot(models.Model):
         return f"{self.doctor} - {self.date} {self.slot_type} ({self.tokens_booked}/{self.max_tokens})"
 
     class Meta:
-        unique_together = ['doctor', 'date', 'slot_type']
+        unique_together = ['date', 'slot_type']
 
 
 class Token(models.Model):
@@ -368,9 +368,8 @@ class QueueEntry(models.Model):
         sort by an explicit priority weight instead.
         """
         waiting_entries = QueueEntry.objects.filter(
-            doctor=self.doctor,
-            queue_date=self.queue_date,
-            queue_status='waiting'
+            slot=self.slot,
+            queue_status='waiting',
         ).order_by('token__created_at')
         ordered_ids = sorted(
             waiting_entries.values_list('id', 'priority'),

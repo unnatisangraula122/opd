@@ -3,8 +3,10 @@ import hashlib
 import secrets
 from datetime import timedelta
 
+from django.conf import settings
 from django.utils import timezone
 
+from accounts.models import User
 from core.models import OTPVerification
 from core.services.sms import sms_otp
 
@@ -19,6 +21,10 @@ def _hash_otp(otp: str) -> str:
 
 
 def generate_otp() -> str:
+    if getattr(settings, 'SMS_DEBUG', False):
+        dummy = getattr(settings, 'SMS_DUMMY_OTP', '123456')
+        if len(dummy) == OTP_LENGTH and dummy.isdigit():
+            return dummy
     return ''.join(secrets.choice('0123456789') for _ in range(OTP_LENGTH))
 
 
@@ -27,6 +33,13 @@ def send_otp(phone: str, purpose: str) -> dict:
     phone = phone.strip()
     if len(phone) < 10:
         return {'success': False, 'error': 'Invalid phone number'}
+
+    if purpose in ('login', 'password_reset'):
+        if not User.objects.filter(phone=phone, role='patient').exists():
+            return {
+                'success': False,
+                'error': 'No patient account for this phone. Use Patient ID login or register at reception first.',
+            }
 
     recent = OTPVerification.objects.filter(
         phone=phone,
@@ -53,14 +66,26 @@ def send_otp(phone: str, purpose: str) -> dict:
     )
 
     purpose_label = purpose.replace('_', ' ')
-    sms_otp(phone, code, purpose_label)
+    sms_result = sms_otp(phone, code, purpose_label)
 
-    return {
+    if not sms_result.success:
+        otp_record.delete()
+        return {
+            'success': False,
+            'error': sms_result.error or 'Failed to send OTP SMS. Check SMS gateway configuration.',
+        }
+
+    result = {
         'success': True,
         'message': f'OTP sent to {phone}',
         'expires_in': OTP_EXPIRY_MINUTES * 60,
         'otp_id': otp_record.id,
     }
+    if getattr(settings, 'SMS_DEBUG', False):
+        result['dev_mode'] = True
+        result['dev_otp'] = code
+        result['message'] = f'Dummy OTP mode — use {code} (not sent to phone).'
+    return result
 
 
 def verify_otp(phone: str, otp: str, purpose: str) -> dict:

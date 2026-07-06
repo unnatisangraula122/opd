@@ -63,19 +63,19 @@
         <div id="step2" style="display:none;"><h2 style="margin-bottom:1.5rem;">Available Doctors for <span id="selectedDateDisplay"></span></h2><div class="grid grid-2" id="doctorsContainer"></div></div>
 
         <!-- Step 3: Patient Details -->
-        <div id="step3" style="display:none;"><div class="grid grid-2" style="gap:2rem;"><div><h2 style="margin-bottom:1.5rem;">Patient Information</h2><div class="form-group"><label class="form-label">Patient Type</label><div style="display:flex; gap:1rem;"><label style="display:flex; align-items:center; gap:0.5rem;"><input type="radio" name="patientType" value="new" onchange="togglePatientForm()"> New Patient</label><label style="display:flex; align-items:center; gap:0.5rem;"><input type="radio" name="patientType" value="old" onchange="togglePatientForm()"> Returning Patient</label></div></div><div id="newPatientForm"><div class="form-group"><input type="text" class="form-input" id="firstName" placeholder="First Name *"></div><div class="form-group"><input type="text" class="form-input" id="lastName" placeholder="Last Name *"></div><div class="form-group"><input type="tel" class="form-input" id="phone" placeholder="Phone Number *"></div><div class="form-group"><input type="number" class="form-input" id="age" placeholder="Age *"></div><div class="form-group"><input type="text" class="form-input" id="address" placeholder="Address"></div></div><div id="oldPatientForm" style="display:none;">
-    <div class="form-group"><input type="text" class="form-input" id="oldPatientId" placeholder="Patient ID * (e.g. P0001)"></div>
-    <div class="form-group"><input type="tel" class="form-input" id="oldPhone" placeholder="Phone Number *"></div>
-    <button type="button" class="btn btn-outline" style="width:100%; margin-bottom:1rem;" onclick="validateReturningPatient()">Verify Patient →</button>
+        <div id="step3" style="display:none;"><div class="grid grid-2" style="gap:2rem;"><div><h2 style="margin-bottom:1.5rem;">Patient Information</h2><div class="form-group"><label class="form-label">Patient Type</label><div style="display:flex; gap:1rem;"><label style="display:flex; align-items:center; gap:0.5rem;"><input type="radio" name="patientType" value="new" checked onchange="togglePatientForm()"> New Patient</label><label style="display:flex; align-items:center; gap:0.5rem;"><input type="radio" name="patientType" value="old" onchange="togglePatientForm()"> Returning Patient</label></div></div><div id="newPatientForm"><div class="form-group"><label class="form-label">First Name <span class="required">*</span></label><input type="text" class="form-input" id="firstName" placeholder="First Name"></div><div class="form-group"><label class="form-label">Last Name <span class="required">*</span></label><input type="text" class="form-input" id="lastName" placeholder="Last Name"></div><div class="form-group"><label class="form-label">Phone Number <span class="required">*</span></label><input type="tel" class="form-input" id="phone" placeholder="98XXXXXXXX"></div><div class="form-group"><label class="form-label">Age <span class="required">*</span></label><input type="number" class="form-input" id="age" placeholder="Age" min="1" max="120"></div><div class="form-group"><label class="form-label">Address</label><input type="text" class="form-input" id="address" placeholder="Address"></div></div><div id="oldPatientForm" style="display:none;">
+    <div class="form-group"><label class="form-label">Patient ID <span class="required">*</span></label><input type="text" class="form-input" id="oldPatientId" placeholder="e.g. P0001" oninput="onOldPatientFieldChange()"></div>
+    <div class="form-group"><label class="form-label">Phone Number <span class="required">*</span></label><input type="tel" class="form-input" id="oldPhone" placeholder="98XXXXXXXX" oninput="onOldPatientFieldChange()"></div>
+    <button type="button" class="btn btn-outline" style="width:100%; margin-bottom:1rem;" id="verifyPatientBtn" onclick="validateReturningPatient()">Verify Patient →</button>
     <div id="oldPatientVerified" style="display:none;">
         <div class="alert alert-success" style="margin-bottom:1rem;"><span>✓</span><div>Patient verified. Details auto-filled below.</div></div>
-        <div class="form-group"><input type="text" class="form-input" id="oldFirstName" placeholder="First Name" readonly></div>
-        <div class="form-group"><input type="text" class="form-input" id="oldLastName" placeholder="Last Name" readonly></div>
-        <div class="form-group"><input type="tel" class="form-input" id="oldPhoneDisplay" placeholder="Phone Number" readonly></div>
-        <div class="form-group"><input type="number" class="form-input" id="oldAge" placeholder="Age" readonly></div>
-        <div class="form-group"><input type="text" class="form-input" id="oldAddress" placeholder="Address" readonly></div>
+        <div class="form-group"><label class="form-label">First Name</label><input type="text" class="form-input" id="oldFirstName" placeholder="First Name" readonly></div>
+        <div class="form-group"><label class="form-label">Last Name</label><input type="text" class="form-input" id="oldLastName" placeholder="Last Name" readonly></div>
+        <div class="form-group"><label class="form-label">Phone Number</label><input type="tel" class="form-input" id="oldPhoneDisplay" placeholder="Phone Number" readonly></div>
+        <div class="form-group"><label class="form-label">Age</label><input type="number" class="form-input" id="oldAge" placeholder="Age" readonly></div>
+        <div class="form-group"><label class="form-label">Address</label><input type="text" class="form-input" id="oldAddress" placeholder="Address" readonly></div>
     </div>
-</div></div><div class="booking-sidebar" id="bookingSummary"></div></div><div style="display:flex; gap:1rem; margin-top:2rem;"><button class="btn btn-outline" onclick="goToStep(2)">← Back</button><button class="btn btn-primary" onclick="goToStep(4)">Proceed to Payment →</button></div></div>
+</div></div><div class="booking-sidebar" id="bookingSummary"></div></div><div style="display:flex; gap:1rem; margin-top:2rem;"><button class="btn btn-outline" onclick="goToStep(2)">← Back</button><button class="btn btn-primary" onclick="proceedToPayment()">Proceed to Payment →</button></div></div>
 
         <!-- Step 4: Payment -->
         <div id="step4" style="display:none;"><div class="grid grid-2" style="gap:2rem;"><div><h2 style="margin-bottom:1.5rem;">Select Payment Method</h2><div class="payment-method" onclick="selectPayment('esewa')" id="paymentEsewa"><div style="display:flex; justify-content:space-between;"><div style="display:flex; gap:1rem;"><span style="font-size:2rem;">💳</span><div><strong>eSewa</strong><div style="font-size:0.75rem;">Nepal's Digital Wallet</div></div></div><span id="esewaAmount" style="font-weight:bold; color:var(--secondary);"></span></div></div><div class="payment-method" onclick="selectPayment('khalti')" id="paymentKhalti"><div style="display:flex; justify-content:space-between;"><div style="display:flex; gap:1rem;"><span style="font-size:2rem;">🏦</span><div><strong>Khalti</strong><div style="font-size:0.75rem;">Digital Wallet</div></div></div><span id="khaltiAmount" style="font-weight:bold; color:var(--secondary);"></span></div></div><div class="form-group" style="margin-top:1.5rem;"><label class="form-label">🎫 Voucher / Coupon Code</label><div class="coupon-input-group"><input type="text" class="form-input" id="voucherCode" placeholder="Enter coupon code"><button class="btn btn-outline" onclick="applyVoucher()">Apply</button></div><div id="voucherMessage" style="font-size:0.75rem; margin-top:0.5rem;"></div><div id="appliedVoucher" style="display:none;"></div></div><div style="margin-top:1rem;"><span class="discount-badge">💡 SMART10 (10% off)</span><span class="discount-badge">💡 WELCOME20 (Rs.20 off)</span><span class="discount-badge">💡 FIRST50 (Rs.50 off)</span><span class="discount-badge">💡 HEALTHCARE15 (15% off)</span></div></div><div class="booking-sidebar" id="paymentSummary"></div></div><div style="display:flex; gap:1rem; margin-top:2rem;"><button class="btn btn-outline" onclick="goToStep(3)">← Back</button><button class="btn btn-success" onclick="processPayment()">Pay Now →</button></div></div>
@@ -90,28 +90,15 @@
         let selectedDate = null, selectedDoctor = null, selectedPayment = null, appliedDiscount = { type: null, value: 0, code: null }, bookingData = {};
         let apiSlots = { today: [], tomorrow: [] };
         const now = new Date();
-        const today = new Date();
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        
-        // Slot end times mapping
-        const slotEndTimes = {
-            'MORNING': { endHour: 11, endMinute: 0, endTime: '11:00 AM' },
-            'AFTERNOON': { endHour: 14, endMinute: 0, endTime: '2:00 PM' },
-            'EVENING': { endHour: 17, endMinute: 0, endTime: '5:00 PM' }
-        };
-        
-        // Function to check if a slot has already passed for today
+        const todayDate = new Date();
+        const tomorrowDate = new Date(todayDate);
+        tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+        const todayStr = todayDate.toISOString().split('T')[0];
+
         function isSlotPassed(slotType) {
-            const now = new Date();
-            const currentHour = now.getHours();
-            const currentMinute = now.getMinutes();
-            const slotEnd = slotEndTimes[slotType];
-            if (!slotEnd) return false;
-            return (currentHour > slotEnd.endHour) || (currentHour === slotEnd.endHour && currentMinute >= slotEnd.endMinute);
+            return TimeUtils.isSlotPassed(slotType, todayStr);
         }
-        
-        // Function to check if a doctor slot is still bookable for today
+
         function isDoctorSlotBookable(slot) {
             if (selectedDate !== 'today') return true;
             return !isSlotPassed(slot.slot_type_display || slot.slot_type.toUpperCase());
@@ -155,8 +142,8 @@
         const doctors = apiSlots; // alias for date cards
         
         function renderDates() {
-            const todayDateStr = today.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
-            const tomorrowDateStr = tomorrow.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+            const todayDateStr = todayDate.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+            const tomorrowDateStr = tomorrowDate.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
             
             // Check if today still has any bookable slots
             let hasBookableToday = false;
@@ -190,18 +177,22 @@
         }
         
         function renderDoctors() {
-            const list = apiSlots[selectedDate] || [];
+            const slotOrder = { MORNING: 0, AFTERNOON: 1, EVENING: 2 };
+            const list = (apiSlots[selectedDate] || []).slice().sort(
+                (a, b) => (slotOrder[a.slot] ?? 9) - (slotOrder[b.slot] ?? 9)
+            );
             document.getElementById('selectedDateDisplay').innerHTML = selectedDate==='today'?'Today':'Tomorrow';
-            document.getElementById('doctorsContainer').innerHTML = list.map(d => {
+            document.getElementById('doctorsContainer').innerHTML = list.length ? list.map(d => {
                 const isSlotPassedToday = (selectedDate === 'today') && isSlotPassed(d.slot);
                 const isFull = d.booked >= d.total;
                 const isBookable = !isSlotPassedToday && !isFull;
+                const slotLabel = d.slot === 'MORNING' ? '🌅 Morning' : d.slot === 'AFTERNOON' ? '☀️ Afternoon' : '🌆 Evening';
                 
                 return `<div class="doctor-card ${!isBookable ? 'disabled' : ''}" onclick="${isBookable ? `selectDoctor(${d.slot_id})` : ''}" data-doctor-id="${d.slot_id}">
                     <div style="display:flex; gap:1rem;">
                         <div style="font-size:3rem;">👨‍⚕️</div>
                         <div style="flex:1;">
-                            <h3>${d.name}</h3>
+                            <h3>${slotLabel} — ${d.name}</h3>
                             <p style="color:var(--secondary);">${d.specialization} • ${d.degree}</p>
                             <div style="margin:0.5rem 0;">
                                 <span class="discount-badge">⏰ ${d.time}</span>
@@ -217,7 +208,7 @@
                         </div>
                     </div>
                 </div>`;
-            }).join('');
+            }).join('') : '<div class="alert alert-info">No slots available for this date.</div>';
         }
         
         function selectDoctor(slotId) {
@@ -254,21 +245,112 @@
             const type = document.querySelector('input[name="patientType"]:checked').value; 
             document.getElementById('newPatientForm').style.display = type==='new'?'block':'none'; 
             document.getElementById('oldPatientForm').style.display = type==='old'?'block':'none';
-            oldPatientVerified = false;
-            document.getElementById('oldPatientVerified').style.display = 'none';
+            resetOldPatientVerification();
         }
 
         let oldPatientVerified = false;
         let oldPatientData = null;
 
-        async function validateReturningPatient() {
+        function resetOldPatientVerification() {
+            oldPatientVerified = false;
+            oldPatientData = null;
+            document.getElementById('oldPatientVerified').style.display = 'none';
+            ['oldFirstName', 'oldLastName', 'oldPhoneDisplay', 'oldAge', 'oldAddress'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+        }
+
+        function onOldPatientFieldChange() {
+            const idInput = document.getElementById('oldPatientId');
+            idInput.value = idInput.value.trim().toUpperCase();
+            if (oldPatientVerified) resetOldPatientVerification();
+        }
+
+        function isValidPhone(phone) {
+            return phone && phone.replace(/\D/g, '').length >= 10;
+        }
+
+        function validateNewPatientFields() {
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const age = document.getElementById('age').value;
+            if (!firstName || !lastName || !phone || !age) {
+                Toast.show('Please fill in all required fields', 'error');
+                return false;
+            }
+            if (!isValidPhone(phone)) {
+                Toast.show('Please enter a valid 10-digit phone number', 'error');
+                return false;
+            }
+            const ageNum = parseInt(age, 10);
+            if (isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
+                Toast.show('Please enter a valid age', 'error');
+                return false;
+            }
+            return true;
+        }
+
+        function validateOldPatientFields() {
             const patientId = document.getElementById('oldPatientId').value.trim();
             const phone = document.getElementById('oldPhone').value.trim();
-            if (!patientId || !phone) { Toast.show('Enter Patient ID and Phone Number', 'error'); return; }
+            if (!patientId || !phone) {
+                Toast.show('Enter Patient ID and Phone Number', 'error');
+                return false;
+            }
+            if (!isValidPhone(phone)) {
+                Toast.show('Please enter a valid 10-digit phone number', 'error');
+                return false;
+            }
+            if (!oldPatientVerified) {
+                Toast.show('Please verify patient details before proceeding', 'error');
+                return false;
+            }
+            return true;
+        }
+
+        function proceedToPayment() {
+            const patientType = document.querySelector('input[name="patientType"]:checked');
+            if (!patientType) {
+                Toast.show('Select patient type', 'error');
+                return;
+            }
+            const valid = patientType.value === 'new'
+                ? validateNewPatientFields()
+                : validateOldPatientFields();
+            if (valid) goToStep(4);
+        }
+
+        async function validateReturningPatient() {
+            const patientId = document.getElementById('oldPatientId').value.trim().toUpperCase();
+            const phone = document.getElementById('oldPhone').value.trim();
+            document.getElementById('oldPatientId').value = patientId;
+
+            if (!patientId || !phone) {
+                Toast.show('Enter Patient ID and Phone Number', 'error');
+                return;
+            }
+            if (!isValidPhone(phone)) {
+                Toast.show('Please enter a valid 10-digit phone number', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('verifyPatientBtn');
+            btn.disabled = true;
+            btn.textContent = 'Verifying...';
             LoadingOverlay.show();
             const res = await API.validateOldPatient({ patient_id: patientId, phone });
             LoadingOverlay.hide();
-            if (!res.success) { Toast.show(res.error || 'Validation failed', 'error'); return; }
+            btn.disabled = false;
+            btn.textContent = 'Verify Patient →';
+
+            if (!res.success) {
+                resetOldPatientVerification();
+                Toast.show(res.error || 'Validation failed', 'error');
+                return;
+            }
+
             oldPatientVerified = true;
             oldPatientData = res.patient;
             document.getElementById('oldPatientVerified').style.display = 'block';
@@ -358,21 +440,19 @@
 
             let patientName, patientAge, patientPhone, patientId, patientAddress = '';
             if(patientType.value==='new'){
-                if(!document.getElementById('firstName').value||!document.getElementById('lastName').value||!document.getElementById('phone').value||!document.getElementById('age').value){Toast.show('Fill all fields','error');return;}
-                patientName=`${document.getElementById('firstName').value} ${document.getElementById('lastName').value}`;
-                patientPhone=document.getElementById('phone').value;
-                patientAge=document.getElementById('age').value;
-                patientAddress=document.getElementById('address').value||'';
+                if(!validateNewPatientFields()) return;
+                patientName=`${document.getElementById('firstName').value.trim()} ${document.getElementById('lastName').value.trim()}`;
+                patientPhone=document.getElementById('phone').value.trim();
+                patientAge=parseInt(document.getElementById('age').value, 10);
+                patientAddress=document.getElementById('address').value.trim();
             } else {
-                if(!document.getElementById('oldPatientId').value || !document.getElementById('oldPhone').value){
-                    Toast.show('Enter Patient ID and Phone Number','error');return;
-                }
-                if(!oldPatientVerified){Toast.show('Please verify patient details first','error');return;}
-                patientId = document.getElementById('oldPatientId').value.trim();
-                patientPhone = document.getElementById('oldPhoneDisplay').value || document.getElementById('oldPhone').value;
-                patientName = `${document.getElementById('oldFirstName').value} ${document.getElementById('oldLastName').value}`.trim() || oldPatientData?.full_name || 'Returning Patient';
-                patientAge = document.getElementById('oldAge').value || oldPatientData?.age || 30;
-                patientAddress = document.getElementById('oldAddress').value || '';
+                if(!validateOldPatientFields()) return;
+                patientId = oldPatientData.patient_id;
+                patientPhone = oldPatientData.phone;
+                patientName = oldPatientData.full_name
+                    || `${oldPatientData.first_name || ''} ${oldPatientData.last_name || ''}`.trim();
+                patientAge = oldPatientData.age || 30;
+                patientAddress = oldPatientData.address || '';
             }
 
             const fee=selectedDoctor.fee, sc=Math.round(fee*0.015);
@@ -383,22 +463,27 @@
                 finalAmount=Math.max(finalAmount,0);
             }
 
-            Toast.show('Processing payment...','info');
-            LoadingOverlay.show();
-            API.bookToken({
+            const payload = {
                 slot_id: selectedDoctor.slot_id,
                 patient_name: patientName,
                 patient_age: patientAge,
                 patient_phone: patientPhone,
                 patient_address: patientAddress,
-                patient_id: patientId,
                 payment_method: selectedPayment,
                 amount: Math.round(finalAmount),
-            }).then(res => {
+            };
+            if (patientId) payload.patient_id = patientId;
+
+            Toast.show('Processing payment...','info');
+            LoadingOverlay.show();
+            API.bookToken(payload).then(res => {
                 LoadingOverlay.hide();
                 if (!res.success) { Toast.show(res.error || 'Booking failed', 'error'); return; }
+                if (res.sms_sent === false && res.sms_warning) {
+                    Toast.show(`Booked, but SMS not delivered: ${res.sms_warning}`, 'warning');
+                }
                 const t = res.token;
-                document.getElementById('tokenDisplay').innerHTML=`<div style="font-size:1.25rem; margin-bottom:1rem;">✓ Appointment Confirmed!</div><div class="token-number">${t.token_number}</div><div style="margin:1rem 0;">Your Token Number</div><div class="grid grid-2" style="text-align:left; margin-top:1.5rem;"><div><strong>Patient:</strong> ${t.patient_name}</div><div><strong>Doctor:</strong> ${selectedDoctor.name}</div><div><strong>Specialization:</strong> ${selectedDoctor.specialization}</div><div><strong>Date:</strong> ${selectedDate==='today'?'Today':tomorrow.toLocaleDateString()}</div><div><strong>Time Slot:</strong> ${selectedDoctor.time}</div><div><strong>Estimated Time:</strong> ${t.estimated_time}</div><div><strong>Payment:</strong> ${selectedPayment==='esewa'?'eSewa':'Khalti'}</div><div><strong>Amount Paid:</strong> Rs.${Math.round(finalAmount)}</div></div><div class="alert alert-info" style="margin-top:1rem; text-align:left;"><span>⚠️</span><div><strong>Important:</strong> Please arrive at reception 15 minutes before ${t.estimated_time} for check-in.</div></div><div style="display:flex; gap:1rem; margin-top:1.5rem; justify-content:center;"><button class="btn btn-primary" onclick="window.location.href='dashboard.html'">Go to Dashboard</button><button class="btn btn-outline" onclick="window.print()">Print Token</button></div>`;
+                document.getElementById('tokenDisplay').innerHTML=`<div style="font-size:1.25rem; margin-bottom:1rem;">✓ Appointment Confirmed!</div><div class="token-number">${t.token_number}</div><div style="margin:1rem 0;">Your Token Number</div><div class="grid grid-2" style="text-align:left; margin-top:1.5rem;"><div><strong>Patient:</strong> ${t.patient_name}</div><div><strong>Doctor:</strong> ${selectedDoctor.name}</div><div><strong>Specialization:</strong> ${selectedDoctor.specialization}</div><div><strong>Date:</strong> ${selectedDate==='today'?'Today':tomorrowDate.toLocaleDateString()}</div><div><strong>Time Slot:</strong> ${selectedDoctor.time}</div><div><strong>Estimated Time:</strong> ${t.estimated_time}</div><div><strong>Payment:</strong> ${selectedPayment==='esewa'?'eSewa':'Khalti'}</div><div><strong>Amount Paid:</strong> Rs.${Math.round(finalAmount)}</div></div><div class="alert alert-info" style="margin-top:1rem; text-align:left;"><span>⚠️</span><div><strong>Important:</strong> Please arrive at reception 15 minutes before ${t.estimated_time} for check-in.</div></div><div style="display:flex; gap:1rem; margin-top:1.5rem; justify-content:center;"><button class="btn btn-primary" onclick="window.location.href='dashboard.html'">Go to Dashboard</button><button class="btn btn-outline" onclick="window.print()">Print Token</button></div>`;
                 goToStep(5);
                 Toast.show('Payment successful! Token booked.','success');
             });

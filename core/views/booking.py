@@ -14,6 +14,7 @@ from core.services.sms import sms_token_booking
 from core.utils import (
     CONSULTATION_BASE_FEE,
     ensure_today_tomorrow_slots,
+    get_daily_slots_for_dates,
     serialize_slot,
     serialize_token,
     consultation_fee_with_charge,
@@ -23,20 +24,17 @@ from core.utils import (
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def available_slots(request):
-    ensure_today_tomorrow_slots()
     today = timezone.localdate()
     tomorrow = today + timedelta(days=1)
     date_filter = request.query_params.get('date')
 
-    slots = ConsultationSlot.objects.filter(
-        date__in=[today, tomorrow],
-        doctor__is_available=True,
-    ).select_related('doctor__user')
-
+    dates = [today, tomorrow]
     if date_filter == 'today':
-        slots = slots.filter(date=today)
+        dates = [today]
     elif date_filter == 'tomorrow':
-        slots = slots.filter(date=tomorrow)
+        dates = [tomorrow]
+
+    slots = get_daily_slots_for_dates(dates)
 
     available = []
     grouped = {}
@@ -103,19 +101,11 @@ def book_token(request):
     if slot.doctor.is_throttled:
         return Response({'success': False, 'error': 'Doctor queue is at capacity. Check-in throttled.'}, status=400)
 
-    patient_user = None
-    if request.user.is_authenticated and request.user.role == 'patient':
-        patient_user = request.user
-    elif patient_id:
-        patient_user = User.resolve_patient_id(patient_id)
-        if patient_user and not patient_name:
-            patient_name = patient_user.get_full_name() or patient_user.username
-        if patient_user and not patient_phone:
-            patient_phone = patient_user.phone
-        if patient_user and patient_user.age and not patient_age:
-            patient_age = patient_user.age
-    elif patient_phone:
-        patient_user = User.objects.filter(phone=patient_phone, role='patient').first()
+    if not patient_user:
+        if request.user.is_authenticated and request.user.role == 'patient':
+            patient_user = request.user
+        elif patient_phone:
+            patient_user = User.objects.filter(phone=patient_phone, role='patient').first()
 
     token = Token.objects.create(
         slot=slot,
@@ -139,18 +129,22 @@ def book_token(request):
     )
 
     estimated_str = token.estimated_time.strftime('%I:%M %p') if token.estimated_time else ''
-    sms_token_booking(
+    sms_result = sms_token_booking(
         token.token_number,
         estimated_str,
         patient_phone,
         token.slot.start_time,
     )
 
-    return Response({
+    response_payload = {
         'success': True,
         'message': 'Token booked successfully!',
         'token': serialize_token(token),
-    })
+        'sms_sent': sms_result.success,
+    }
+    if not sms_result.success:
+        response_payload['sms_warning'] = sms_result.error
+    return Response(response_payload)
 
 
 @api_view(['POST'])

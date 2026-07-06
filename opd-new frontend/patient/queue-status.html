@@ -48,297 +48,146 @@
     <script src="../js/app.js"></script>
     <script src="../js/api.js"></script>
     <script>
-        // Slot time definitions
-        const SLOT_CONFIG = {
-            'MORNING': { startHour: 9, startMinute: 0, endHour: 11, endMinute: 0, displayTime: '9:00 AM - 11:00 AM' },
-            'AFTERNOON': { startHour: 12, startMinute: 0, endHour: 14, endMinute: 0, displayTime: '12:00 PM - 2:00 PM' },
-            'EVENING': { startHour: 15, startMinute: 0, endHour: 17, endMinute: 0, displayTime: '3:00 PM - 5:00 PM' }
-        };
+        const SLOT_CONFIG = TimeUtils.SLOT_CONFIG;
 
-        // Mock data for the logged-in patient
-        let currentPatient = {
-            name: "Samikshya Shrestha",
-            patientId: "PAT123456",
-            token: "M12",
-            doctor: "Dr. Rajesh Sharma",
-            slotType: "MORNING",
-            appointmentDate: "2026-06-07",
-            appointmentTime: "10:30 AM",
-            status: "checked-in", // Could be 'booked', 'checked-in', 'completed', 'expired'
-            checkInTime: "2026-06-07T09:45:00",
-            queuePosition: 3,
-            totalInQueue: 8
-        };
-
+        let currentPatient = null;
         let soundEnabled = true;
-        let queueInterval = null;
-        let currentPosition = currentPatient.queuePosition;
-        let totalInQueue = currentPatient.totalInQueue;
+        let queuePollTimer = null;
+        let lastQueuePosition = null;
 
-        // Function to check if current time is within slot time
-        function isWithinSlotTime(slotType, appointmentDate) {
-            const now = new Date();
-            const appointmentDateObj = new Date(appointmentDate);
-            
-            // Check if it's the same day
-            if (now.toDateString() !== appointmentDateObj.toDateString()) {
-                return { valid: false, reason: "not_same_day", message: "Your appointment is on a different day. Queue status will be available on your appointment day." };
-            }
-            
-            const slot = SLOT_CONFIG[slotType];
-            if (!slot) return { valid: false, reason: "invalid_slot", message: "Invalid slot type" };
-            
-            const currentHour = now.getHours();
-            const currentMinute = now.getMinutes();
-            
-            const currentTotalMinutes = currentHour * 60 + currentMinute;
-            const slotStartTotalMinutes = slot.startHour * 60 + slot.startMinute;
-            const slotEndTotalMinutes = slot.endHour * 60 + slot.endMinute;
-            
-            if (currentTotalMinutes < slotStartTotalMinutes) {
-                return { valid: false, reason: "not_started", message: `Your slot (${slot.displayTime}) hasn't started yet. Please check back at ${slot.startHour}:${slot.startMinute.toString().padStart(2,'0')} AM.` };
-            }
-            
-            if (currentTotalMinutes > slotEndTotalMinutes) {
-                return { valid: false, reason: "expired", message: `Your slot (${slot.displayTime}) has already ended. Please book a new appointment.` };
-            }
-            
-            return { valid: true, reason: "active", message: "Your slot is active" };
-        }
-
-        // Function to check if patient has checked in
         function hasCheckedIn() {
-            return currentPatient.status === 'checked-in' || currentPatient.status === 'in-queue';
+            if (!currentPatient) return false;
+            return ['checked-in', 'checked_in', 'consulting'].includes(currentPatient.status);
         }
 
-        // Function to render the queue status based on time validation
+        function getSlotStatusMessage(patient) {
+            return TimeUtils.getAppointmentSlotStatus({
+                date: patient.appointmentDate,
+                slot: patient.slotType,
+                start_time: patient.startTime,
+                end_time: patient.endTime,
+                status: patient.status === 'checked-in' ? 'checked_in' : 'booked',
+            });
+        }
+
         function renderQueueStatus() {
             const container = document.getElementById('queueStatusContainer');
-            const timeValidation = isWithinSlotTime(currentPatient.slotType, currentPatient.appointmentDate);
+            if (!currentPatient) {
+                container.innerHTML = '<div class="alert-card"><div class="spinner"></div><p style="margin-top:1rem;">Loading queue status...</p></div>';
+                return;
+            }
+
+            const slotStatus = getSlotStatusMessage(currentPatient);
             const checkedIn = hasCheckedIn();
-            
-            // Case 1: Slot not started yet
-            if (!timeValidation.valid && timeValidation.reason === "not_started") {
+
+            if (slotStatus.isUpcoming && !checkedIn) {
                 container.innerHTML = `
                     <div class="alert-card">
                         <div style="font-size: 3rem; margin-bottom: 1rem;">⏰</div>
                         <h2 style="color: var(--warning); margin-bottom: 1rem;">Slot Not Started Yet</h2>
-                        <p>${timeValidation.message}</p>
+                        <p>Your slot (${SLOT_CONFIG[currentPatient.slotType]?.displayTime || currentPatient.slotType}) hasn't started yet. Check-in opens 15 minutes before slot start.</p>
                         <div class="slot-info" style="background: var(--background); color: var(--text-primary); margin-top: 1.5rem;">
-                            <strong>Your Appointment Details:</strong><br>
+                            <strong>Your Appointment:</strong><br>
                             Date: ${currentPatient.appointmentDate}<br>
                             Doctor: ${currentPatient.doctor}<br>
                             Token: ${currentPatient.token}<br>
-                            Slot: ${SLOT_CONFIG[currentPatient.slotType].displayTime}<br>
-                            Estimated Time: ${currentPatient.appointmentTime}
+                            Estimated: ${currentPatient.appointmentTime}
                         </div>
-                        <button class="btn btn-primary" style="margin-top: 1.5rem;" onclick="location.reload()">Refresh</button>
-                    </div>
-                `;
+                    </div>`;
                 return;
             }
-            
-            // Case 2: Slot has expired
-            if (!timeValidation.valid && timeValidation.reason === "expired") {
+
+            if (slotStatus.isPassed && !checkedIn) {
                 container.innerHTML = `
                     <div class="alert-card">
                         <div style="font-size: 3rem; margin-bottom: 1rem;">⛔</div>
                         <h2 style="color: var(--danger); margin-bottom: 1rem;">Slot Expired</h2>
-                        <p>${timeValidation.message}</p>
-                        <div class="slot-info" style="background: var(--background); color: var(--text-primary); margin-top: 1.5rem;">
-                            <strong>Your Appointment Details:</strong><br>
-                            Date: ${currentPatient.appointmentDate}<br>
-                            Doctor: ${currentPatient.doctor}<br>
-                            Token: ${currentPatient.token}<br>
-                            Slot: ${SLOT_CONFIG[currentPatient.slotType].displayTime}
-                        </div>
+                        <p>Your slot has ended. Please book a new appointment.</p>
                         <a href="booking.html" class="btn btn-primary" style="margin-top: 1.5rem;">Book New Appointment →</a>
-                    </div>
-                `;
+                    </div>`;
                 return;
             }
-            
-            // Case 3: Slot active but not checked in
-            if (timeValidation.valid && !checkedIn) {
-                const slotStart = SLOT_CONFIG[currentPatient.slotType].startHour;
-                const slotStartMin = SLOT_CONFIG[currentPatient.slotType].startMinute;
-                const checkInDeadline = new Date(currentPatient.appointmentDate);
-                checkInDeadline.setHours(slotStart + 1, slotStartMin, 0);
-                
+
+            if (!checkedIn) {
                 container.innerHTML = `
                     <div class="alert-card">
                         <div style="font-size: 3rem; margin-bottom: 1rem;">🏥</div>
                         <h2 style="color: var(--warning); margin-bottom: 1rem;">Not Checked In Yet</h2>
-                        <p>You have not checked in at reception. Please check in to see your queue position.</p>
+                        <p>Please check in at reception to join the live queue.</p>
                         <div class="slot-info" style="background: var(--background); color: var(--text-primary); margin-top: 1.5rem;">
-                            <strong>Check-in Window:</strong><br>
-                            Please check in between ${SLOT_CONFIG[currentPatient.slotType].startHour}:${slotStartMin.toString().padStart(2,'0')} AM and ${SLOT_CONFIG[currentPatient.slotType].endHour}:${SLOT_CONFIG[currentPatient.slotType].endMinute.toString().padStart(2,'0')} PM
+                            Token: ${currentPatient.token} · Doctor: ${currentPatient.doctor}<br>
+                            Slot: ${SLOT_CONFIG[currentPatient.slotType]?.displayTime || currentPatient.slotType}
                         </div>
-                        <div class="slot-info" style="background: var(--background); color: var(--text-primary); margin-top: 1rem;">
-                            <strong>Your Appointment Details:</strong><br>
-                            Token: ${currentPatient.token}<br>
-                            Doctor: ${currentPatient.doctor}<br>
-                            Slot: ${SLOT_CONFIG[currentPatient.slotType].displayTime}
-                        </div>
-                        <button class="btn btn-primary" style="margin-top: 1.5rem;" onclick="location.reload()">Refresh</button>
-                    </div>
-                `;
+                        <button class="btn btn-primary" style="margin-top: 1.5rem;" onclick="refreshQueue()">Refresh</button>
+                    </div>`;
                 return;
             }
-            
-            // Case 4: Slot active and checked in - Show live queue
-            if (timeValidation.valid && checkedIn) {
-                const totalPatients = totalInQueue;
-                const progressPercent = ((totalPatients - currentPosition) / totalPatients) * 100;
-                const estimatedWait = currentPosition * 8; // 8 minutes per patient
-                
-                container.innerHTML = `
-                    <div class="live-queue-card">
-                        <div style="margin-bottom: 1rem;">
-                            <span class="badge" style="background: rgba(255,255,255,0.2);">🔴 LIVE QUEUE STATUS</span>
-                        </div>
-                        <div class="position-number" id="queuePosition">${currentPosition}</div>
-                        <div style="font-size: 1.25rem;">Your Position in Queue</div>
-                        <div style="margin: 0.5rem 0;">
-                            Token: <strong>${currentPatient.token}</strong> | Dr. ${currentPatient.doctor.split(' ')[1]}
-                        </div>
-                        <div class="waiting-animation">
-                            <div class="waiting-progress" id="waitingProgress" style="width: ${progressPercent}%"></div>
-                        </div>
-                        <div style="font-size: 1.5rem; font-weight: bold;" id="estimatedWait">Estimated Wait: ${estimatedWait} minutes</div>
-                        <div id="priorityNote" style="margin-top: 1rem; opacity: 0.9;"></div>
-                        <div class="slot-info">
-                            <strong>Slot:</strong> ${SLOT_CONFIG[currentPatient.slotType].displayTime} | 
-                            <strong>Checked in at:</strong> ${new Date(currentPatient.checkInTime).toLocaleTimeString()}
-                        </div>
-                    </div>
-                    
-                    <div class="status-timeline" style="margin-top: 1rem;">
-                        <div class="status-step completed"><div class="dot"></div><div class="status-step-label">Token Booked</div></div>
-                        <div class="status-step completed"><div class="dot"></div><div class="status-step-label">Checked In</div></div>
-                        <div class="status-step active" id="queueStatusStep"><div class="dot"></div><div class="status-step-label">In Queue</div></div>
-                        <div class="status-step"><div class="dot"></div><div class="status-step-label">Consultation</div></div>
-                        <div class="status-step"><div class="dot"></div><div class="status-step-label">Completed</div></div>
-                    </div>
-                    
-                    <div class="card" style="margin-top: 1.5rem; background: var(--surface); color: var(--text-primary);">
-                        <h3 style="margin-bottom: 1rem;">Current Waiting Queue</h3>
-                        <div id="fullQueueList"></div>
-                    </div>
-                    
-                    <div class="card" style="margin-top: 1rem; background: rgba(59,151,151,0.05);">
-                        <h3>📋 Important Information</h3>
-                        <ul style="margin-left: 1.5rem;">
-                            <li>Priority is given to elderly (60+) and disabled patients</li>
-                            <li>Please wait in the designated waiting area near Room 204</li>
-                            <li>Your token will be announced when it's your turn</li>
-                            <li>Keep your token number ready for verification</li>
-                        </ul>
-                    </div>
-                `;
-                
-                // Render the full queue list
-                renderFullQueue();
-                
-                // Start auto-refresh for queue position
-                startQueueSimulation();
-                return;
-            }
-            
-            // Default case: Show loading or error
+
+            const position = currentPatient.queuePosition || 1;
+            const total = currentPatient.totalInQueue || position;
+            const progressPercent = Math.min(100, Math.max(8, ((total - position + 1) / total) * 100));
+            const estimatedWait = Math.max(0, (position - 1) * 8);
+
             container.innerHTML = `
-                <div class="alert-card">
-                    <div class="spinner"></div>
-                    <p style="margin-top: 1rem;">Loading queue status...</p>
-                </div>
-            `;
-        }
-        
-        function renderFullQueue() {
-            // Mock queue data with priority ordering
-            const queueData = [
-                { position: 1, token: "M10", patient: "Ram Prasad", age: 72, priority: true, status: "In Consultation", checkedIn: true },
-                { position: 2, token: "M11", patient: "Sita Gurung", age: 35, priority: false, status: "Waiting", checkedIn: true },
-                { position: currentPosition, token: currentPatient.token, patient: "You", age: 21, priority: false, status: "Waiting", isCurrent: true, checkedIn: true },
-                { position: 4, token: "M13", patient: "John Doe", age: 28, priority: false, status: "Waiting", checkedIn: true },
-                { position: 5, token: "A05", patient: "Hari Prasad", age: 65, priority: true, status: "Waiting", checkedIn: true },
-                { position: 6, token: "A06", patient: "Gita Sharma", age: 42, priority: false, status: "Waiting", checkedIn: true },
-                { position: 7, token: "M14", patient: "Bikram Thapa", age: 58, priority: false, status: "Waiting", checkedIn: true },
-                { position: 8, token: "M15", patient: "Sunita Karki", age: 70, priority: true, status: "Waiting", checkedIn: true }
-            ];
-            
-            // Calculate priority patients ahead
-            const priorityAhead = queueData.filter(q => q.priority && q.position < currentPosition).length;
-            const priorityNote = document.getElementById('priorityNote');
-            if (priorityNote) {
-                priorityNote.innerHTML = priorityAhead > 0 ? `⚠️ ${priorityAhead} priority patient(s) ahead of you (Elderly/Disabled are served first)` : '✓ No priority patients ahead of you';
-            }
-            
-            const queueList = document.getElementById('fullQueueList');
-            if (queueList) {
-                queueList.innerHTML = queueData.map(q => `
-                    <div class="queue-list-item ${q.isCurrent ? 'current' : ''}">
-                        <div style="width: 60px; font-weight: bold;">#${q.position}</div>
-                        <div style="width: 80px;"><strong>${q.token}</strong></div>
-                        <div style="flex: 1;">
-                            ${q.patient} ${q.priority ? '<span class="priority-icon">🔴 Priority</span>' : ''}
-                            ${q.isCurrent ? '<span class="badge badge-info" style="margin-left: 0.5rem;">You</span>' : ''}
-                        </div>
-                        <div>
-                            <span class="badge ${q.status === 'In Consultation' ? 'badge-warning' : 'badge-waiting'}">${q.status}</span>
-                        </div>
+                <div class="live-queue-card">
+                    <div style="margin-bottom: 1rem;"><span class="badge" style="background: rgba(255,255,255,0.2);">🔴 LIVE QUEUE STATUS</span></div>
+                    <div class="position-number" id="queuePosition">${position}</div>
+                    <div style="font-size: 1.25rem;">Your Position in Queue</div>
+                    <div style="margin: 0.5rem 0;">Token: <strong>${currentPatient.token}</strong> · ${currentPatient.doctor}</div>
+                    <div class="waiting-animation">
+                        <div class="waiting-progress" id="waitingProgress" style="width: ${progressPercent}%"></div>
                     </div>
-                `).join('');
+                    <div style="font-size: 1.5rem; font-weight: bold;" id="estimatedWait">Estimated Wait: ~${estimatedWait} minutes</div>
+                    <div class="slot-info">
+                        <strong>Slot:</strong> ${SLOT_CONFIG[currentPatient.slotType]?.displayTime || currentPatient.slotType} ·
+                        <strong>${total}</strong> patient(s) in queue
+                    </div>
+                </div>
+                <div class="status-timeline" style="margin-top: 1rem;">
+                    <div class="status-step completed"><div class="dot"></div><div class="status-step-label">Token Booked</div></div>
+                    <div class="status-step completed"><div class="dot"></div><div class="status-step-label">Checked In</div></div>
+                    <div class="status-step active"><div class="dot"></div><div class="status-step-label">In Queue</div></div>
+                    <div class="status-step"><div class="dot"></div><div class="status-step-label">Consultation</div></div>
+                    <div class="status-step"><div class="dot"></div><div class="status-step-label">Completed</div></div>
+                </div>
+                <div class="card" style="margin-top: 1.5rem; background: var(--surface); color: var(--text-primary);">
+                    <h3 style="margin-bottom: 1rem;">Queue Information</h3>
+                    <p>You are <strong>#${position}</strong> of <strong>${total}</strong> patients waiting. Please stay in the designated waiting area until your token is called.</p>
+                </div>`;
+        }
+
+        async function refreshQueue() {
+            const res = await API.patientQueueStatus();
+            if (!res.success || !res.has_active) {
+                document.getElementById('queueStatusContainer').innerHTML = '<div class="alert-card"><p>No active appointment today.</p><a href="booking.html" class="btn btn-primary">Book Appointment</a></div>';
+                return;
             }
+            const t = res.token;
+            const newPosition = res.queue_position || 1;
+            if (lastQueuePosition !== null && soundEnabled && newPosition < lastQueuePosition) {
+                if (newPosition <= 2) playSound();
+                if (newPosition === 1) Toast.show('You are next! Please be ready.', 'success');
+                else if (newPosition === 2) Toast.show('You are almost next in line.', 'warning');
+            }
+            lastQueuePosition = newPosition;
+            currentPatient = {
+                name: t.patient_name,
+                token: t.token_number,
+                doctor: t.doctor_name,
+                slotType: (t.slot_type || t.slot_type_raw || 'MORNING').toUpperCase(),
+                appointmentDate: t.date,
+                appointmentTime: t.estimated_time,
+                startTime: t.start_time,
+                endTime: t.end_time,
+                status: t.status === 'checked_in' ? 'checked-in' : t.status,
+                queuePosition: newPosition,
+                totalInQueue: res.queue_length || newPosition,
+            };
+            renderQueueStatus();
         }
-        
-        function startQueueSimulation() {
-            if (queueInterval) clearInterval(queueInterval);
-            
-            queueInterval = setInterval(() => {
-                if (currentPosition > 1) {
-                    currentPosition--;
-                    const positionElem = document.getElementById('queuePosition');
-                    const waitElem = document.getElementById('estimatedWait');
-                    const progressElem = document.getElementById('waitingProgress');
-                    
-                    if (positionElem) positionElem.innerText = currentPosition;
-                    if (waitElem) waitElem.innerText = `Estimated Wait: ${currentPosition * 8} minutes`;
-                    
-                    const totalPatients = totalInQueue;
-                    const progressPercent = ((totalPatients - currentPosition) / totalPatients) * 100;
-                    if (progressElem) progressElem.style.width = `${progressPercent}%`;
-                    
-                    // Update queue list display
-                    renderFullQueue();
-                    
-                    // Play sound alerts when getting close
-                    if (soundEnabled) {
-                        if (currentPosition === 2) {
-                            playSound();
-                            Toast.show('🔔 You are almost there! Next in line after current patient.', 'warning');
-                        }
-                        if (currentPosition === 1) {
-                            playSound();
-                            Toast.show('🔔 You are next! Please be ready for consultation.', 'success');
-                            // Update status step
-                            const queueStep = document.getElementById('queueStatusStep');
-                            if (queueStep) {
-                                queueStep.classList.remove('active');
-                                queueStep.classList.add('completed');
-                            }
-                            clearInterval(queueInterval);
-                        }
-                    }
-                } else {
-                    clearInterval(queueInterval);
-                }
-            }, 30000); // Update every 30 seconds
-        }
-        
+
         function playSound() {
             try {
-                // Simple beep sound using Web Audio API
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 const oscillator = audioContext.createOscillator();
                 const gainNode = audioContext.createGain();
@@ -349,56 +198,24 @@
                 oscillator.start();
                 gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 1);
                 oscillator.stop(audioContext.currentTime + 1);
-            } catch(e) { console.log('Audio not supported'); }
+            } catch (e) { /* audio not supported */ }
         }
-        
-        function refreshQueue() {
-            Toast.show('Refreshing queue status...', 'info');
-            renderQueueStatus();
-        }
-        
+
         function toggleSound() {
             soundEnabled = !soundEnabled;
-            const toggleBtn = document.getElementById('soundToggle');
-            if (toggleBtn) toggleBtn.innerHTML = soundEnabled ? '🔔' : '🔕';
+            document.getElementById('soundToggle').innerHTML = soundEnabled ? '🔔' : '🔕';
             Toast.show(`Sound alerts ${soundEnabled ? 'enabled' : 'disabled'}`, 'info');
         }
-        
-        // Load patient data from API
+
         async function initQueueStatus() {
             const me = await API.authMe();
             if (!me.success || me.user.role !== 'patient') {
                 window.location.href = 'login.html';
                 return;
             }
-            const res = await API.patientQueueStatus();
-            if (!res.success || !res.has_active) {
-                document.getElementById('queueStatusContainer').innerHTML = '<div class="alert-card"><p>No active appointment today.</p><a href="booking.html" class="btn btn-primary">Book Appointment</a></div>';
-                return;
-            }
-            const t = res.token;
-            currentPatient = {
-                name: t.patient_name,
-                patientId: me.user.patient_id,
-                token: t.token_number,
-                doctor: t.doctor_name,
-                slotType: (t.slot_type || t.slot_type_raw || 'MORNING').toUpperCase(),
-                appointmentDate: t.date,
-                appointmentTime: t.estimated_time,
-                status: t.status === 'checked_in' ? 'checked-in' : t.status,
-                queuePosition: res.queue_position || 1,
-                totalInQueue: res.queue_length || 1,
-            };
-            currentPosition = currentPatient.queuePosition;
-            totalInQueue = currentPatient.totalInQueue;
-            renderQueueStatus();
-            setInterval(async () => {
-                const u = await API.patientQueueStatus();
-                if (u.success && u.has_active) {
-                    currentPosition = u.queue_position || currentPosition;
-                    renderQueueStatus();
-                }
-            }, 10000);
+            await refreshQueue();
+            if (queuePollTimer) clearInterval(queuePollTimer);
+            queuePollTimer = setInterval(refreshQueue, 5000);
         }
         initQueueStatus();
     </script>

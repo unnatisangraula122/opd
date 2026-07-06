@@ -88,14 +88,17 @@ def register_walkin_patient(request):
             'address': address,
         },
     )
+    sms_result = None
     if not created:
         user.first_name = full_name.split()[0]
         user.last_name = ' '.join(full_name.split()[1:]) if ' ' in full_name else ''
         user.age = int(age)
         user.address = address
+        if not user.patient_code:
+            user.assign_patient_code()
         user.save()
-    elif created:
-        sms_patient_registration(user.patient_id, phone)
+    else:
+        sms_result = sms_patient_registration(user.patient_id, phone)
 
     if token_id:
         try:
@@ -109,7 +112,7 @@ def register_walkin_patient(request):
         except Token.DoesNotExist:
             pass
 
-    return Response({
+    response_data = {
         'success': True,
         'patient': {
             'id': user.id,
@@ -119,14 +122,31 @@ def register_walkin_patient(request):
             'age': user.age,
         },
         'created': created,
-    })
+    }
+    if sms_result is not None:
+        response_data['sms_sent'] = sms_result.success
+        if not sms_result.success:
+            response_data['sms_warning'] = sms_result.error
+    return Response(response_data)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsReceptionistOrAdmin])
 def reception_appointments(request):
     today = timezone.localdate()
-    tokens = Token.objects.filter(slot__date=today).select_related('slot__doctor__user')
+    from datetime import timedelta
+    tomorrow = today + timedelta(days=1)
+    day_filter = request.query_params.get('day', 'all')
+
+    tokens = Token.objects.filter(
+        slot__date__in=[today, tomorrow],
+    ).select_related('slot__doctor__user', 'patient').order_by('slot__date', 'slot__slot_type', 'estimated_time')
+
+    if day_filter == 'today':
+        tokens = tokens.filter(slot__date=today)
+    elif day_filter == 'tomorrow':
+        tokens = tokens.filter(slot__date=tomorrow)
+
     return Response({
         'success': True,
         'appointments': [serialize_token(t) for t in tokens],

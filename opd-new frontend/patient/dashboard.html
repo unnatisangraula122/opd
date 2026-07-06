@@ -335,105 +335,9 @@
     <script src="../js/app.js"></script>
     <script src="../js/api.js"></script>
     <script>
-      // Slot time configuration
-      const SLOT_CONFIG = {
-        MORNING: {
-          startHour: 9,
-          startMinute: 0,
-          endHour: 11,
-          endMinute: 0,
-          displayTime: "9:00 AM - 11:00 AM",
-        },
-        AFTERNOON: {
-          startHour: 12,
-          startMinute: 0,
-          endHour: 14,
-          endMinute: 0,
-          displayTime: "12:00 PM - 2:00 PM",
-        },
-        EVENING: {
-          startHour: 15,
-          startMinute: 0,
-          endHour: 17,
-          endMinute: 0,
-          displayTime: "3:00 PM - 5:00 PM",
-        },
-      };
-
-      // Function to determine appointment status based on current time
+      // Appointment slot status — shared logic in TimeUtils (app.js)
       function getAppointmentStatus(appointment) {
-        const now = new Date();
-        const appointmentDate = new Date(appointment.date);
-
-        if (appointmentDate > now) {
-          return {
-            status: "upcoming",
-            label: "Upcoming",
-            class: "status-upcoming",
-            icon: "📅",
-          };
-        }
-
-        if (appointmentDate.toDateString() === now.toDateString()) {
-          const slot = SLOT_CONFIG[appointment.slot];
-          if (slot) {
-            const currentHour = now.getHours();
-            const currentMinute = now.getMinutes();
-            const currentTotal = currentHour * 60 + currentMinute;
-            const slotStartTotal = slot.startHour * 60 + slot.startMinute;
-            const slotEndTotal = slot.endHour * 60 + slot.endMinute;
-
-            if (currentTotal < slotStartTotal) {
-              return {
-                status: "upcoming",
-                label: "Upcoming",
-                class: "status-upcoming",
-                icon: "📅",
-              };
-            } else if (
-              currentTotal >= slotStartTotal &&
-              currentTotal <= slotEndTotal
-            ) {
-              if (appointment.checkinStatus === "checked-in") {
-                return {
-                  status: "ongoing",
-                  label: "In Queue",
-                  class: "status-ongoing",
-                  icon: "⏳",
-                };
-              }
-              return {
-                status: "ongoing",
-                label: "Ongoing",
-                class: "status-ongoing",
-                icon: "🔄",
-              };
-            } else {
-              return {
-                status: "expired",
-                label: "Expired",
-                class: "status-expired",
-                icon: "⛔",
-              };
-            }
-          }
-        }
-
-        if (appointment.status === "completed") {
-          return {
-            status: "completed",
-            label: "Completed",
-            class: "status-completed",
-            icon: "✓",
-          };
-        }
-
-        return {
-          status: "expired",
-          label: "Expired",
-          class: "status-expired",
-          icon: "⛔",
-        };
+        return TimeUtils.getAppointmentSlotStatus(appointment);
       }
 
       // ============================================
@@ -443,6 +347,48 @@
       let doctorPrescriptions = [];
       let labReports = [];
       let bills = [];
+      let queuePollTimer = null;
+      let dashboardPollTimer = null;
+      let lastQueuePosition = null;
+
+      function formatApptDate(isoDate) {
+        if (!isoDate) return '—';
+        const d = new Date(`${isoDate}T00:00:00`);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const aptDay = new Date(d);
+        aptDay.setHours(0, 0, 0, 0);
+        if (aptDay.getTime() === today.getTime()) return 'Today';
+        if (aptDay.getTime() === tomorrow.getTime()) return 'Tomorrow';
+        return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+      }
+
+      function mapTokensFromApi(tokens) {
+        return (tokens || []).map((t, i) => ({
+          id: t.token_id || i,
+          date: t.date,
+          doctor: t.doctor_name,
+          token: t.token_number,
+          time: t.estimated_time,
+          slot: (t.slot_type || t.slot_type_raw || '').toUpperCase(),
+          start_time: t.start_time,
+          end_time: t.end_time,
+          amount: 660,
+          status: t.status,
+          checkinStatus: t.status === 'checked_in' ? 'checked-in' : null,
+          isExpired: t.status === 'expired',
+          queuePosition: t.queue_position || null,
+        }));
+      }
+
+      async function refreshAppointmentsFromApi() {
+        const tokensRes = await API.patientTokens();
+        if (tokensRes.success) {
+          appointments = mapTokensFromApi(tokensRes.tokens);
+        }
+      }
 
       async function initDashboard() {
         const me = await API.authMe();
@@ -462,18 +408,7 @@
         ]);
 
         if (tokensRes.success) {
-          appointments = tokensRes.tokens.map((t, i) => ({
-            id: t.token_id || i,
-            date: t.date,
-            doctor: t.doctor_name,
-            token: t.token_number,
-            time: t.estimated_time,
-            slot: (t.slot_type || t.slot_type_raw || '').toUpperCase(),
-            amount: 660,
-            status: t.status,
-            checkinStatus: t.status === 'checked_in' ? 'checked-in' : null,
-            isExpired: t.status === 'expired',
-          }));
+          appointments = mapTokensFromApi(tokensRes.tokens);
         }
         if (rxRes.success) {
           const grouped = {};
@@ -495,6 +430,25 @@
           }));
         }
         renderOverview();
+        startDashboardPolling();
+      }
+
+      function startDashboardPolling() {
+        if (dashboardPollTimer) clearInterval(dashboardPollTimer);
+        if (queuePollTimer) clearInterval(queuePollTimer);
+        dashboardPollTimer = setInterval(async () => {
+          await refreshAppointmentsFromApi();
+          const overviewVisible = document.getElementById('overviewSection')?.style.display !== 'none';
+          const apptVisible = document.getElementById('appointmentsSection')?.style.display !== 'none';
+          const queueVisible = document.getElementById('queueSection')?.style.display !== 'none';
+          if (overviewVisible) renderOverview();
+          if (apptVisible) renderAllAppointments();
+          if (queueVisible) await renderLiveQueue();
+        }, 5000);
+      }
+
+      function startQueuePolling() {
+        // kept for compatibility — polling handled by startDashboardPolling
       }
 
       // ============================================
@@ -550,15 +504,21 @@
         document.getElementById("completedCount").innerText = completed;
         document.getElementById("totalSpent").innerText = `Rs ${totalSpent}`;
 
-        const next = appointments.find(
-          (apt) => getAppointmentStatus(apt).status === "upcoming"
+        const sorted = [...appointments].sort((a, b) => a.date.localeCompare(b.date));
+        const next = sorted.find(
+          (apt) => ['booked', 'checked_in', 'consulting'].includes(apt.status) ||
+            getAppointmentStatus(apt).status === 'upcoming' ||
+            getAppointmentStatus(apt).status === 'active'
         );
         if (next) {
+          const aptStatus = getAppointmentStatus(next);
           document.getElementById("nextAppointmentContent").innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
               <div>
+                <p style="font-size:0.9rem; opacity:0.9;">${formatApptDate(next.date)} · ${next.slot} slot</p>
                 <p style="font-size:1.25rem; font-weight:bold;">${next.doctor}</p>
-                <p>Token: ${next.token} • ${next.date} at ${next.time}</p>
+                <p>Token <strong>${next.token}</strong> · Est. ${next.time || '—'}</p>
+                <p style="font-size:0.85rem; margin-top:0.25rem;">Status: ${aptStatus.label}</p>
               </div>
               <button class="btn btn-outline" style="background:white; color:var(--primary);" onclick="showSection('queue')">Track Queue →</button>
             </div>
@@ -574,9 +534,9 @@
             const aptStatus = getAppointmentStatus(a);
             return `
               <tr>
-                <td>${a.date}</td>
+                <td>${formatApptDate(a.date)}<br><small>${a.slot}</small></td>
                 <td>${a.doctor}</td>
-                <td>${a.token}</td>
+                <td><strong>${a.token}</strong></td>
                 <td>${a.time}</td>
                 <td>Rs ${a.amount}</td>
                 <td><span class="status-badge ${aptStatus.class}">${aptStatus.icon} ${aptStatus.label}</span></td>
@@ -586,12 +546,13 @@
           .join("");
       }
 
-      function renderLiveQueue() {
+      async function renderLiveQueue() {
+        const container = document.getElementById("liveQueueContent");
         const today = new Date().toISOString().split("T")[0];
         const todayAppointment = appointments.find((a) => a.date === today);
 
         if (!todayAppointment) {
-          document.getElementById("liveQueueContent").innerHTML = `
+          container.innerHTML = `
             <div class="card">
               <div class="alert alert-info">You don't have any appointments for today.</div>
             </div>
@@ -602,19 +563,19 @@
         const aptStatus = getAppointmentStatus(todayAppointment);
 
         if (aptStatus.status === "upcoming") {
-          document.getElementById("liveQueueContent").innerHTML = `
+          container.innerHTML = `
             <div class="card">
               <div class="alert alert-info">
                 <span>ℹ️</span>
-                <div>Your appointment is scheduled for ${todayAppointment.time}. Please check in at reception when you arrive.</div>
+                <div>Your appointment is scheduled for ${todayAppointment.time}. Please check in at reception when you arrive (check-in opens 15 minutes before your slot).</div>
               </div>
             </div>
           `;
           return;
         }
 
-        if (aptStatus.status === "expired") {
-          document.getElementById("liveQueueContent").innerHTML = `
+        if (aptStatus.isPassed) {
+          container.innerHTML = `
             <div class="card">
               <div class="alert alert-danger">
                 <span>⛔</span>
@@ -625,8 +586,22 @@
           return;
         }
 
-        if (todayAppointment.checkinStatus !== "checked-in") {
-          document.getElementById("liveQueueContent").innerHTML = `
+        const queueRes = await API.patientQueueStatus();
+        if (!queueRes.success || !queueRes.has_active) {
+          container.innerHTML = `
+            <div class="card">
+              <div class="alert alert-warning">
+                <span>⚠️</span>
+                <div>You have not checked in yet. Please check in at reception to join the live queue.</div>
+              </div>
+            </div>
+          `;
+          return;
+        }
+
+        const position = queueRes.queue_position;
+        if (!position || queueRes.token?.status === 'booked') {
+          container.innerHTML = `
             <div class="card">
               <div class="alert alert-warning">
                 <span>⚠️</span>
@@ -637,15 +612,25 @@
           return;
         }
 
-        document.getElementById("liveQueueContent").innerHTML = `
+        const total = queueRes.queue_length || position;
+        const progress = Math.min(100, Math.max(8, ((total - position + 1) / total) * 100));
+        const estimatedWait = Math.max(0, (position - 1) * 8);
+
+        if (lastQueuePosition !== null && position < lastQueuePosition && position <= 2) {
+          Toast.show(position === 1 ? 'You are next! Please be ready.' : 'You are almost next in line.', position === 1 ? 'success' : 'warning');
+        }
+        lastQueuePosition = position;
+
+        container.innerHTML = `
           <div class="live-queue-card">
-            <h3 style="margin-bottom:1rem;">Your Live Queue Status</h3>
-            <div class="position-number" id="queuePosition">3</div>
-            <p>Current Position in Queue</p>
+            <h3 style="margin-bottom:1rem;">Your Live Queue Status <span class="badge" style="background:rgba(255,255,255,0.2);">LIVE</span></h3>
+            <div class="position-number" id="queuePosition">${position}</div>
+            <p>Current Position in Queue (${total} waiting)</p>
             <div class="queue-progress">
-              <div class="queue-progress-fill" id="queueProgressFill" style="width:40%"></div>
+              <div class="queue-progress-fill" id="queueProgressFill" style="width:${progress}%"></div>
             </div>
-            <p id="estimatedWait">Estimated Wait: 25 minutes</p>
+            <p id="estimatedWait">Estimated Wait: ~${estimatedWait} minutes</p>
+            <p style="font-size:0.875rem;opacity:0.9;">Token: ${queueRes.token.token_number} · ${queueRes.token.doctor_name} · Est. ${queueRes.token.estimated_time || todayAppointment.time}</p>
             <div class="status-timeline">
               <div class="status-step completed"><div class="dot"></div><div class="status-step-label">Checked In</div></div>
               <div class="status-step active"><div class="dot"></div><div class="status-step-label">In Queue</div></div>
@@ -662,9 +647,9 @@
             const aptStatus = getAppointmentStatus(a);
             return `
               <tr>
-                <td>${a.date}</td>
+                <td>${formatApptDate(a.date)}<br><small>${a.slot}</small></td>
                 <td>${a.doctor}</td>
-                <td>${a.token}</td>
+                <td><strong>${a.token}</strong></td>
                 <td>${a.time}</td>
                 <td>Rs ${a.amount}</td>
                 <td><span class="status-badge ${aptStatus.class}">${aptStatus.icon} ${aptStatus.label}</span></td>

@@ -5,9 +5,9 @@ from django.utils import timezone
 
 from .models import DoctorProfile, ConsultationSlot, Token
 
-
 CONSULTATION_BASE_FEE = Decimal('660.00')
 SERVICE_CHARGE_RATE = Decimal('0.015')
+SLOT_TYPES = ['morning', 'afternoon', 'evening']
 
 
 def slot_type_display(slot_type):
@@ -16,9 +16,9 @@ def slot_type_display(slot_type):
 
 def slot_time_range(slot_type):
     ranges = {
-        'morning': '9:00 - 11:00',
-        'afternoon': '12:00 - 2:00',
-        'evening': '3:00 - 5:00',
+        'morning': '9:00 AM - 11:00 AM',
+        'afternoon': '12:00 PM - 2:00 PM',
+        'evening': '3:00 PM - 5:00 PM',
     }
     return ranges.get(slot_type, '')
 
@@ -55,7 +55,7 @@ def serialize_token(token, include_queue=False):
         'patient_name': token.patient_name,
         'patient_age': token.patient_age,
         'patient_phone': token.patient_phone,
-        'patient_address': token.patient_address,
+        'patient_address': token.patient_address or '',
         'status': token.status,
         'checkin_status': token.checkin_status,
         'estimated_time': token.estimated_time.strftime('%I:%M %p') if token.estimated_time else None,
@@ -64,6 +64,8 @@ def serialize_token(token, include_queue=False):
         'date': token.slot.date.isoformat(),
         'slot_type': slot_type_display(token.slot.slot_type),
         'slot_type_raw': token.slot.slot_type,
+        'start_time': token.slot.start_time,
+        'end_time': token.slot.end_time,
         'is_elderly': token.is_elderly,
         'is_disabled': token.is_disabled,
         'is_followup': token.is_followup,
@@ -72,25 +74,63 @@ def serialize_token(token, include_queue=False):
     }
     if token.patient_id:
         data['patient_user_id'] = token.patient_id
+    patient_user = getattr(token, 'patient', None)
+    if patient_user and getattr(patient_user, 'patient_id', None):
+        data['patient_id'] = patient_user.patient_id
     if include_queue and hasattr(token, 'queue_entry'):
         data['queue_position'] = token.queue_entry.queue_position
         data['priority'] = token.queue_entry.priority
     return data
 
 
+def _consolidate_slot_for_day(day, slot_type, assigned_doctor):
+    """Ensure exactly one ConsultationSlot per (date, slot_type)."""
+    existing = list(ConsultationSlot.objects.filter(date=day, slot_type=slot_type))
+    if existing:
+        canonical = max(existing, key=lambda s: s.tokens.count())
+        for dup in existing:
+            if dup.pk != canonical.pk:
+                Token.objects.filter(slot=dup).update(slot=canonical)
+                dup.delete()
+        if canonical.doctor_id != assigned_doctor.id and canonical.tokens.count() == 0:
+            canonical.doctor = assigned_doctor
+            canonical.save(update_fields=['doctor'])
+        return canonical
+    return ConsultationSlot.objects.create(
+        doctor=assigned_doctor,
+        date=day,
+        slot_type=slot_type,
+    )
+
+
 def ensure_today_tomorrow_slots():
-    """Create consultation slots for all doctors for today and tomorrow."""
+    """Create 3 slots per day — one doctor per slot (morning/afternoon/evening)."""
+    doctors = list(DoctorProfile.objects.filter(is_available=True).order_by('id'))
+    if not doctors:
+        return
+
     today = timezone.localdate()
     tomorrow = today + timedelta(days=1)
-    slot_types = ['morning', 'afternoon', 'evening']
-    for doctor in DoctorProfile.objects.filter(is_available=True):
-        for day in (today, tomorrow):
-            for slot_type in slot_types:
-                ConsultationSlot.objects.get_or_create(
-                    doctor=doctor,
-                    date=day,
-                    slot_type=slot_type,
-                )
+    for day in (today, tomorrow):
+        for idx, slot_type in enumerate(SLOT_TYPES):
+            assigned_doctor = doctors[idx % len(doctors)]
+            _consolidate_slot_for_day(day, slot_type, assigned_doctor)
+
+
+def get_daily_slots_for_dates(dates):
+    """Return at most one slot per slot_type for each date (after ensure)."""
+    ensure_today_tomorrow_slots()
+    result = []
+    for day in dates:
+        for slot_type in SLOT_TYPES:
+            slot = ConsultationSlot.objects.filter(
+                date=day,
+                slot_type=slot_type,
+                doctor__is_available=True,
+            ).select_related('doctor__user').first()
+            if slot:
+                result.append(slot)
+    return result
 
 
 def get_doctor_for_user(user):
