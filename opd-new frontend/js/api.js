@@ -26,11 +26,23 @@ const API = {
             }
         }
         const res = await fetch(`${this.base}${path}`, opts);
+        const contentType = res.headers.get('content-type') || '';
         let data;
         try {
-            data = await res.json();
+            if (contentType.includes('application/json')) {
+                data = await res.json();
+            } else {
+                const text = await res.text();
+                data = {
+                    success: false,
+                    error: res.status >= 500
+                        ? `Server error (${res.status}). Please refresh or contact support.`
+                        : `Invalid server response (${res.status})`,
+                    _raw: text.slice(0, 200),
+                };
+            }
         } catch {
-            data = { success: false, error: 'Invalid server response' };
+            data = { success: false, error: `Network error (${res.status || 'unknown'})` };
         }
         if (!res.ok && !data.error) data.error = `Request failed (${res.status})`;
         return data;
@@ -66,6 +78,7 @@ const API = {
 
     // Patient portal
     patientTokens() { return this.get('/patient/tokens/'); },
+    patientJourney() { return this.get('/patient/journey/'); },
     patientQueueStatus() { return this.get('/patient/queue-status/'); },
     patientPrescriptions() { return this.get('/patient/prescriptions/'); },
     patientLabReports() { return this.get('/patient/lab-reports/'); },
@@ -75,7 +88,10 @@ const API = {
     searchPatient(q) { return this.get(`/search/?q=${encodeURIComponent(q)}`); },
     checkIn(tokenId, d) { return this.post(`/check-in/${tokenId}/`, d || {}); },
     receptionRegister(d) { return this.post('/reception/register/', d); },
-    receptionAppointments() { return this.get('/reception/appointments/'); },
+    receptionAppointments(view) {
+        const q = view ? `?view=${encodeURIComponent(view)}` : '';
+        return this.get(`/reception/appointments/${q}`);
+    },
     receptionLabPayments() { return this.get('/reception/lab-payments/'); },
     payLabFee(orderId, d) { return this.post(`/reception/lab-pay/${orderId}/`, d || {}); },
     throttleStatus() { return this.get('/reception/throttle/'); },
@@ -101,9 +117,11 @@ const API = {
     // Pharmacy
     pharmacyQueue() { return this.get('/pharmacy/queue/'); },
     pharmacyStart(entryId) { return this.post(`/pharmacy/${entryId}/start/`, {}); },
+    pharmacyReady(entryId) { return this.post(`/pharmacy/${entryId}/ready/`, {}); },
     pharmacyComplete(entryId, d) { return this.post(`/pharmacy/${entryId}/complete/`, d || {}); },
 
-    // Admin
+    // Admin & sync
+    sync() { return this.get('/sync/'); },
     analytics() { return this.get('/analytics/'); },
     adminDoctors() { return this.get('/admin/doctors/'); },
     adminAddDoctor(d) { return this.post('/admin/doctors/add/', d); },

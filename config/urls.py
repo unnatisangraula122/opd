@@ -28,6 +28,7 @@ _frontend_static = [
     re_path(r'^images/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'images'}),
     re_path(r'^admin/css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
     re_path(r'^admin/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
+    re_path(r'^admin/images/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'images'}),
     re_path(
         r'^admin/dashboard\.html$',
         serve_frontend_file,
@@ -57,6 +58,8 @@ if settings.DEBUG:
         re_path(r'^pharmacy/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
         re_path(r'^staff/css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
         re_path(r'^staff/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
+        re_path(r'^admin/css/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'css'}),
+        re_path(r'^admin/js/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'js'}),
         re_path(r'^patient/images/(?P<path>.*)$', serve, {'document_root': FRONTEND_ROOT / 'images'}),
     ]
     urlpatterns += [

@@ -396,23 +396,39 @@
         async function initializePharmacyData() {
             const res = await API.pharmacyQueue();
             if (!res.success) return;
-            pharmacyQueue = (res.queue || []).concat(res.dispensed || []).map(e => ({
+            const mapStatus = (s) => {
+                if (s === 'waiting') return 'pending';
+                if (s === 'dispensing') return 'processing';
+                if (s === 'ready') return 'ready';
+                if (s === 'done') return 'dispensed';
+                return s;
+            };
+            const mapEntry = (e) => ({
                 id: e.entry_id,
                 entry_id: e.entry_id,
                 token: e.token_number,
                 patient: e.patient_name,
-                status: e.status === 'waiting' ? 'pending' : e.status === 'dispensing' ? 'processing' : 'dispensed',
-                medicines: e.prescriptions || [],
+                age: e.patient_age,
+                doctor: e.doctor_name,
+                date: e.date,
+                diagnosis: e.diagnosis || '',
+                notes: e.notes || '',
+                status: mapStatus(e.status),
+                medicines: (e.prescriptions || []).map(p => ({
+                    name: p.medicine_name || p.name,
+                    dosage: p.dosage,
+                    duration: p.frequency || p.duration,
+                    instructions: p.instructions,
+                })),
                 total_bill: e.total_bill,
-            }));
+            });
+            pharmacyQueue = []
+                .concat(res.waiting || [], res.processing || [], res.ready || [], res.dispensed || [])
+                .map(mapEntry);
             renderAll();
         }
 
-        function savePharmacyData() {
-            localStorage.setItem('smartOPD_pharmacyData', JSON.stringify({
-                queue: pharmacyQueue
-            }));
-        }
+        // localStorage removed — backend is single source of truth
 
         // ============================================
         // RENDER FUNCTIONS
@@ -669,13 +685,12 @@
             Toast.show(`Processing prescription`, 'info');
         }
 
-        function readyForPickup(id) {
+        async function readyForPickup(id) {
             const prescription = pharmacyQueue.find(p => p.id === id);
             if (!prescription) return;
-            
-            prescription.status = 'ready';
-            savePharmacyData();
-            renderAll();
+            const res = await API.pharmacyReady(id);
+            if (!res.success) { Toast.show(res.error || 'Failed', 'error'); return; }
+            await initializePharmacyData();
             Toast.show(`Prescription for ${prescription.patient} is ready for pickup`, 'success');
         }
 
@@ -739,7 +754,7 @@
             if (user) {
                 document.getElementById('pharmacistName').innerText = user.name || 'Pharmacist';
                 initializePharmacyData();
-                setInterval(initializePharmacyData, 15000);
+                PollManager.start('pharmacy', initializePharmacyData, 5000);
             }
         });
 

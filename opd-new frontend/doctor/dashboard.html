@@ -392,7 +392,10 @@
 
       async function loadDoctorQueue() {
         const res = await API.doctorQueue();
-        if (!res.success) return;
+        if (!res.success) {
+          console.warn('Doctor queue refresh failed:', res.error);
+          return;
+        }
         queue = (res.queue || []).map(p => ({
           id: p.token_id,
           token_id: p.token_id,
@@ -522,9 +525,11 @@
       API.requireStaff(['doctor']).then(user => {
         if (user) {
           const h4 = document.querySelector('.sidebar h4');
-          if (h4) h4.innerText = user.name || 'Doctor';
+          if (h4) h4.innerText = user.name ? `Dr. ${user.name}` : 'Doctor';
+          const sub = document.querySelector('.sidebar p');
+          if (sub && user.specialization) sub.innerText = user.specialization;
           loadDoctorQueue();
-          setInterval(loadDoctorQueue, 15000);
+          PollManager.start('doctor', loadDoctorQueue, 5000);
         }
       });
     </script>

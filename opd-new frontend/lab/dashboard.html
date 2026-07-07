@@ -342,18 +342,11 @@
         document.getElementById("resultModal").classList.remove("active");
       }
 
-      // Auto-refresh every 5 seconds
-      setInterval(() => {
-        if (document.getElementById("pendingTab").style.display !== "none")
-          loadLabQueue();
-        if (document.getElementById("processingTab").style.display !== "none")
-          renderProcessing();
-        if (document.getElementById("completedTab").style.display !== "none")
-          renderCompleted();
-      }, 5000);
-
       API.requireStaff(['lab_tech']).then(user => {
-        if (user) { loadLabQueue(); setInterval(loadLabQueue, 10000); }
+        if (user) {
+          loadLabQueue();
+          PollManager.start('lab', loadLabQueue, 5000);
+        }
       });
     </script>
   </body>

@@ -431,7 +431,8 @@
 
       function mapTokensFromApi(tokens) {
         return (tokens || []).map((t, i) => ({
-          id: t.token_id || i,
+          id: t.token_id || t.appointment_id || i,
+          appointment_id: t.appointment_id || t.token_id,
           date: t.date,
           doctor: t.doctor_name,
           token: t.token_number,
@@ -441,17 +442,64 @@
           end_time: t.end_time,
           amount: 660,
           status: t.status,
+          display_status: t.display_status || AppointmentStatus.label(t.status),
+          pharmacy_status: t.pharmacy_status || null,
+          pharmacy_display: t.pharmacy_display || null,
           checkinStatus: t.status === 'checked_in' ? 'checked-in' : null,
           isExpired: t.status === 'expired',
           queuePosition: t.queue_position || null,
         }));
       }
 
-      async function refreshAppointmentsFromApi() {
-        const tokensRes = await API.patientTokens();
-        if (tokensRes.success) {
-          appointments = mapTokensFromApi(tokensRes.tokens);
+      async function refreshJourneyFromApi() {
+        const journeyRes = await API.patientJourney();
+        if (!journeyRes.success) return;
+        if (journeyRes.tokens?.length) {
+          appointments = mapTokensFromApi(journeyRes.tokens);
         }
+        if (journeyRes.prescriptions?.length) {
+          doctorPrescriptions = journeyRes.prescriptions.map((p, i) => ({
+            id: p.appointment_id || i,
+            doctor: p.doctor_name,
+            date: p.date,
+            diagnosis: p.diagnosis || '',
+            symptoms: p.symptoms || '',
+            notes: p.notes || '',
+            medicines: p.medicines || [],
+            printable: p,
+          }));
+        }
+        if (journeyRes.lab_reports?.length) {
+          labReports = journeyRes.lab_reports.map((l) => ({
+            id: l.order_id,
+            test: l.test_name,
+            date: l.date,
+            result: l.findings || 'Report uploaded',
+            report_url: l.report_url,
+            doctor: l.doctor_name,
+            token_number: l.token_number,
+            status: 'completed',
+          }));
+        }
+        if (journeyRes.payments?.length) {
+          bills = journeyRes.payments.map((b) => ({
+            id: b.payment_id,
+            token_number: b.token_number,
+            date: (b.paid_at_display || '').split(',')[0],
+            paid_at_display: b.paid_at_display,
+            description: (b.payment_type || '').replace(/_/g, ' '),
+            amount: b.amount,
+            status: b.status,
+            reference_number: b.reference_number,
+          }));
+        }
+        activeJourney = journeyRes.journey || null;
+      }
+
+      let activeJourney = null;
+
+      async function refreshAppointmentsFromApi() {
+        await refreshJourneyFromApi();
       }
 
       async function initDashboard() {
@@ -464,39 +512,48 @@
         document.getElementById('patientName').innerText = user.name || 'Patient';
         document.getElementById('patientId').innerText = user.patient_id || user.patientId || '';
 
-        const [tokensRes, rxRes, labRes, billsRes] = await Promise.all([
-          API.patientTokens(),
-          API.patientPrescriptions(),
-          API.patientLabReports(),
-          API.patientBills(),
+        const [journeyRes] = await Promise.all([
+          API.patientJourney(),
         ]);
-
-        if (tokensRes.success) {
-          appointments = mapTokensFromApi(tokensRes.tokens);
-        }
-        if (rxRes.success) {
-          const grouped = {};
-          rxRes.prescriptions.forEach(p => {
-            const key = p.token_number + p.date;
-            if (!grouped[key]) grouped[key] = { id: key, doctor: p.doctor_name, date: p.date, diagnosis: p.diagnosis || '', medicines: [], followUp: '' };
-            grouped[key].medicines.push(`${p.medicine_name} ${p.dosage} - ${p.frequency}`);
-          });
-          doctorPrescriptions = Object.values(grouped);
-        }
-        await refreshLabReportsFromApi();
-        if (billsRes.success) {
-          bills = billsRes.bills.map((b) => ({
-            id: b.payment_id,
-            token_number: b.token_number,
-            date: (b.paid_at || '').split('T')[0],
-            paid_at_display: b.paid_at_display || b.paid_at,
-            description: (b.payment_type || '').replace(/_/g, ' '),
-            amount: b.amount,
-            status: b.status,
-            reference_number: b.reference_number,
-            doctor_name: b.doctor_name,
-            visit_date: b.visit_date,
-          }));
+        if (journeyRes.success) {
+          if (journeyRes.tokens?.length) appointments = mapTokensFromApi(journeyRes.tokens);
+          activeJourney = journeyRes.journey || null;
+          if (journeyRes.prescriptions?.length) {
+            doctorPrescriptions = journeyRes.prescriptions.map((p, i) => ({
+              id: p.appointment_id || i,
+              doctor: p.doctor_name,
+              date: p.date,
+              diagnosis: p.diagnosis || '',
+              symptoms: p.symptoms || '',
+              notes: p.notes || '',
+              medicines: p.medicines || [],
+              printable: p,
+            }));
+          }
+          if (journeyRes.lab_reports?.length) {
+            labReports = journeyRes.lab_reports.map((l) => ({
+              id: l.order_id,
+              test: l.test_name,
+              date: l.date,
+              result: l.findings || 'Report uploaded',
+              report_url: l.report_url,
+              doctor: l.doctor_name,
+              token_number: l.token_number,
+              status: 'completed',
+            }));
+          }
+          if (journeyRes.payments?.length) {
+            bills = journeyRes.payments.map((b) => ({
+              id: b.payment_id,
+              token_number: b.token_number,
+              date: (b.paid_at_display || '').split(',')[0],
+              paid_at_display: b.paid_at_display,
+              description: (b.payment_type || '').replace(/_/g, ' '),
+              amount: b.amount,
+              status: b.status,
+              reference_number: b.reference_number,
+            }));
+          }
         }
         renderOverview();
         startDashboardPolling();
@@ -520,10 +577,8 @@
 
       function startDashboardPolling() {
         if (dashboardPollTimer) clearInterval(dashboardPollTimer);
-        if (queuePollTimer) clearInterval(queuePollTimer);
-        dashboardPollTimer = setInterval(async () => {
-          await refreshAppointmentsFromApi();
-          await refreshLabReportsFromApi();
+        PollManager.start('patient', async () => {
+          await refreshJourneyFromApi();
           const overviewVisible = document.getElementById('overviewSection')?.style.display !== 'none';
           const apptVisible = document.getElementById('appointmentsSection')?.style.display !== 'none';
           const queueVisible = document.getElementById('queueSection')?.style.display !== 'none';

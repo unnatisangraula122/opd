@@ -1,0 +1,53 @@
+"""Canonical appointment lifecycle constants — single source of truth."""
+
+# Token (appointment) statuses stored in DB
+BOOKED = 'booked'
+CHECKED_IN = 'checked_in'
+CONSULTING = 'consulting'
+PENDING_LAB = 'pending_lab'
+PENDING_PHARMACY = 'pending_pharmacy'
+COMPLETED = 'completed'
+EXPIRED = 'expired'
+CANCELLED = 'cancelled'
+
+ACTIVE_STATUSES = (
+    BOOKED,
+    CHECKED_IN,
+    CONSULTING,
+    PENDING_LAB,
+    PENDING_PHARMACY,
+)
+
+COMPLETED_STATUSES = (COMPLETED,)
+
+TERMINAL_STATUSES = (COMPLETED, EXPIRED, CANCELLED)
+
+IN_QUEUE_STATUSES = (CHECKED_IN, CONSULTING)
+
+# Unified display labels shown on every dashboard
+DISPLAY_STATUS = {
+    BOOKED: 'Booked',
+    CHECKED_IN: 'Waiting',
+    CONSULTING: 'With Doctor',
+    PENDING_LAB: 'Lab',
+    PENDING_PHARMACY: 'Pharmacy',
+    COMPLETED: 'Completed',
+    EXPIRED: 'Expired / No Show',
+    CANCELLED: 'Cancelled',
+}
+
+# Pharmacy queue statuses
+PHARMACY_WAITING = 'waiting'
+PHARMACY_DISPENSING = 'dispensing'
+PHARMACY_READY = 'ready'
+PHARMACY_DONE = 'done'
+
+PHARMACY_DISPLAY = {
+    PHARMACY_WAITING: 'Prescription Received',
+    PHARMACY_DISPENSING: 'Preparing',
+    PHARMACY_READY: 'Ready for Pickup',
+    PHARMACY_DONE: 'Dispensed',
+}
+
+ELDERLY_AGE_THRESHOLD = 70
+DEFAULT_LAB_FEE = 500

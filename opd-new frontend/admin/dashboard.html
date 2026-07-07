@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin Dashboard - General OPD</title>
-    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="/css/style.css?v=20260707" />
   </head>
   <body>
     <div class="sidebar-layout">
@@ -96,41 +96,64 @@
         <!-- OVERVIEW -->
         <div id="overviewSection">
           <div class="kpi-grid">
-            <div class="stat-card-modern">
-              <div
-                class="kpi-icon primary"
-                data-icon="users"
-                data-icon-size="20"
-              ></div>
-              <div class="kpi-label">Patients Today</div>
-              <div class="stat-value-modern" id="kpiTotalPatients">—</div>
+            <div class="kpi-card">
+              <div class="kpi-icon primary" data-icon="users" data-icon-size="20"></div>
+              <div class="kpi-body">
+                <div class="kpi-label">Patients Today</div>
+                <div class="kpi-value" id="kpiTotalPatients">—</div>
+              </div>
             </div>
-            <div class="stat-card-modern">
-              <div
-                class="kpi-icon warning"
-                data-icon="clock"
-                data-icon-size="20"
-              ></div>
-              <div class="kpi-label">Avg Wait Time</div>
-              <div class="stat-value-modern" id="kpiAvgWait">—</div>
+            <div class="kpi-card">
+              <div class="kpi-icon warning" data-icon="clock" data-icon-size="20"></div>
+              <div class="kpi-body">
+                <div class="kpi-label">Avg Wait Time</div>
+                <div class="kpi-value" id="kpiAvgWait">—</div>
+              </div>
             </div>
-            <div class="stat-card-modern">
-              <div
-                class="kpi-icon success"
-                data-icon="checkCircle"
-                data-icon-size="20"
-              ></div>
-              <div class="kpi-label">Completed</div>
-              <div class="stat-value-modern" id="kpiCompleted">—</div>
+            <div class="kpi-card">
+              <div class="kpi-icon success" data-icon="checkCircle" data-icon-size="20"></div>
+              <div class="kpi-body">
+                <div class="kpi-label">Completed</div>
+                <div class="kpi-value" id="kpiCompleted">—</div>
+              </div>
             </div>
-            <div class="stat-card-modern">
-              <div
-                class="kpi-icon info"
-                data-icon="warning"
-                data-icon-size="20"
-              ></div>
-              <div class="kpi-label">No-Show Rate</div>
-              <div class="stat-value-modern" id="kpiNoShowRate">—</div>
+            <div class="kpi-card">
+              <div class="kpi-icon info" data-icon="warning" data-icon-size="20"></div>
+              <div class="kpi-body">
+                <div class="kpi-label">No-Show Rate</div>
+                <div class="kpi-value" id="kpiNoShowRate">—</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="kpi-grid" id="kpiGridSecondary" style="margin-top: 0;">
+            <div class="kpi-card">
+              <div class="kpi-icon primary" data-icon="queue" data-icon-size="20"></div>
+              <div class="kpi-body">
+                <div class="kpi-label">Active Queue</div>
+                <div class="kpi-value" id="kpiActiveQueue">—</div>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon" data-icon="wallet" data-icon-size="20"></div>
+              <div class="kpi-body">
+                <div class="kpi-label">Daily Revenue</div>
+                <div class="kpi-value" id="kpiDailyRevenue">—</div>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon" data-icon="flask" data-icon-size="20"></div>
+              <div class="kpi-body">
+                <div class="kpi-label">Pending Lab Tests</div>
+                <div class="kpi-value" id="kpiPendingLab">—</div>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon" data-icon="pharmacy" data-icon-size="20"></div>
+              <div class="kpi-body">
+                <div class="kpi-label">Pharmacy Queue</div>
+                <div class="kpi-value" id="kpiPharmacyQueue">—</div>
+              </div>
             </div>
           </div>
 
@@ -435,27 +458,39 @@
           data.no_show_rate,
           "%",
         );
+        document.getElementById("kpiActiveQueue").textContent =
+          data.active_queue ?? "—";
+        document.getElementById("kpiDailyRevenue").textContent =
+          data.daily_revenue != null ? `Rs. ${data.daily_revenue}` : "—";
+        document.getElementById("kpiPendingLab").textContent =
+          data.pending_lab_tests ?? "—";
+        document.getElementById("kpiPharmacyQueue").textContent =
+          data.pharmacy_queue ?? "—";
+
+        if (typeof MedIcons !== "undefined") MedIcons.inject();
 
         document.getElementById("analyticsDate").textContent = data.date
           ? `Data for ${new Date(data.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}`
           : "—";
 
         const metrics = [
+          { label: "Total Patients (All Time)", value: fmt(data.total_patients_all_time) },
+          { label: "Active Queue", value: fmt(data.active_queue) },
+          { label: "Expired / No Shows", value: fmt(data.expired_no_shows ?? data.no_shows) },
+          { label: "Total Doctors", value: fmt(data.total_doctors) },
+          { label: "Total Lab Tests Today", value: fmt(data.total_lab_tests) },
+          { label: "Pending Lab Tests", value: fmt(data.pending_lab_tests) },
+          { label: "Pharmacy Queue", value: fmt(data.pharmacy_queue) },
+          { label: "Daily Revenue (Rs.)", value: fmt(data.daily_revenue) },
+          { label: "Monthly Revenue (Rs.)", value: fmt(data.monthly_revenue) },
+          { label: "Total Revenue (Rs.)", value: fmt(data.revenue) },
           { label: "Avg Queue Length", value: fmt(data.avg_queue_length) },
           { label: "Doctor Idle (min)", value: fmt(data.doctor_idle_minutes) },
           { label: "Throughput", value: fmt(data.system_throughput) },
-          {
-            label: "Check-in Compliance",
-            value: fmt(data.checkin_compliance, "%"),
-          },
-          { label: "No-Shows", value: fmt(data.no_shows) },
-          {
-            label: "Avg Consultation",
-            value: fmt(data.avg_consultation_minutes, " min"),
-          },
+          { label: "Check-in Compliance", value: fmt(data.checkin_compliance, "%") },
+          { label: "Avg Consultation", value: fmt(data.avg_consultation_minutes, " min") },
           { label: "Peak Hour", value: data.peak_hour || "—" },
           { label: "Lab TAT", value: fmt(data.lab_turnaround_minutes, " min") },
-          { label: "Checked In", value: fmt(data.checked_in) },
         ];
 
         document.getElementById("analyticsGrid").innerHTML = metrics
@@ -555,7 +590,6 @@
         }
         analyticsData = res;
         renderAnalyticsKPIs(res);
-        Toast.show("Analytics refreshed", "success");
       }
 
       async function renderDoctors() {
@@ -682,6 +716,7 @@
 
         updateMaxTokens();
         refreshAnalytics();
+        PollManager.start('admin', refreshAnalytics, 10000);
 
         API.adminSlotConfig().then((r) => {
           if (r.success && r.avg_consultation_time) {

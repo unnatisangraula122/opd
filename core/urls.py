@@ -59,10 +59,12 @@ urlpatterns = [
     # Pharmacy
     path('pharmacy/queue/', views.pharmacy_queue, name='pharmacy-queue'),
     path('pharmacy/<int:entry_id>/start/', views.pharmacy_start_dispense, name='pharmacy-start'),
+    path('pharmacy/<int:entry_id>/ready/', views.pharmacy_mark_ready_view, name='pharmacy-ready'),
     path('pharmacy/<int:entry_id>/complete/', views.pharmacy_complete_dispense, name='pharmacy-complete'),
 
     # Patient portal
     path('patient/tokens/', views.get_patient_tokens, name='patient-tokens'),
+    path('patient/journey/', views.patient_journey, name='patient-journey'),
     path('patient/queue-status/', views.patient_queue_status, name='patient-queue-status'),
     path('patient/prescriptions/', views.patient_prescriptions, name='patient-prescriptions'),
     path('patient/lab-reports/', views.patient_lab_reports, name='patient-lab-reports'),
@@ -77,4 +79,5 @@ urlpatterns = [
     path('admin/throttle/config/', views.admin_throttle_config, name='admin-throttle-config'),
     path('admin/throttle/logs/', views.admin_throttle_logs, name='admin-throttle-logs'),
     path('analytics/', views.analytics, name='analytics'),
+    path('sync/', views.system_sync, name='system-sync'),
 ]

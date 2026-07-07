@@ -575,6 +575,7 @@ class PharmacyQueueEntry(models.Model):
     STATUS_CHOICES = (
         ('waiting', 'Waiting'),
         ('dispensing', 'Dispensing'),
+        ('ready', 'Ready for Pickup'),
         ('done', 'Done'),
     )
 
@@ -596,6 +597,10 @@ class PharmacyQueueEntry(models.Model):
         self.pharmacist = pharmacist
         self.started_at = timezone.now()
         self.save()
+
+    def mark_ready(self):
+        self.status = 'ready'
+        self.save(update_fields=['status'])
 
     def complete(self):
         self.status = 'done'

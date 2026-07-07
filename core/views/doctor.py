@@ -11,6 +11,7 @@ from core.models import (
 )
 from core.permissions import IsDoctor
 from core.services.analytics import get_next_eligible_token
+from core.services.workflow import complete_consultation as workflow_complete_consultation
 from core.utils import format_local_time, get_doctor_for_user, serialize_token
 
 
@@ -146,67 +147,20 @@ def complete_consultation(request, token_id):
     if token.status != 'consulting':
         return Response({'success': False, 'error': f'Cannot complete. Status: {token.status}'}, status=400)
 
-    symptoms = request.data.get('symptoms', '')
-    diagnosis = request.data.get('diagnosis', '')
-    notes = request.data.get('notes', '')
-    medicines = request.data.get('medicines', [])
-    lab_tests = request.data.get('lab_tests', [])
-    followup_date = request.data.get('followup_date')
-
-    consultation, _ = Consultation.objects.update_or_create(
-        token=token,
-        defaults={
-            'symptoms': symptoms,
-            'diagnosis': diagnosis,
-            'notes': notes,
-            'requires_lab': bool(lab_tests),
-            'requires_followup': bool(followup_date),
-            'followup_date': followup_date or None,
-        },
-    )
-
-    Prescription.objects.filter(consultation=consultation).delete()
-    for med in medicines:
-        Prescription.objects.create(
-            consultation=consultation,
-            token=token,
-            medicine_name=med.get('name', med.get('medicine_name', '')),
-            dosage=med.get('dosage', ''),
-            frequency=med.get('frequency', med.get('duration', '')),
-            duration_days=med.get('duration_days'),
-            instructions=med.get('instructions', ''),
+    try:
+        result = workflow_complete_consultation(
+            token,
+            symptoms=request.data.get('symptoms', ''),
+            diagnosis=request.data.get('diagnosis', ''),
+            notes=request.data.get('notes', ''),
+            medicines=request.data.get('medicines', []),
+            lab_tests=request.data.get('lab_tests', []),
+            followup_date=request.data.get('followup_date'),
         )
+    except ValidationError as exc:
+        return Response({'success': False, 'error': str(exc)}, status=400)
 
-    LabOrder.objects.filter(consultation=consultation).delete()
-    for test_name in lab_tests:
-        LabOrder.objects.create(
-            consultation=consultation,
-            token=token,
-            test_name=test_name,
-            status='fee_pending',
-        )
-
-    token.consultation_ended_at = timezone.now()
-    if lab_tests:
-        token.status = 'pending_lab'
-    elif medicines:
-        token.status = 'pending_pharmacy'
-        PharmacyQueueEntry.objects.get_or_create(
-            token=token,
-            defaults={'total_bill': len(medicines) * 50},
-        )
-    else:
-        token.status = 'completed'
-    token.save()
-
-    if hasattr(token, 'queue_entry'):
-        entry = token.queue_entry
-        entry.queue_status = 'done'
-        entry.served_at = timezone.now()
-        if entry.entered_at:
-            entry.wait_minutes = int((entry.served_at - entry.entered_at).total_seconds() / 60)
-        entry.save()
-
+    token.refresh_from_db()
     duration = None
     if token.consultation_started_at and token.consultation_ended_at:
         duration = round((token.consultation_ended_at - token.consultation_started_at).total_seconds() / 60, 1)
@@ -214,10 +168,9 @@ def complete_consultation(request, token_id):
     return Response({
         'success': True,
         'message': f'Consultation completed for {token.patient_name}',
-        'token': serialize_token(token),
+        'token': serialize_token(token, include_workflow=True),
         'consultation_duration_minutes': duration,
-        'requires_lab': bool(lab_tests),
-        'requires_pharmacy': bool(medicines),
+        **result,
     })
 
 

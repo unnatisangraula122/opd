@@ -3,6 +3,9 @@ from datetime import timedelta
 
 from django.utils import timezone
 
+from core import constants as C
+from core.services.workflow import display_status
+
 from .models import DoctorProfile, ConsultationSlot, Token
 
 CONSULTATION_BASE_FEE = Decimal('660.00')
@@ -68,15 +71,18 @@ def serialize_slot(slot):
     }
 
 
-def serialize_token(token, include_queue=False):
+def serialize_token(token, include_queue=False, include_workflow=False):
     data = {
         'token_id': token.id,
+        'appointment_id': token.id,
         'token_number': token.token_number,
         'patient_name': token.patient_name,
         'patient_age': token.patient_age,
         'patient_phone': token.patient_phone,
         'patient_address': token.patient_address or '',
         'status': token.status,
+        'display_status': display_status(token),
+        'is_active': token.status in C.ACTIVE_STATUSES,
         'checkin_status': token.checkin_status,
         'estimated_time': format_local_time(token.estimated_time),
         'doctor_name': doctor_display_name(token.slot.doctor),
@@ -100,6 +106,16 @@ def serialize_token(token, include_queue=False):
     if include_queue and hasattr(token, 'queue_entry'):
         data['queue_position'] = token.queue_entry.queue_position
         data['priority'] = token.queue_entry.priority
+
+    if include_workflow:
+        pharmacy = getattr(token, 'pharmacy_queue_entry', None)
+        if pharmacy:
+            data['pharmacy_status'] = pharmacy.status
+            data['pharmacy_display'] = C.PHARMACY_DISPLAY.get(pharmacy.status, pharmacy.status)
+        pending_labs = token.lab_orders.exclude(status='completed').count()
+        data['pending_lab_count'] = pending_labs
+        data['has_prescription'] = token.prescriptions.exists()
+
     return data
 
 

@@ -530,6 +530,7 @@
         if (aptRes.success) {
           allAppointments = aptRes.appointments.map(a => ({
             token_id: a.token_id,
+            appointment_id: a.appointment_id || a.token_id,
             token: a.token_number,
             patient: a.patient_name,
             patientPhone: a.patient_phone,
@@ -541,7 +542,9 @@
             start_time: a.start_time,
             end_time: a.end_time,
             time: a.estimated_time,
-            status: a.status === 'booked' ? 'pending' : a.status === 'checked_in' ? 'checked-in' : a.status,
+            status: a.status,
+            display_status: a.display_status || AppointmentStatus.label(a.status),
+            is_active: a.is_active !== false && AppointmentStatus.isActive(a.status),
             patientId: a.patient_id || null,
             isNewPatient: !a.patient_id,
             is_elderly: a.is_elderly,
@@ -769,25 +772,20 @@
 
       // Render all appointments by slot
       function renderAppointments() {
-        const morningApps = allAppointments.filter((a) => a.slot === "MORNING");
-        const afternoonApps = allAppointments.filter(
-          (a) => a.slot === "AFTERNOON",
-        );
-        const eveningApps = allAppointments.filter((a) => a.slot === "EVENING");
+        const activeApps = allAppointments.filter(a => a.is_active);
 
-        const allApps = [...morningApps, ...afternoonApps, ...eveningApps];
-
-        document.getElementById("appointmentsList").innerHTML = allApps
+        document.getElementById("appointmentsList").innerHTML = activeApps
           .map((apt) => {
             const slotStatus = TimeUtils.getAppointmentSlotStatus({
               date: apt.date,
               slot: apt.slot,
               start_time: apt.start_time,
               end_time: apt.end_time,
-              status: apt.status === 'pending' ? 'booked' : apt.status,
+              status: apt.status,
             });
-            const canCheckIn = slotStatus.canCheckIn;
-            const isExpired = apt.status === "pending" && slotStatus.isPassed;
+            const canCheckIn = slotStatus.canCheckIn && apt.status === 'booked';
+            const statusLabel = apt.display_status || AppointmentStatus.label(apt.status);
+            const statusClass = AppointmentStatus.badgeClass(apt.status);
 
             let priorityBadge = "";
             if (apt.priority === "ELDERLY")
@@ -801,31 +799,21 @@
                 '<span class="priority-badge priority-pregnant">Pregnant</span>';
 
             return `
-                    <tr class="${isExpired ? "expired-row" : ""}">
+                    <tr>
                         <td>${apt.token}${priorityBadge ? "<br>" + priorityBadge : ""}</td>
                         <td>${formatApptDate(apt.date)}</td>
                         <td>${apt.patient}${apt.isNewPatient ? ' <span class="badge badge-warning">New</span>' : ""}<br><small style="color:var(--text-muted);">${apt.patientPhone || ''}</small></td>
                         <td>${apt.doctor}</td>
                         <td><span class="slot-indicator">${apt.slot}</span></td>
                         <td>${apt.time}</td>
-                        <td>
-                            ${
-                              apt.status === "checked-in"
-                                ? '<span class="badge badge-success">Checked In</span>'
-                                : isExpired
-                                  ? '<span class="badge badge-danger">Expired</span>'
-                                  : '<span class="badge badge-warning">Pending</span>'
-                            }
-                        </td>
+                        <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
                         <td>
                             ${
                               canCheckIn
                                 ? `<button class="btn btn-primary" onclick="searchAndCheckin('${apt.token}')">Check In</button>`
-                                : apt.status === "checked-in"
+                                : apt.status === "checked_in"
                                   ? "✓ In Queue"
-                                  : isExpired
-                                  ? "Passed"
-                                    : ""
+                                  : ""
                             }
                          </td>
                     </tr>
@@ -917,16 +905,10 @@
 
       function renderStats() {
         const total = allAppointments.length;
-        const checkedIn = allAppointments.filter(
-          (a) => a.status === "checked-in",
-        ).length;
-        const inQueue = Object.values(queues).reduce(
-          (sum, q) => sum + q.length,
-          0,
-        );
-        const completed = allAppointments.filter(
-          (a) => a.status === "completed",
-        ).length;
+        const checkedIn = allAppointments.filter(a => a.status === 'checked_in').length;
+        const inQueue = Object.values(queues).reduce((sum, q) => sum + q.length, 0);
+        const completed = allAppointments.filter(a => a.status === 'completed').length;
+        const expired = allAppointments.filter(a => a.status === 'expired').length;
 
         document.getElementById("statsTotal").innerText = total;
         document.getElementById("statsCheckedIn").innerText = checkedIn;
@@ -1044,7 +1026,7 @@
       API.requireStaff(['receptionist', 'admin']).then(user => {
         if (user) {
           loadData();
-          setInterval(refreshReceptionData, 5000);
+          PollManager.start('reception', refreshReceptionData, 5000);
         }
       });
     </script>

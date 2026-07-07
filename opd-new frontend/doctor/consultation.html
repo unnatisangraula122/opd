@@ -124,6 +124,17 @@
         renderLabTests();
       }
 
+      const MED_DOSAGES = ['250mg','500mg','5mg','10mg','20mg','40mg','1 tablet','2 tablets','5ml','10ml'];
+      const MED_FREQUENCIES = ['Once daily','Twice daily','Three times daily','Every 6 hours','Every 8 hours','At bedtime','As needed'];
+      const MED_DURATIONS = ['3 days','5 days','7 days','10 days','14 days','21 days','30 days'];
+      const MED_ROUTES = ['Oral','Topical','IV','IM','Sublingual','Inhalation'];
+      const MED_TIMINGS = ['Before meals','After meals','With meals','Empty stomach','Any time'];
+
+      function medSelect(options, value, onChange) {
+        const opts = options.map(o => `<option value="${o}" ${o === value ? 'selected' : ''}>${o}</option>`).join('');
+        return `<select class="form-select" onchange="${onChange}"><option value="">-- Select --</option>${opts}</select>`;
+      }
+
       function renderMedicines() {
         const c = document.getElementById('medicinesList');
         if (!c) return;
@@ -131,9 +142,9 @@
         c.innerHTML = medicines.map((m, i) => `
           <div class="medicine-row">
             <input class="form-input" placeholder="Medicine *" value="${m.name || ''}" onchange="updateMedicine(${i},'name',this.value)">
-            <input class="form-input" placeholder="Dosage *" value="${m.dosage || ''}" onchange="updateMedicine(${i},'dosage',this.value)">
-            <input class="form-input" placeholder="Duration *" value="${m.duration || ''}" onchange="updateMedicine(${i},'duration',this.value)">
-            <input class="form-input" placeholder="Instructions *" value="${m.instructions || ''}" onchange="updateMedicine(${i},'instructions',this.value)">
+            ${medSelect(MED_DOSAGES, m.dosage, `updateMedicine(${i},'dosage',this.value)`)}
+            ${medSelect(MED_FREQUENCIES, m.duration, `updateMedicine(${i},'duration',this.value)`)}
+            ${medSelect(MED_TIMINGS, m.instructions, `updateMedicine(${i},'instructions',this.value)`)}
             <button class="btn btn-danger btn-sm" onclick="removeMedicine(${i})">X</button>
           </div>`).join('');
       }

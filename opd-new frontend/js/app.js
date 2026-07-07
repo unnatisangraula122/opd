@@ -345,3 +345,66 @@ window.LoadingOverlay = LoadingOverlay;
 window.StorageManager = StorageManager;
 window.TimeUtils = TimeUtils;
 window.PatientPriority = PatientPriority;
+
+/** Unified appointment status labels — matches backend DISPLAY_STATUS */
+const AppointmentStatus = {
+    LABELS: {
+        booked: 'Booked',
+        checked_in: 'Waiting',
+        consulting: 'With Doctor',
+        pending_lab: 'Lab',
+        pending_pharmacy: 'Pharmacy',
+        completed: 'Completed',
+        expired: 'Expired / No Show',
+        cancelled: 'Cancelled',
+    },
+    CSS: {
+        booked: 'status-upcoming',
+        checked_in: 'status-ongoing',
+        consulting: 'status-ongoing',
+        pending_lab: 'status-ongoing',
+        pending_pharmacy: 'status-ongoing',
+        completed: 'status-completed',
+        expired: 'status-expired',
+        cancelled: 'status-expired',
+    },
+    normalize(status) {
+        return String(status || '').toLowerCase().replace(/-/g, '_');
+    },
+    label(status) {
+        const key = this.normalize(status);
+        return this.LABELS[key] || (status ? String(status).replace(/_/g, ' ') : 'Unknown');
+    },
+    badgeClass(status) {
+        return this.CSS[this.normalize(status)] || '';
+    },
+    isActive(status) {
+        return ['booked', 'checked_in', 'consulting', 'pending_lab', 'pending_pharmacy'].includes(this.normalize(status));
+    },
+    isTerminal(status) {
+        return ['completed', 'expired', 'cancelled'].includes(this.normalize(status));
+    },
+};
+
+/** Shared polling — triggers slot expiry via /sync/ then runs callback */
+const PollManager = {
+    _timers: {},
+    start(key, callback, intervalMs = 5000) {
+        this.stop(key);
+        const tick = async () => {
+            try { await API.sync(); } catch (_) { /* non-fatal */ }
+            await callback();
+        };
+        tick();
+        this._timers[key] = setInterval(tick, intervalMs);
+    },
+    stop(key) {
+        if (this._timers[key]) {
+            clearInterval(this._timers[key]);
+            delete this._timers[key];
+        }
+    },
+};
+
+window.AppointmentStatus = AppointmentStatus;
+window.PollManager = PollManager;

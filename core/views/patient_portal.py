@@ -37,8 +37,8 @@ def patient_queue_status(request):
     token = Token.objects.filter(
         _patient_token_filter(request.user),
         slot__date=today,
-        status__in=['booked', 'checked_in', 'consulting'],
-    ).select_related('slot__doctor', 'queue_entry').order_by('-created_at').first()
+        status__in=['booked', 'checked_in', 'consulting', 'pending_lab', 'pending_pharmacy'],
+    ).select_related('slot__doctor', 'queue_entry', 'pharmacy_queue_entry').order_by('-created_at').first()
 
     if not token:
         return Response({'success': True, 'has_active': False})
@@ -53,12 +53,14 @@ def patient_queue_status(request):
             queue_status='waiting',
         ).count()
 
+    pharmacy = getattr(token, 'pharmacy_queue_entry', None)
     return Response({
         'success': True,
         'has_active': True,
-        'token': serialize_token(token, include_queue=True),
+        'token': serialize_token(token, include_queue=True, include_workflow=True),
         'queue_position': queue_position,
         'queue_length': queue_length,
+        'pharmacy_status': pharmacy.status if pharmacy else None,
     })
 
 

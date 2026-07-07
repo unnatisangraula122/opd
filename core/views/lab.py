@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from core.models import ConsultationSlot, LabOrder, LabQueueEntry, LabReport, Token
 from core.permissions import IsLabTech, IsReceptionistOrAdmin
 from core.services.sms import sms_lab_report_ready
+from core.services.workflow import after_lab_report_uploaded
 from core.utils import serialize_token
 
 
@@ -27,8 +28,10 @@ def _serialize_lab_order(order):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsLabTech])
 def lab_queue(request):
+    today = timezone.localdate()
     orders = LabOrder.objects.filter(
-        status__in=['fee_paid', 'in_queue', 'in_progress', 'completed']
+        token__slot__date=today,
+        status__in=['fee_paid', 'in_queue', 'in_progress', 'completed'],
     ).select_related('token', 'queue_entry').order_by('ordered_at')
     pending = []
     processing = []
@@ -86,6 +89,8 @@ def lab_complete_test(request, order_id):
     if report_file:
         report.report_file = report_file
         report.save()
+
+    after_lab_report_uploaded(order)
 
     sms_result = None
     phone = order.token.patient_phone

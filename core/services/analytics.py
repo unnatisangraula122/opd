@@ -5,11 +5,14 @@ from decimal import Decimal
 from django.db.models import Avg, Count, Q
 from django.utils import timezone
 
+from accounts.models import User
 from core.models import (
     ConsultationSlot,
     DailyAnalytics,
     DoctorProfile,
     LabOrder,
+    Payment,
+    PharmacyQueueEntry,
     QueueEntry,
     SlotOptimizationRecommendation,
     Token,
@@ -78,6 +81,28 @@ def compute_kpis(date=None):
 
     throughput = completed.count()
 
+    active_queue = tokens.filter(status__in=['checked_in', 'consulting']).count()
+    pharmacy_queue = PharmacyQueueEntry.objects.filter(
+        status__in=['waiting', 'dispensing', 'ready'],
+        token__slot__date=date,
+    ).count()
+    pending_lab = LabOrder.objects.filter(
+        token__slot__date=date,
+        status__in=['fee_pending', 'fee_paid', 'in_queue', 'in_progress'],
+    ).count()
+    total_lab_tests = LabOrder.objects.filter(ordered_at__date=date).count()
+    total_doctors = DoctorProfile.objects.filter(is_available=True).count()
+    total_patients_all = User.objects.filter(role='patient').count()
+
+    payments_today = Payment.objects.filter(paid_at__date=date, status='paid')
+    daily_revenue = sum(float(p.amount) for p in payments_today)
+    month_start = date.replace(day=1)
+    monthly_revenue = sum(
+        float(p.amount)
+        for p in Payment.objects.filter(paid_at__date__gte=month_start, paid_at__date__lte=date, status='paid')
+    )
+    total_revenue = sum(float(p.amount) for p in Payment.objects.filter(status='paid'))
+
     present = tokens.filter(checkin_status='present').count()
     checkin_total = tokens.exclude(status__in=['booked', 'cancelled', 'expired']).count()
     checkin_compliance = round((present / checkin_total * 100), 1) if checkin_total else 0
@@ -126,10 +151,22 @@ def compute_kpis(date=None):
     return {
         'date': date.isoformat(),
         'total_patients': total,
+        'total_patients_all_time': total_patients_all,
+        'todays_patients': total,
+        'active_queue': active_queue,
         'completed': completed.count(),
+        'completed_appointments': completed.count(),
         'checked_in': checked_in.count(),
         'no_shows': expired.count(),
+        'expired_no_shows': expired.count(),
         'no_show_rate': no_show_rate,
+        'total_doctors': total_doctors,
+        'total_lab_tests': total_lab_tests,
+        'pending_lab_tests': pending_lab,
+        'pharmacy_queue': pharmacy_queue,
+        'revenue': round(total_revenue, 2),
+        'daily_revenue': round(daily_revenue, 2),
+        'monthly_revenue': round(monthly_revenue, 2),
         'avg_waiting_minutes': avg_wait,
         'avg_queue_length': avg_queue,
         'doctor_idle_minutes': round(doctor_idle_minutes, 1),

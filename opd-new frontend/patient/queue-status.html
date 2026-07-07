@@ -60,7 +60,7 @@
 
         function hasCheckedIn() {
             if (!currentPatient) return false;
-            return ['checked-in', 'checked_in', 'consulting'].includes(currentPatient.status);
+            return ['checked-in', 'checked_in', 'consulting', 'pending_lab', 'pending_pharmacy'].includes(currentPatient.status);
         }
 
         function getSlotStatusMessage(patient) {
@@ -155,7 +155,9 @@
                 </div>
                 <div class="card" style="margin-top: 1.5rem; background: var(--surface); color: var(--text-primary);">
                     <h3 style="margin-bottom: 1rem;">Queue Information</h3>
+                    <p>Status: <strong>${currentPatient.displayStatus || AppointmentStatus.label(currentPatient.status)}</strong></p>
                     <p>You are <strong>#${position}</strong> of <strong>${total}</strong> patients waiting. Please stay in the designated waiting area until your token is called.</p>
+                    <button class="btn btn-outline" style="margin-top: 1rem;" onclick="window.print()">Print Token</button>
                 </div>`;
         }
 
@@ -182,7 +184,8 @@
                 appointmentTime: t.estimated_time,
                 startTime: t.start_time,
                 endTime: t.end_time,
-                status: t.status === 'checked_in' ? 'checked-in' : t.status,
+                status: t.status,
+                displayStatus: t.display_status || AppointmentStatus.label(t.status),
                 queuePosition: newPosition,
                 totalInQueue: res.queue_length || newPosition,
             };
@@ -218,8 +221,7 @@
                 return;
             }
             await refreshQueue();
-            if (queuePollTimer) clearInterval(queuePollTimer);
-            queuePollTimer = setInterval(refreshQueue, 5000);
+            PollManager.start('patient-queue', refreshQueue, 5000);
         }
         initQueueStatus();
     </script>

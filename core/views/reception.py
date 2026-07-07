@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.models import User
+from core import constants as C
 from core.models import DoctorProfile, LabOrder, Payment, Token
 from core.permissions import IsReceptionist, IsReceptionistOrAdmin
 from core.services.sms import sms_patient_registration
@@ -135,6 +136,7 @@ def reception_appointments(request):
     from datetime import timedelta
     tomorrow = today + timedelta(days=1)
     day_filter = request.query_params.get('day', 'all')
+    view_filter = request.query_params.get('view', 'all')
 
     tokens = Token.objects.filter(
         slot__date__in=[today, tomorrow],
@@ -145,9 +147,24 @@ def reception_appointments(request):
     elif day_filter == 'tomorrow':
         tokens = tokens.filter(slot__date=tomorrow)
 
+    if view_filter == 'active':
+        tokens = tokens.filter(status__in=C.ACTIVE_STATUSES)
+    elif view_filter == 'completed':
+        tokens = tokens.filter(status=C.COMPLETED)
+    elif view_filter == 'expired':
+        tokens = tokens.filter(status__in=[C.EXPIRED, C.CANCELLED])
+
+    serialized = [serialize_token(t, include_queue=True, include_workflow=True) for t in tokens]
+    active = [a for a in serialized if a.get('is_active')]
+    completed = [a for a in serialized if a['status'] == C.COMPLETED]
+    expired = [a for a in serialized if a['status'] in (C.EXPIRED, C.CANCELLED)]
+
     return Response({
         'success': True,
-        'appointments': [serialize_token(t) for t in tokens],
+        'appointments': serialized,
+        'active': active,
+        'completed': completed,
+        'expired': expired,
     })
 
 
@@ -166,7 +183,7 @@ def reception_lab_payments(request):
             'patient_name': order.token.patient_name,
             'test_name': order.test_name,
             'status': order.status,
-            'amount': 500,
+            'amount': C.DEFAULT_LAB_FEE,
         })
     return Response({'success': True, 'lab_payments': data})
 
@@ -179,7 +196,7 @@ def pay_lab_fee(request, order_id):
     except LabOrder.DoesNotExist:
         return Response({'success': False, 'error': 'Lab order not found'}, status=404)
 
-    amount = request.data.get('amount', 500)
+    amount = request.data.get('amount', C.DEFAULT_LAB_FEE)
     Payment.objects.create(
         token=order.token,
         payment_type='lab_fee',

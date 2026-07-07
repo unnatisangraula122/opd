@@ -16,7 +16,7 @@ from .doctor import (
     doctor_completed_today, doctor_consultation_detail,
 )
 from .lab import lab_queue, lab_start_test, lab_complete_test, lab_reports_for_token
-from .pharmacy import pharmacy_queue, pharmacy_start_dispense, pharmacy_complete_dispense
+from .pharmacy import pharmacy_queue, pharmacy_start_dispense, pharmacy_mark_ready_view, pharmacy_complete_dispense
 from .admin_api import (
     admin_doctors, admin_add_doctor, admin_update_doctor,
     admin_slot_config, admin_throttle_config, admin_throttle_logs, analytics,
@@ -25,4 +25,6 @@ from .patient_portal import (
     get_patient_tokens, patient_queue_status, patient_prescriptions,
     patient_lab_reports, patient_bills, create_followup,
 )
+from .patient_journey import patient_journey
+from .sync import system_sync
 from .queue import waiting_queue
