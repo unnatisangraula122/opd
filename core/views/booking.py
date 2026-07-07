@@ -13,8 +13,10 @@ from core.permissions import IsPatient, IsReceptionistOrAdmin
 from core.services.sms import sms_token_booking
 from core.utils import (
     CONSULTATION_BASE_FEE,
+    duplicate_slot_booking_error,
     ensure_today_tomorrow_slots,
     get_daily_slots_for_dates,
+    patient_has_active_slot_booking,
     serialize_slot,
     format_local_time,
     serialize_token,
@@ -107,6 +109,12 @@ def book_token(request):
             patient_user = request.user
         elif patient_phone:
             patient_user = User.objects.filter(phone=patient_phone, role='patient').first()
+
+    if patient_has_active_slot_booking(slot, patient_user=patient_user, patient_phone=patient_phone):
+        return Response({
+            'success': False,
+            'error': duplicate_slot_booking_error(slot),
+        }, status=400)
 
     token = Token.objects.create(
         slot=slot,

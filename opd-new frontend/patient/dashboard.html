@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Patient Dashboard - General OPD</title>
-    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/style.css?v=20260707" />
     <style>
       .live-queue-card {
         background: linear-gradient(
@@ -121,16 +121,113 @@
         body * { visibility: hidden; }
         #receiptModal.active,
         #receiptModal.active .payment-receipt,
-        #receiptModal.active .payment-receipt * { visibility: visible; }
-        #receiptModal.active {
+        #receiptModal.active .payment-receipt *,
+        #prescriptionModal.active,
+        #prescriptionModal.active .prescription-slip,
+        #prescriptionModal.active .prescription-slip *,
+        #tokenModal.active,
+        #tokenModal.active .token-receipt,
+        #tokenModal.active .token-receipt * { visibility: visible; }
+        #receiptModal.active,
+        #prescriptionModal.active,
+        #tokenModal.active {
           position: fixed; inset: 0; background: #fff; display: flex !important;
           align-items: flex-start; justify-content: center; padding: 1rem;
         }
         #receiptModal .modal-header,
-        #receiptModal .modal-footer { display: none !important; }
-        #receiptModal .payment-receipt {
+        #receiptModal .modal-footer,
+        #prescriptionModal .modal-header,
+        #prescriptionModal .modal-footer,
+        #tokenModal .modal-header,
+        #tokenModal .modal-footer { display: none !important; }
+        #receiptModal .payment-receipt,
+        #prescriptionModal .prescription-slip,
+        #tokenModal .token-receipt {
           position: absolute; left: 0; top: 0; width: 100%; border: none;
         }
+      }
+      .prescription-slip {
+        font-family: 'Courier New', Courier, monospace;
+        background: #fff;
+        color: #000;
+        padding: 1.5rem;
+        max-width: 650px;
+        margin: 0 auto;
+        border: 2px solid #000;
+      }
+      .prescription-slip .header {
+        text-align: center;
+        border-bottom: 2px solid #000;
+        padding-bottom: 0.75rem;
+        margin-bottom: 1rem;
+      }
+      .prescription-slip .header h1 {
+        font-size: 1.25rem;
+        margin: 0;
+        letter-spacing: 2px;
+      }
+      .prescription-slip .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.25rem 0;
+        border-bottom: 1px dashed #ccc;
+        font-size: 0.85rem;
+      }
+      .prescription-slip .section {
+        margin: 1rem 0;
+        border-bottom: 1px dashed #ccc;
+        padding-bottom: 0.5rem;
+      }
+      .prescription-slip .section-title {
+        font-weight: 700;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+      }
+      .prescription-slip .medicine-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+      }
+      .prescription-slip .medicine-table th,
+      .prescription-slip .medicine-table td {
+        padding: 0.35rem;
+        border-bottom: 1px solid #ddd;
+        text-align: left;
+      }
+      .token-receipt {
+        background: #fff;
+        border: 2px solid #000;
+        padding: 1.25rem;
+        font-family: 'Courier New', Courier, monospace;
+        color: #000;
+        max-width: 420px;
+        margin: 0 auto;
+      }
+      .token-receipt .token-number {
+        font-size: 2rem;
+        font-weight: bold;
+        letter-spacing: 4px;
+        border: 2px solid #000;
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        margin: 0.75rem 0;
+      }
+      .token-receipt-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.85rem;
+        margin-bottom: 0.35rem;
+      }
+      .token-receipt-divider {
+        border-top: 1px dashed #000;
+        margin: 0.75rem 0;
+      }
+      .document-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
       }
       .status-badge {
         display: inline-block;
@@ -189,18 +286,18 @@
           <div style="text-align: center; margin-bottom: 2rem">
             <div
               style="
-                width: 80px;
-                height: 80px;
+                width: 70px;
+                height: 70px;
                 background: rgba(59, 151, 151, 0.1);
                 border-radius: 50%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 2.5rem;
                 margin: 0 auto 1rem;
+                color: var(--secondary);
               "
             >
-              <span class="med-icon-box sm" style="margin:0 auto 1rem;" data-icon="user" data-icon-size="22"></span>
+              <span data-icon="user" data-icon-size="22"></span>
             </div>
             <h4 id="patientName">Patient Name</h4>
             <p style="color: var(--text-muted)" id="patientId">ID: ---</p>
@@ -222,10 +319,10 @@
               class="sidebar-nav-item"
               onclick="showSection('prescriptions', this)"
             >
-              <span class="med-icon-box sm" style="margin:0 auto 1rem;" data-icon="pharmacy" data-icon-size="22"></span> Prescriptions
+              <span data-icon="pharmacy" data-icon-size="18"></span> Prescriptions
             </div>
             <div class="sidebar-nav-item" onclick="showSection('lab-reports', this)">
-              <span class="med-icon-box sm" style="margin:0 auto 1rem;" data-icon="microscope" data-icon-size="22"></span> Lab Reports
+              <span data-icon="microscope" data-icon-size="18"></span> Lab Reports
             </div>
             <div class="sidebar-nav-item" onclick="showSection('bills', this)">
               <span data-icon="wallet" data-icon-size="18"></span> Bills & Payments
@@ -340,6 +437,7 @@
                     <th>Time</th>
                     <th>Amount</th>
                     <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody id="allAppointmentsList"></tbody>
@@ -390,13 +488,46 @@
         <div class="modal-body" id="receiptModalBody"></div>
         <div class="modal-footer">
           <button class="btn btn-secondary" onclick="closeReceiptModal()">Close</button>
-          <button class="btn btn-primary" onclick="printReceipt()">Print Receipt</button>
+          <button class="btn btn-outline" onclick="downloadDocument('printableReceipt', 'payment-receipt.html')">Download</button>
+          <button class="btn btn-primary" onclick="printActiveModal('receiptModal')">Print</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Digital Prescription Modal -->
+    <div id="prescriptionModal" class="modal">
+      <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+          <h3>Digital Prescription</h3>
+          <button type="button" onclick="closePrescriptionModal()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button>
+        </div>
+        <div class="modal-body" id="prescriptionModalBody"></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closePrescriptionModal()">Close</button>
+          <button class="btn btn-outline" onclick="downloadDocument('printablePrescription', 'prescription.html')">Download</button>
+          <button class="btn btn-primary" onclick="printActiveModal('prescriptionModal')">Print</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Token Receipt Modal -->
+    <div id="tokenModal" class="modal">
+      <div class="modal-content" style="max-width: 460px;">
+        <div class="modal-header">
+          <h3>Appointment Token</h3>
+          <button type="button" onclick="closeTokenModal()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button>
+        </div>
+        <div class="modal-body" id="tokenModalBody"></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeTokenModal()">Close</button>
+          <button class="btn btn-outline" onclick="downloadDocument('printableToken', 'appointment-token.html')">Download</button>
+          <button class="btn btn-primary" onclick="printActiveModal('tokenModal')">Print</button>
         </div>
       </div>
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js"></script>
+    <script src="../js/app.js?v=20260707"></script>
     <script src="../js/api.js"></script>
     <script>
       // Appointment slot status — shared logic in TimeUtils (app.js)
@@ -411,9 +542,143 @@
       let doctorPrescriptions = [];
       let labReports = [];
       let bills = [];
+      let currentPatientName = 'Patient';
       let queuePollTimer = null;
       let dashboardPollTimer = null;
       let lastQueuePosition = null;
+
+      const SLOT_ORDER = { MORNING: 0, AFTERNOON: 1, EVENING: 2 };
+
+      function escapeHtml(value) {
+        return String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function normalizeStatus(status) {
+        return String(status || '').toLowerCase().replace(/-/g, '_');
+      }
+
+      function appointmentSortKey(apt) {
+        const slot = TimeUtils.normalizeSlotType(apt.slot);
+        const slotRank = SLOT_ORDER[slot] ?? 9;
+        return `${apt.date || ''}-${slotRank}-${apt.time || ''}`;
+      }
+
+      function isValidNextAppointment(apt, now = new Date()) {
+        const status = normalizeStatus(apt.status);
+        if (['completed', 'cancelled', 'expired'].includes(status)) return false;
+
+        const aptStatus = TimeUtils.getAppointmentSlotStatus(apt, now);
+
+        if (['checked_in', 'consulting', 'pending_lab', 'pending_pharmacy'].includes(status)) {
+          return true;
+        }
+
+        if (status !== 'booked') return false;
+        if (aptStatus.isPassed || aptStatus.status === 'passed') return false;
+        return aptStatus.status === 'upcoming' || aptStatus.status === 'active';
+      }
+
+      function findNextAppointment(list = appointments, now = new Date()) {
+        return [...list]
+          .filter((apt) => isValidNextAppointment(apt, now))
+          .sort((a, b) => appointmentSortKey(a).localeCompare(appointmentSortKey(b)))[0] || null;
+      }
+
+      function formatMedicineFields(medicine) {
+        const m = medicine || {};
+        const name = m.medicine_name || m.name || '—';
+        const dosage = m.dosage || '—';
+        let duration = m.duration || m.frequency || '—';
+        if (m.duration_days) duration = `${m.duration_days} days`;
+        const instructions = m.instructions || '—';
+        return { name, dosage, duration, instructions };
+      }
+
+      function formatPrescriptionDate(isoDate) {
+        if (!isoDate) return '—';
+        const d = new Date(`${String(isoDate).slice(0, 10)}T12:00:00`);
+        if (Number.isNaN(d.getTime())) return isoDate;
+        return d.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        });
+      }
+
+      function downloadPrescription(prescriptionId) {
+        const p = doctorPrescriptions.find((item) => String(item.id) === String(prescriptionId));
+        if (!p) return;
+        const holder = document.createElement('div');
+        holder.style.display = 'none';
+        holder.innerHTML = buildPrescriptionSlipHtml(p, 'tempPrescriptionDownload');
+        document.body.appendChild(holder);
+        downloadDocument('tempPrescriptionDownload', `prescription-${p.token_number || p.id}.html`);
+        document.body.removeChild(holder);
+      }
+
+      function buildPrescriptionSlipHtml(p, slipId = 'printablePrescription') {
+        const meds = (p.medicines || []).map(formatMedicineFields);
+        const medRows = meds.length
+          ? `<table class="medicine-table"><thead><tr><th>Medicine</th><th>Dosage</th><th>Duration</th><th>Instructions</th></tr></thead><tbody>${meds.map((m) => `<tr><td>${escapeHtml(m.name)}</td><td>${escapeHtml(m.dosage)}</td><td>${escapeHtml(m.duration)}</td><td>${escapeHtml(m.instructions)}</td></tr>`).join('')}</tbody></table>`
+          : '<div>No medicines prescribed</div>';
+        return `
+          <div class="prescription-slip" id="${slipId}">
+            <div class="header"><h1>GENERAL OPD</h1><div>Digital Prescription</div></div>
+            <div class="info-row"><span>Patient</span><span>${escapeHtml(p.patient_name || currentPatientName)}</span></div>
+            <div class="info-row"><span>Token</span><span>${escapeHtml(p.token_number || '—')}</span></div>
+            <div class="info-row"><span>Doctor</span><span>${escapeHtml(p.doctor)}</span></div>
+            <div class="info-row"><span>Date</span><span>${escapeHtml(p.date)}</span></div>
+            ${p.symptoms ? `<div class="section"><div class="section-title">Symptoms</div><div>${escapeHtml(p.symptoms)}</div></div>` : ''}
+            ${p.diagnosis ? `<div class="section"><div class="section-title">Diagnosis</div><div>${escapeHtml(p.diagnosis)}</div></div>` : ''}
+            <div class="section"><div class="section-title">Medicines</div>${medRows}</div>
+            ${p.notes ? `<div class="section"><div class="section-title">Notes</div><div>${escapeHtml(p.notes)}</div></div>` : ''}
+          </div>`;
+      }
+
+      function buildTokenReceiptHtml(apt) {
+        const payment = bills.find((b) => b.token_number === apt.token);
+        return `
+          <div class="token-receipt" id="printableToken">
+            <div style="text-align:center;">
+              <div style="font-size:0.75rem; letter-spacing:2px;">GENERAL OPD</div>
+              <div style="font-size:0.7rem; margin-bottom:0.5rem;">APPOINTMENT TOKEN</div>
+              <div class="token-number">${escapeHtml(apt.token)}</div>
+            </div>
+            <div class="token-receipt-divider"></div>
+            <div class="token-receipt-row"><span>Patient</span><span>${escapeHtml(currentPatientName)}</span></div>
+            <div class="token-receipt-row"><span>Doctor</span><span>${escapeHtml(apt.doctor)}</span></div>
+            <div class="token-receipt-row"><span>Date</span><span>${escapeHtml(formatApptDate(apt.date))}</span></div>
+            <div class="token-receipt-row"><span>Slot</span><span>${escapeHtml(apt.slot)}</span></div>
+            <div class="token-receipt-row"><span>Est. Time</span><span>${escapeHtml(apt.time || '—')}</span></div>
+            ${payment ? `<div class="token-receipt-row"><span>Amount Paid</span><span>Rs ${payment.amount}</span></div>` : ''}
+            <div style="font-size:0.8rem; margin-top:0.75rem; padding:0.5rem; border:1px dashed #000;">
+              Arrive at reception 15 minutes before your slot for check-in.
+            </div>
+          </div>`;
+      }
+
+      function printActiveModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        modal.classList.add('active');
+        window.print();
+      }
+
+      function downloadDocument(elementId, filename) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(filename)}</title></head><body>${el.outerHTML}</body></html>`;
+        const blob = new Blob([html], { type: 'text/html' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      }
 
       function formatApptDate(isoDate) {
         if (!isoDate) return '—';
@@ -437,7 +702,9 @@
           doctor: t.doctor_name,
           token: t.token_number,
           time: t.estimated_time,
-          slot: (t.slot_type || t.slot_type_raw || '').toUpperCase(),
+          slot: TimeUtils.normalizeSlotType(t.slot_type || t.slot_type_raw || '') || '',
+          slot_type: t.slot_type,
+          slot_type_raw: t.slot_type_raw,
           start_time: t.start_time,
           end_time: t.end_time,
           amount: 660,
@@ -466,6 +733,9 @@
             symptoms: p.symptoms || '',
             notes: p.notes || '',
             medicines: p.medicines || [],
+            patient_name: p.patient_name || currentPatientName,
+            patient_age: p.patient_age,
+            token_number: p.token_number,
             printable: p,
           }));
         }
@@ -509,7 +779,8 @@
           return;
         }
         const user = me.user;
-        document.getElementById('patientName').innerText = user.name || 'Patient';
+        currentPatientName = user.name || 'Patient';
+        document.getElementById('patientName').innerText = currentPatientName;
         document.getElementById('patientId').innerText = user.patient_id || user.patientId || '';
 
         const [journeyRes] = await Promise.all([
@@ -527,6 +798,9 @@
               symptoms: p.symptoms || '',
               notes: p.notes || '',
               medicines: p.medicines || [],
+              patient_name: p.patient_name || currentPatientName,
+              patient_age: p.patient_age,
+              token_number: p.token_number,
               printable: p,
             }));
           }
@@ -648,7 +922,7 @@
 
         appointments.forEach((apt) => {
           const aptStatus = getAppointmentStatus(apt);
-          if (aptStatus.status === "upcoming") upcoming++;
+          if (isValidNextAppointment(apt)) upcoming++;
           if (aptStatus.status === "completed") completed++;
         });
 
@@ -658,14 +932,16 @@
         document.getElementById("completedCount").innerText = completed;
         document.getElementById("totalSpent").innerText = `Rs ${totalSpent}`;
 
-        const sorted = [...appointments].sort((a, b) => a.date.localeCompare(b.date));
-        const next = sorted.find(
-          (apt) => ['booked', 'checked_in', 'consulting'].includes(apt.status) ||
-            getAppointmentStatus(apt).status === 'upcoming' ||
-            getAppointmentStatus(apt).status === 'active'
-        );
+        const next = findNextAppointment();
+        const nextCard = document.getElementById("nextAppointmentCard");
         if (next) {
           const aptStatus = getAppointmentStatus(next);
+          const inClinic = ['checked_in', 'consulting', 'pending_lab', 'pending_pharmacy'].includes(normalizeStatus(next.status));
+          if (aptStatus.isPassed && !inClinic) {
+            nextCard.style.display = 'none';
+            document.getElementById("nextAppointmentContent").innerHTML = '';
+          } else {
+          nextCard.style.display = '';
           document.getElementById("nextAppointmentContent").innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
               <div>
@@ -674,10 +950,15 @@
                 <p>Token <strong>${next.token}</strong> · Est. ${next.time || '—'}</p>
                 <p style="font-size:0.85rem; margin-top:0.25rem;">Status: ${aptStatus.label}</p>
               </div>
-              <button class="btn btn-outline" style="background:white; color:var(--primary);" onclick="showSection('queue')">Track Queue →</button>
+              <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                <button class="btn btn-outline" style="background:white; color:var(--primary);" onclick="openTokenModal(${next.id})">Download Token</button>
+                <button class="btn btn-outline" style="background:white; color:var(--primary);" onclick="showSection('queue')">Track Queue →</button>
+              </div>
             </div>
           `;
+          }
         } else {
+          nextCard.style.display = '';
           document.getElementById("nextAppointmentContent").innerHTML =
             '<p>No upcoming appointments. <a href="booking.html" style="color:white;">Book one now →</a></p>';
         }
@@ -703,12 +984,19 @@
       async function renderLiveQueue() {
         const container = document.getElementById("liveQueueContent");
         const today = new Date().toISOString().split("T")[0];
-        const todayAppointment = appointments.find((a) => a.date === today);
+        const todayAppointments = appointments.filter((a) => a.date === today);
+        const todayAppointment = todayAppointments.find(isValidNextAppointment)
+          || todayAppointments.find((a) => ['checked_in', 'consulting', 'pending_lab', 'pending_pharmacy'].includes(normalizeStatus(a.status)));
 
         if (!todayAppointment) {
+          const hadTodaySlot = todayAppointments.length > 0;
           container.innerHTML = `
             <div class="card">
-              <div class="alert alert-info">You don't have any appointments for today.</div>
+              <div class="alert alert-${hadTodaySlot ? 'danger' : 'info'}">
+                ${hadTodaySlot
+                  ? 'Your appointment slot for today has ended. Please book a new appointment if needed.'
+                  : "You don't have any appointments for today."}
+              </div>
             </div>
           `;
           return;
@@ -799,6 +1087,7 @@
         document.getElementById("allAppointmentsList").innerHTML = appointments
           .map((a) => {
             const aptStatus = getAppointmentStatus(a);
+            const rx = doctorPrescriptions.find((p) => p.token_number === a.token);
             return `
               <tr>
                 <td>${formatApptDate(a.date)}<br><small>${a.slot}</small></td>
@@ -807,6 +1096,10 @@
                 <td>${a.time}</td>
                 <td>Rs ${a.amount}</td>
                 <td><span class="status-badge ${aptStatus.class}">${statusIconSvg(aptStatus.status)} ${aptStatus.label}</span></td>
+                <td>
+                  <button class="btn btn-outline" style="font-size:0.75rem; padding:0.25rem 0.5rem;" onclick="openTokenModal(${a.id})">Token</button>
+                  ${rx ? `<button class="btn btn-outline" style="font-size:0.75rem; padding:0.25rem 0.5rem;" onclick="openPrescriptionModal(${rx.id})">Rx</button>` : ''}
+                </td>
               </tr>
             `;
           })
@@ -821,14 +1114,39 @@
         }
         document.getElementById("prescriptionsList").innerHTML = doctorPrescriptions
           .map((p) => `
-            <div class="prescription-card">
-              <div><strong>${p.doctor}</strong><br><small>${p.date}</small></div>
-              ${p.diagnosis ? `<div style="margin-top:0.5rem;"><strong>Diagnosis:</strong> ${p.diagnosis}</div>` : ''}
-              <div style="margin-top:1rem;"><strong>Medicines:</strong>
-                <ul>${p.medicines.map((m) => `<li>${m}</li>`).join("")}</ul>
+              <div class="bill-card">
+                <div>
+                  <strong>${escapeHtml(p.doctor)}</strong>
+                  ${p.diagnosis ? `<br><small>${escapeHtml(p.diagnosis)}</small>` : ''}
+                  <br><small>${formatPrescriptionDate(p.date)} · Token ${escapeHtml(p.token_number || '—')}</small>
+                </div>
+                <button class="btn btn-outline" style="margin-top:0.5rem;" onclick="openPrescriptionModal(${p.id})">View Prescription</button>
+                <button class="btn btn-outline" style="margin-top:0.5rem;" onclick="downloadPrescription(${p.id})">Download</button>
               </div>
-            </div>`)
+            `)
           .join("");
+      }
+
+      function openPrescriptionModal(prescriptionId) {
+        const p = doctorPrescriptions.find((item) => String(item.id) === String(prescriptionId));
+        if (!p) return;
+        document.getElementById('prescriptionModalBody').innerHTML = buildPrescriptionSlipHtml(p, 'printablePrescription');
+        document.getElementById('prescriptionModal').classList.add('active');
+      }
+
+      function closePrescriptionModal() {
+        document.getElementById('prescriptionModal').classList.remove('active');
+      }
+
+      function openTokenModal(appointmentId) {
+        const apt = appointments.find((item) => item.id === appointmentId);
+        if (!apt) return;
+        document.getElementById('tokenModalBody').innerHTML = buildTokenReceiptHtml(apt);
+        document.getElementById('tokenModal').classList.add('active');
+      }
+
+      function closeTokenModal() {
+        document.getElementById('tokenModal').classList.remove('active');
       }
 
       function viewLabReport(reportId) {
@@ -858,6 +1176,7 @@
                     <small>${l.doctor || ''}</small>
                   </div>
                   <button class="btn btn-outline" onclick="viewLabReport(${l.id})">View Report</button>
+                  ${l.report_url ? `<a class="btn btn-outline" href="${l.report_url}" download>Download</a>` : ''}
                 </div>
                 <div style="margin-top:0.75rem; font-size:0.9rem;"><strong>Findings:</strong> ${l.result}</div>
               </div>
@@ -892,8 +1211,9 @@
         document.getElementById('receiptModal').classList.remove('active');
       }
 
-      function printReceipt() {
-        window.print();
+      function downloadReceipt(billId) {
+        openReceiptModal(billId);
+        setTimeout(() => downloadDocument('printableReceipt', `payment-receipt-${billId}.html`), 100);
       }
 
       function renderBills() {
@@ -912,7 +1232,8 @@
                   <div><strong>${b.description}</strong><br><small>${b.paid_at_display || b.date}</small></div>
                   <div><strong>Rs ${b.amount}</strong><br><span class="status-badge status-completed">${b.status}</span></div>
                 </div>
-                <button class="btn btn-outline" style="margin-top:0.5rem;" onclick="openReceiptModal(${b.id})">Download Receipt</button>
+                <button class="btn btn-outline" style="margin-top:0.5rem;" onclick="openReceiptModal(${b.id})">View Receipt</button>
+                <button class="btn btn-outline" style="margin-top:0.5rem;" onclick="downloadReceipt(${b.id})">Download</button>
               </div>
             `
           )

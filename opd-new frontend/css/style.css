@@ -397,13 +397,79 @@ a:hover { color: var(--secondary-dark); }
 
 .sidebar {
     width: var(--sidebar-width);
-    background: var(--primary);
     position: fixed;
     height: 100vh;
     overflow-y: auto;
     z-index: 900;
     display: flex;
     flex-direction: column;
+}
+
+/* Staff sidebar — light theme (patient, reception, pharmacy, lab, doctor) */
+div.sidebar {
+    background: #ffffff;
+    border-right: none;
+    box-shadow: 1px 0 0 rgba(226, 232, 240, 0.9);
+}
+
+div.sidebar .logo-text {
+    color: var(--primary);
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+div.sidebar h4 {
+    color: var(--primary);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+div.sidebar nav {
+    padding: 0;
+}
+
+div.sidebar .sidebar-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 0.75rem;
+    margin-bottom: 0.15rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+
+div.sidebar .sidebar-nav-item:hover {
+    background: #f8fafc;
+    color: var(--text-primary);
+}
+
+div.sidebar .sidebar-nav-item.active {
+    background: rgba(59, 151, 151, 0.08);
+    color: var(--secondary-dark);
+    font-weight: 500;
+}
+
+div.sidebar .sidebar-nav-item .med-icon-svg {
+    flex-shrink: 0;
+    color: currentColor;
+    opacity: 0.9;
+}
+
+.sidebar-layout .main-content {
+    background: var(--background);
+}
+
+/* Admin sidebar — dark theme */
+aside.sidebar {
+    background: var(--primary);
+    border-right: none;
+    box-shadow: none;
 }
 
 .sidebar-brand {
@@ -438,9 +504,9 @@ a:hover { color: var(--secondary-dark); }
 .sidebar-user h4 { color: white; font-size: 0.9375rem; margin-bottom: 0.125rem; }
 .sidebar-user p { color: rgba(255, 255, 255, 0.55); font-size: 0.75rem; }
 
-.sidebar nav { padding: 0.75rem; flex: 1; }
+aside.sidebar nav { padding: 0.75rem; flex: 1; }
 
-.sidebar-nav-item {
+aside.sidebar .sidebar-nav-item {
     display: flex;
     align-items: center;
     gap: 0.625rem;
@@ -454,18 +520,18 @@ a:hover { color: var(--secondary-dark); }
     font-weight: 500;
 }
 
-.sidebar-nav-item:hover {
+aside.sidebar .sidebar-nav-item:hover {
     background: rgba(255, 255, 255, 0.08);
     color: white;
 }
 
-.sidebar-nav-item.active {
+aside.sidebar .sidebar-nav-item.active {
     background: rgba(13, 148, 136, 0.35);
     color: white;
     font-weight: 600;
 }
 
-.sidebar-nav-item .nav-icon {
+aside.sidebar .sidebar-nav-item .nav-icon {
     width: 18px;
     text-align: center;
     opacity: 0.85;

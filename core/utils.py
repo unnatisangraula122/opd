@@ -26,6 +26,38 @@ def is_elderly_by_age(age):
         return False
 
 
+def normalize_phone(phone):
+    return ''.join(c for c in str(phone or '') if c.isdigit())
+
+
+def patient_has_active_slot_booking(slot, *, patient_user=None, patient_phone=None):
+    """True if this patient already holds a non-cancelled booking for this slot."""
+    if not slot:
+        return False
+
+    qs = Token.objects.filter(slot=slot, status__in=C.DUPLICATE_BOOKING_BLOCK_STATUSES)
+    if patient_user and qs.filter(patient=patient_user).exists():
+        return True
+
+    phone_norm = normalize_phone(patient_phone)
+    if patient_phone and qs.filter(patient_phone=patient_phone).exists():
+        return True
+    if phone_norm:
+        for existing_phone in qs.values_list('patient_phone', flat=True):
+            if normalize_phone(existing_phone) == phone_norm:
+                return True
+    return False
+
+
+def duplicate_slot_booking_error(slot):
+    slot_label = slot_type_display(slot.slot_type).title() if slot else 'this'
+    date_label = slot.date.strftime('%d %b %Y') if slot and slot.date else 'this day'
+    return (
+        f'You already have an appointment for the {slot_label} slot on {date_label}. '
+        'Only one booking per slot per day is allowed.'
+    )
+
+
 def slot_type_display(slot_type):
     return slot_type.upper() if slot_type else ''
 

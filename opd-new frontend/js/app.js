@@ -109,7 +109,7 @@ const TimeUtils = {
     parseClockToMinutes(timeStr) {
         if (!timeStr) return null;
         const value = String(timeStr).trim();
-        const match24 = value.match(/^(\d{1,2}):(\d{2})$/);
+        const match24 = value.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
         if (match24) return parseInt(match24[1], 10) * 60 + parseInt(match24[2], 10);
         const match12 = value.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
         if (match12) {
@@ -214,9 +214,16 @@ const TimeUtils = {
         }
 
         if (bounds.startMinutes == null || bounds.endMinutes == null) {
+            const passedByDay = dayRelation === 'past';
             return {
-                status: 'unknown', label: 'Unknown', class: '', icon: '?',
-                isPassed: false, isActive: false, isUpcoming: false, canCheckIn: false,
+                status: passedByDay ? 'passed' : 'unknown',
+                label: passedByDay ? 'Passed' : 'Unknown',
+                class: passedByDay ? 'status-expired' : '',
+                icon: passedByDay ? '⛔' : '?',
+                isPassed: passedByDay,
+                isActive: false,
+                isUpcoming: false,
+                canCheckIn: false,
             };
         }
 

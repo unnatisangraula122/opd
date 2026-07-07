@@ -191,6 +191,14 @@ class Token(models.Model):
                     "Tokens can only be booked for today or tomorrow."
                 )
 
+            from core.utils import patient_has_active_slot_booking, duplicate_slot_booking_error
+            if patient_has_active_slot_booking(
+                self.slot,
+                patient_user=self.patient,
+                patient_phone=self.patient_phone,
+            ):
+                raise ValidationError(duplicate_slot_booking_error(self.slot))
+
         if not self.token_number:
             prefix_map = {'morning': 'M', 'afternoon': 'A', 'evening': 'E'}
             prefix = prefix_map.get(self.slot.slot_type, 'M')

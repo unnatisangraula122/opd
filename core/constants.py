@@ -22,6 +22,9 @@ COMPLETED_STATUSES = (COMPLETED,)
 
 TERMINAL_STATUSES = (COMPLETED, EXPIRED, CANCELLED)
 
+# Statuses that prevent booking the same slot again (cancelled/expired may rebook)
+DUPLICATE_BOOKING_BLOCK_STATUSES = ACTIVE_STATUSES + (COMPLETED,)
+
 IN_QUEUE_STATUSES = (CHECKED_IN, CONSULTING)
 
 # Unified display labels shown on every dashboard
