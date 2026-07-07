@@ -1,494 +1,717 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin Dashboard - General OPD</title>
-    <link rel="stylesheet" href="/css/style.css" />
-</head>
-<body>
+    <link rel="stylesheet" href="../css/style.css" />
+  </head>
+  <body>
     <div class="sidebar-layout">
-        <aside class="sidebar">
-            <div class="sidebar-brand">
-                <div class="logo">
-                    <span class="logo-icon"></span>
-                    <span class="logo-text">GENERAL OPD</span>
-                </div>
-            </div>
-            <div class="sidebar-user">
-                <div class="sidebar-avatar" id="adminAvatar">A</div>
-                <h4 id="adminName">Administrator</h4>
-                <p>System Administrator</p>
-            </div>
-            <nav>
-                <div class="sidebar-nav-item active" data-section="overview" onclick="showSection('overview', this)">
-                    <span class="nav-icon">▣</span> Overview
-                </div>
-                <div class="sidebar-nav-item" data-section="analytics" onclick="showSection('analytics', this)">
-                    <span class="nav-icon">◈</span> Analytics
-                </div>
-                <div class="sidebar-nav-item" data-section="doctors" onclick="showSection('doctors', this)">
-                    <span class="nav-icon">◉</span> Doctors
-                </div>
-                <div class="sidebar-nav-item" data-section="slots" onclick="showSection('slots', this)">
-                    <span class="nav-icon">◷</span> Slot Config
-                </div>
-                <div class="sidebar-nav-item" data-section="throttle" onclick="showSection('throttle', this)">
-                    <span class="nav-icon">◬</span> Auto-Throttle
-                </div>
-                <div class="sidebar-nav-item" data-section="logs" onclick="showSection('logs', this)">
-                    <span class="nav-icon">☰</span> System Logs
-                </div>
-            </nav>
-            <div class="sidebar-footer">
-                <div class="sidebar-nav-item" onclick="API.staffLogout().then(() => window.location.href = '/staff/login.html')">
-                    <span class="nav-icon">↩</span> Sign Out
-                </div>
-            </div>
-        </aside>
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <div class="logo">
+            <span class="logo-icon"></span>
+            <span class="logo-text">GENERAL OPD</span>
+          </div>
+        </div>
+        <div class="sidebar-user">
+          <div class="sidebar-avatar" id="adminAvatar">A</div>
+          <h4 id="adminName">Administrator</h4>
+          <p>System Administrator</p>
+        </div>
+        <nav>
+          <div
+            class="sidebar-nav-item active"
+            data-section="overview"
+            onclick="showSection('overview', this)"
+          >
+            <span class="nav-icon">▣</span> Overview
+          </div>
+          <div
+            class="sidebar-nav-item"
+            data-section="analytics"
+            onclick="showSection('analytics', this)"
+          >
+            <span class="nav-icon">◈</span> Analytics
+          </div>
+          <div
+            class="sidebar-nav-item"
+            data-section="doctors"
+            onclick="showSection('doctors', this)"
+          >
+            <span class="nav-icon">◉</span> Doctors
+          </div>
+          <div
+            class="sidebar-nav-item"
+            data-section="slots"
+            onclick="showSection('slots', this)"
+          >
+            <span class="nav-icon">◷</span> Slot Config
+          </div>
+          <div
+            class="sidebar-nav-item"
+            data-section="throttle"
+            onclick="showSection('throttle', this)"
+          >
+            <span class="nav-icon">◬</span> Auto-Throttle
+          </div>
+          <div
+            class="sidebar-nav-item"
+            data-section="logs"
+            onclick="showSection('logs', this)"
+          >
+            <span class="nav-icon">☰</span> System Logs
+          </div>
+        </nav>
+        <div class="sidebar-footer">
+          <div
+            class="sidebar-nav-item"
+            onclick="
+              API.staffLogout().then(
+                () => (window.location.href = '/staff/login.html'),
+              )
+            "
+          >
+            <span class="nav-icon">↩</span> Sign Out
+          </div>
+        </div>
+      </aside>
 
-        <main class="main-content">
-            <div class="page-header">
+      <main class="main-content">
+        <div class="page-header">
+          <div>
+            <h1 id="pageTitle">Overview</h1>
+            <p class="page-header-meta" id="pageMeta">
+              Today's operational summary
+            </p>
+          </div>
+          <div class="page-header-actions">
+            <button class="btn btn-outline" onclick="refreshAnalytics()">
+              ↻ Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- OVERVIEW -->
+        <div id="overviewSection">
+          <div class="kpi-grid">
+            <div class="stat-card-modern">
+              <div
+                class="kpi-icon primary"
+                data-icon="users"
+                data-icon-size="20"
+              ></div>
+              <div class="kpi-label">Patients Today</div>
+              <div class="stat-value-modern" id="kpiTotalPatients">—</div>
+            </div>
+            <div class="stat-card-modern">
+              <div
+                class="kpi-icon warning"
+                data-icon="clock"
+                data-icon-size="20"
+              ></div>
+              <div class="kpi-label">Avg Wait Time</div>
+              <div class="stat-value-modern" id="kpiAvgWait">—</div>
+            </div>
+            <div class="stat-card-modern">
+              <div
+                class="kpi-icon success"
+                data-icon="checkCircle"
+                data-icon-size="20"
+              ></div>
+              <div class="kpi-label">Completed</div>
+              <div class="stat-value-modern" id="kpiCompleted">—</div>
+            </div>
+            <div class="stat-card-modern">
+              <div
+                class="kpi-icon info"
+                data-icon="warning"
+                data-icon-size="20"
+              ></div>
+              <div class="kpi-label">No-Show Rate</div>
+              <div class="stat-value-modern" id="kpiNoShowRate">—</div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">System Alerts & Recommendations</h3>
+                <p class="panel-subtitle">
+                  Adaptive scheduling feedback from live performance data
+                </p>
+              </div>
+            </div>
+            <div id="alertsContainer">
+              <div class="empty-state">
+                <div class="empty-state-icon">◌</div>
+                Loading alerts...
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Doctor Queue Status</h3>
+                <p class="panel-subtitle">Live queue length per doctor</p>
+              </div>
+            </div>
+            <div class="table-container">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Doctor</th>
+                    <th>Queue</th>
+                    <th>Completed Today</th>
+                    <th>Avg Consult (min)</th>
+                  </tr>
+                </thead>
+                <tbody id="doctorQueueTable">
+                  <tr>
+                    <td colspan="4" class="empty-state">Loading...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ANALYTICS -->
+        <div id="analyticsSection" style="display: none">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Performance KPIs</h3>
+                <p class="panel-subtitle" id="analyticsDate">—</p>
+              </div>
+            </div>
+            <div class="analytics-grid" id="analyticsGrid"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Slot Optimization Recommendations</h3>
+                <p class="panel-subtitle">
+                  Generated when configured vs actual consultation time exceeds
+                  threshold
+                </p>
+              </div>
+            </div>
+            <div id="recommendationsContainer">
+              <div class="empty-state">
+                <div class="empty-state-icon">◌</div>
+                No recommendations yet
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DOCTORS -->
+        <div id="doctorsSection" style="display: none">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Doctor Management</h3>
+                <p class="panel-subtitle">
+                  Configure doctors and consultation settings
+                </p>
+              </div>
+              <button class="btn btn-primary" onclick="addDoctor()">
+                + Add Doctor
+              </button>
+            </div>
+            <div class="table-container">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Doctor</th>
+                    <th>Specialization</th>
+                    <th>Consult Time</th>
+                    <th>Max Queue</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="doctorsList"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- SLOTS -->
+        <div id="slotsSection" style="display: none">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Slot Configuration</h3>
+                <p class="panel-subtitle">
+                  Max tokens = 120 ÷ average consultation time (minutes)
+                </p>
+              </div>
+            </div>
+            <div class="config-row">
+              <div class="form-group">
+                <label class="form-label"
+                  >Average Consultation Time (minutes)</label
+                >
+                <input
+                  type="number"
+                  class="form-input"
+                  id="avgConsultTime"
+                  value="10"
+                  oninput="updateMaxTokens()"
+                  min="5"
+                  max="30"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Max Tokens per Slot</label>
+                <input type="text" class="form-input" id="maxTokens" readonly />
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="saveSlotConfig()">
+              Save Configuration
+            </button>
+          </div>
+        </div>
+
+        <!-- THROTTLE -->
+        <div id="throttleSection" style="display: none">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Auto-Throttle Configuration</h3>
+                <p class="panel-subtitle">
+                  Pauses check-ins when queue exceeds capacity threshold
+                </p>
+              </div>
+            </div>
+            <div class="config-card">
+              <h4>Throttle Settings</h4>
+              <div class="config-row">
+                <div class="form-group">
+                  <label class="form-label">Max Queue Size</label>
+                  <input
+                    type="number"
+                    class="form-input"
+                    id="throttleThreshold"
+                    value="20"
+                    min="5"
+                    max="50"
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Check Interval (seconds)</label>
+                  <input
+                    type="number"
+                    class="form-input"
+                    id="checkInterval"
+                    value="30"
+                    min="10"
+                    max="120"
+                    disabled
+                  />
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="saveThrottleConfig()">
+                Save Settings
+              </button>
+            </div>
+            <div class="config-card">
+              <h4>Current Status</h4>
+              <div
+                style="
+                  display: flex;
+                  gap: 2rem;
+                  flex-wrap: wrap;
+                  align-items: center;
+                "
+              >
                 <div>
-                    <h1 id="pageTitle">Overview</h1>
-                    <p class="page-header-meta" id="pageMeta">Today's operational summary</p>
+                  <span style="color: var(--text-muted)">Status: </span
+                  ><span
+                    class="throttle-status throttle-inactive"
+                    id="throttleStatusBadge"
+                    >INACTIVE</span
+                  >
                 </div>
-                <div class="page-header-actions">
-                    <button class="btn btn-outline" onclick="refreshAnalytics()">↻ Refresh</button>
+                <div>
+                  <span style="color: var(--text-muted)">Events Today: </span
+                  ><strong id="throttleEvents">0</strong>
                 </div>
+                <div>
+                  <span style="color: var(--text-muted)">Last Checked: </span
+                  ><span id="lastCheckTime">—</span>
+                </div>
+              </div>
+              <div style="margin-top: 1rem">
+                <button
+                  class="btn btn-outline"
+                  onclick="updateThrottleStatus()"
+                >
+                  ↻ Refresh Status
+                </button>
+              </div>
             </div>
+          </div>
+        </div>
 
-            <!-- OVERVIEW -->
-            <div id="overviewSection">
-                <div class="kpi-grid">
-                    <div class="stat-card-modern">
-                        <div class="kpi-icon primary" data-icon="users" data-icon-size="20"></div>
-                        <div class="kpi-label">Patients Today</div>
-                        <div class="stat-value-modern" id="kpiTotalPatients">—</div>
-                    </div>
-                    <div class="stat-card-modern">
-                        <div class="kpi-icon warning" data-icon="clock" data-icon-size="20"></div>
-                        <div class="kpi-label">Avg Wait Time</div>
-                        <div class="stat-value-modern" id="kpiAvgWait">—</div>
-                    </div>
-                    <div class="stat-card-modern">
-                        <div class="kpi-icon success" data-icon="checkCircle" data-icon-size="20"></div>
-                        <div class="kpi-label">Completed</div>
-                        <div class="stat-value-modern" id="kpiCompleted">—</div>
-                    </div>
-                    <div class="stat-card-modern">
-                        <div class="kpi-icon info" data-icon="warning" data-icon-size="20"></div>
-                        <div class="kpi-label">No-Show Rate</div>
-                        <div class="stat-value-modern" id="kpiNoShowRate">—</div>
-                    </div>
-                </div>
-
-                <div class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <h3 class="panel-title">System Alerts & Recommendations</h3>
-                            <p class="panel-subtitle">Adaptive scheduling feedback from live performance data</p>
-                        </div>
-                    </div>
-                    <div id="alertsContainer">
-                        <div class="empty-state"><div class="empty-state-icon">◌</div>Loading alerts...</div>
-                    </div>
-                </div>
-
-                <div class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <h3 class="panel-title">Doctor Queue Status</h3>
-                            <p class="panel-subtitle">Live queue length per doctor</p>
-                        </div>
-                    </div>
-                    <div class="table-container">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Doctor</th>
-                                    <th>Queue</th>
-                                    <th>Completed Today</th>
-                                    <th>Avg Consult (min)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="doctorQueueTable">
-                                <tr><td colspan="4" class="empty-state">Loading...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+        <!-- LOGS -->
+        <div id="logsSection" style="display: none">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">System Activity Logs</h3>
+                <p class="panel-subtitle">
+                  Throttle events and system activity
+                </p>
+              </div>
             </div>
-
-            <!-- ANALYTICS -->
-            <div id="analyticsSection" style="display:none;">
-                <div class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <h3 class="panel-title">Performance KPIs</h3>
-                            <p class="panel-subtitle" id="analyticsDate">—</p>
-                        </div>
-                    </div>
-                    <div class="analytics-grid" id="analyticsGrid"></div>
-                </div>
-
-                <div class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <h3 class="panel-title">Slot Optimization Recommendations</h3>
-                            <p class="panel-subtitle">Generated when configured vs actual consultation time exceeds threshold</p>
-                        </div>
-                    </div>
-                    <div id="recommendationsContainer">
-                        <div class="empty-state"><div class="empty-state-icon">◌</div>No recommendations yet</div>
-                    </div>
-                </div>
+            <div
+              id="logsContainer"
+              style="
+                max-height: 480px;
+                overflow-y: auto;
+                border: 1px solid var(--border);
+                border-radius: var(--radius-lg);
+              "
+            >
+              <div id="logsList"></div>
             </div>
-
-            <!-- DOCTORS -->
-            <div id="doctorsSection" style="display:none;">
-                <div class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <h3 class="panel-title">Doctor Management</h3>
-                            <p class="panel-subtitle">Configure doctors and consultation settings</p>
-                        </div>
-                        <button class="btn btn-primary" onclick="addDoctor()">+ Add Doctor</button>
-                    </div>
-                    <div class="table-container">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Doctor</th>
-                                    <th>Specialization</th>
-                                    <th>Consult Time</th>
-                                    <th>Max Queue</th>
-                                    <th>Status</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="doctorsList"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SLOTS -->
-            <div id="slotsSection" style="display:none;">
-                <div class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <h3 class="panel-title">Slot Configuration</h3>
-                            <p class="panel-subtitle">Max tokens = 120 ÷ average consultation time (minutes)</p>
-                        </div>
-                    </div>
-                    <div class="config-row">
-                        <div class="form-group">
-                            <label class="form-label">Average Consultation Time (minutes)</label>
-                            <input type="number" class="form-input" id="avgConsultTime" value="10" oninput="updateMaxTokens()" min="5" max="30">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Max Tokens per Slot</label>
-                            <input type="text" class="form-input" id="maxTokens" readonly>
-                        </div>
-                    </div>
-                    <button class="btn btn-primary" onclick="saveSlotConfig()">Save Configuration</button>
-                </div>
-            </div>
-
-            <!-- THROTTLE -->
-            <div id="throttleSection" style="display:none;">
-                <div class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <h3 class="panel-title">Auto-Throttle Configuration</h3>
-                            <p class="panel-subtitle">Pauses check-ins when queue exceeds capacity threshold</p>
-                        </div>
-                    </div>
-                    <div class="config-card">
-                        <h4>Throttle Settings</h4>
-                        <div class="config-row">
-                            <div class="form-group">
-                                <label class="form-label">Max Queue Size</label>
-                                <input type="number" class="form-input" id="throttleThreshold" value="20" min="5" max="50">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Check Interval (seconds)</label>
-                                <input type="number" class="form-input" id="checkInterval" value="30" min="10" max="120" disabled>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary" onclick="saveThrottleConfig()">Save Settings</button>
-                    </div>
-                    <div class="config-card">
-                        <h4>Current Status</h4>
-                        <div style="display:flex; gap:2rem; flex-wrap:wrap; align-items:center;">
-                            <div><span style="color:var(--text-muted);">Status: </span><span class="throttle-status throttle-inactive" id="throttleStatusBadge">INACTIVE</span></div>
-                            <div><span style="color:var(--text-muted);">Events Today: </span><strong id="throttleEvents">0</strong></div>
-                            <div><span style="color:var(--text-muted);">Last Checked: </span><span id="lastCheckTime">—</span></div>
-                        </div>
-                        <div style="margin-top:1rem;">
-                            <button class="btn btn-outline" onclick="updateThrottleStatus()">↻ Refresh Status</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- LOGS -->
-            <div id="logsSection" style="display:none;">
-                <div class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <h3 class="panel-title">System Activity Logs</h3>
-                            <p class="panel-subtitle">Throttle events and system activity</p>
-                        </div>
-                    </div>
-                    <div id="logsContainer" style="max-height:480px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius-lg);">
-                        <div id="logsList"></div>
-                    </div>
-                </div>
-            </div>
-        </main>
+          </div>
+        </div>
+      </main>
     </div>
 
     <script src="/js/icons.js"></script>
     <script src="/js/app.js"></script>
     <script src="/js/api.js"></script>
     <script>
-        let analyticsData = null;
-        const sectionTitles = {
-            overview: ['Overview', "Today's operational summary"],
-            analytics: ['Analytics', 'KPIs and adaptive scheduling insights'],
-            doctors: ['Doctor Management', 'Manage doctors and availability'],
-            slots: ['Slot Configuration', 'Consultation time and token capacity'],
-            throttle: ['Auto-Throttle', 'Queue capacity management'],
-            logs: ['System Logs', 'Activity and throttle event history'],
-        };
+      let analyticsData = null;
+      const sectionTitles = {
+        overview: ["Overview", "Today's operational summary"],
+        analytics: ["Analytics", "KPIs and adaptive scheduling insights"],
+        doctors: ["Doctor Management", "Manage doctors and availability"],
+        slots: ["Slot Configuration", "Consultation time and token capacity"],
+        throttle: ["Auto-Throttle", "Queue capacity management"],
+        logs: ["System Logs", "Activity and throttle event history"],
+      };
 
-        function showSection(section, el) {
-            document.querySelectorAll('[id$="Section"]').forEach(s => s.style.display = 'none');
-            document.getElementById(`${section}Section`).style.display = 'block';
-            document.querySelectorAll('.sidebar-nav-item[data-section]').forEach(n => n.classList.remove('active'));
-            if (el) el.classList.add('active');
-            const [title, meta] = sectionTitles[section] || ['Dashboard', ''];
-            document.getElementById('pageTitle').textContent = title;
-            document.getElementById('pageMeta').textContent = meta;
-            if (section === 'doctors') renderDoctors();
-            if (section === 'logs') renderLogs();
-            if (section === 'throttle') updateThrottleStatus();
-        }
+      function showSection(section, el) {
+        document
+          .querySelectorAll('[id$="Section"]')
+          .forEach((s) => (s.style.display = "none"));
+        document.getElementById(`${section}Section`).style.display = "block";
+        document
+          .querySelectorAll(".sidebar-nav-item[data-section]")
+          .forEach((n) => n.classList.remove("active"));
+        if (el) el.classList.add("active");
+        const [title, meta] = sectionTitles[section] || ["Dashboard", ""];
+        document.getElementById("pageTitle").textContent = title;
+        document.getElementById("pageMeta").textContent = meta;
+        if (section === "doctors") renderDoctors();
+        if (section === "logs") renderLogs();
+        if (section === "throttle") updateThrottleStatus();
+      }
 
-        function fmt(val, suffix = '') {
-            if (val === null || val === undefined || val === '') return '—';
-            return val + suffix;
-        }
+      function fmt(val, suffix = "") {
+        if (val === null || val === undefined || val === "") return "—";
+        return val + suffix;
+      }
 
-        function renderAnalyticsKPIs(data) {
-            document.getElementById('kpiTotalPatients').textContent = data.total_patients ?? '—';
-            document.getElementById('kpiAvgWait').textContent = fmt(data.avg_waiting_minutes, ' min');
-            document.getElementById('kpiCompleted').textContent = data.completed ?? '—';
-            document.getElementById('kpiNoShowRate').textContent = fmt(data.no_show_rate, '%');
+      function renderAnalyticsKPIs(data) {
+        document.getElementById("kpiTotalPatients").textContent =
+          data.total_patients ?? "—";
+        document.getElementById("kpiAvgWait").textContent = fmt(
+          data.avg_waiting_minutes,
+          " min",
+        );
+        document.getElementById("kpiCompleted").textContent =
+          data.completed ?? "—";
+        document.getElementById("kpiNoShowRate").textContent = fmt(
+          data.no_show_rate,
+          "%",
+        );
 
-            document.getElementById('analyticsDate').textContent = data.date
-                ? `Data for ${new Date(data.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`
-                : '—';
+        document.getElementById("analyticsDate").textContent = data.date
+          ? `Data for ${new Date(data.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}`
+          : "—";
 
-            const metrics = [
-                { label: 'Avg Queue Length', value: fmt(data.avg_queue_length) },
-                { label: 'Doctor Idle (min)', value: fmt(data.doctor_idle_minutes) },
-                { label: 'Throughput', value: fmt(data.system_throughput) },
-                { label: 'Check-in Compliance', value: fmt(data.checkin_compliance, '%') },
-                { label: 'No-Shows', value: fmt(data.no_shows) },
-                { label: 'Avg Consultation', value: fmt(data.avg_consultation_minutes, ' min') },
-                { label: 'Peak Hour', value: data.peak_hour || '—' },
-                { label: 'Lab TAT', value: fmt(data.lab_turnaround_minutes, ' min') },
-                { label: 'Checked In', value: fmt(data.checked_in) },
-            ];
+        const metrics = [
+          { label: "Avg Queue Length", value: fmt(data.avg_queue_length) },
+          { label: "Doctor Idle (min)", value: fmt(data.doctor_idle_minutes) },
+          { label: "Throughput", value: fmt(data.system_throughput) },
+          {
+            label: "Check-in Compliance",
+            value: fmt(data.checkin_compliance, "%"),
+          },
+          { label: "No-Shows", value: fmt(data.no_shows) },
+          {
+            label: "Avg Consultation",
+            value: fmt(data.avg_consultation_minutes, " min"),
+          },
+          { label: "Peak Hour", value: data.peak_hour || "—" },
+          { label: "Lab TAT", value: fmt(data.lab_turnaround_minutes, " min") },
+          { label: "Checked In", value: fmt(data.checked_in) },
+        ];
 
-            document.getElementById('analyticsGrid').innerHTML = metrics.map(m => `
+        document.getElementById("analyticsGrid").innerHTML = metrics
+          .map(
+            (m) => `
                 <div class="metric-tile">
                     <div class="metric-tile-label">${m.label}</div>
                     <div class="metric-tile-value">${m.value}</div>
                 </div>
-            `).join('');
+            `,
+          )
+          .join("");
 
-            const queues = data.doctor_queues || [];
-            document.getElementById('doctorQueueTable').innerHTML = queues.length
-                ? queues.map(d => `
+        const queues = data.doctor_queues || [];
+        document.getElementById("doctorQueueTable").innerHTML = queues.length
+          ? queues
+              .map(
+                (d) => `
                     <tr>
                         <td><strong>${d.doctor}</strong></td>
-                        <td><span class="badge ${d.queue > 10 ? 'badge-warning' : 'badge-info'}">${d.queue}</span></td>
+                        <td><span class="badge ${d.queue > 10 ? "badge-warning" : "badge-info"}">${d.queue}</span></td>
                         <td>${d.completed}</td>
-                        <td>${d.avg_consult_minutes != null ? d.avg_consult_minutes + ' min' : '—'}</td>
-                    </tr>`).join('')
-                : '<tr><td colspan="4" class="empty-state">No doctor data available</td></tr>';
+                        <td>${d.avg_consult_minutes != null ? d.avg_consult_minutes + " min" : "—"}</td>
+                    </tr>`,
+              )
+              .join("")
+          : '<tr><td colspan="4" class="empty-state">No doctor data available</td></tr>';
 
-            renderAlerts(data);
-            renderRecommendations(data.recommendations || []);
+        renderAlerts(data);
+        renderRecommendations(data.recommendations || []);
+      }
+
+      function renderAlerts(data) {
+        const alerts = [];
+        if (data.throttle_events > 0) {
+          alerts.push({
+            type: "critical",
+            text: `<strong>Throttling:</strong> ${data.throttle_events} throttle event(s) recorded today.`,
+          });
         }
-
-        function renderAlerts(data) {
-            const alerts = [];
-            if (data.throttle_events > 0) {
-                alerts.push({ type: 'critical', text: `<strong>Throttling:</strong> ${data.throttle_events} throttle event(s) recorded today.` });
-            }
-            if (data.no_show_rate >= 15) {
-                alerts.push({ type: 'warning', text: `<strong>No-Show Alert:</strong> No-show rate is ${data.no_show_rate}% today.` });
-            }
-            if (data.avg_waiting_minutes >= 30) {
-                alerts.push({ type: 'warning', text: `<strong>Wait Time:</strong> Average waiting time is ${data.avg_waiting_minutes} minutes.` });
-            }
-            (data.recommendations || []).slice(0, 2).forEach(r => {
-                alerts.push({ type: 'info', text: `<strong>Optimization:</strong> ${r.message}` });
-            });
-            if (alerts.length === 0) {
-                alerts.push({ type: 'success', text: '<strong>All Clear:</strong> System performance is within normal parameters.' });
-            }
-            document.getElementById('alertsContainer').innerHTML = alerts.map(a =>
-                `<div class="alert-item alert-${a.type}"><span>${a.type === 'critical' ? '!' : a.type === 'warning' ? '⚠' : a.type === 'success' ? '✓' : 'i'}</span><div>${a.text}</div></div>`
-            ).join('');
+        if (data.no_show_rate >= 15) {
+          alerts.push({
+            type: "warning",
+            text: `<strong>No-Show Alert:</strong> No-show rate is ${data.no_show_rate}% today.`,
+          });
         }
+        if (data.avg_waiting_minutes >= 30) {
+          alerts.push({
+            type: "warning",
+            text: `<strong>Wait Time:</strong> Average waiting time is ${data.avg_waiting_minutes} minutes.`,
+          });
+        }
+        (data.recommendations || []).slice(0, 2).forEach((r) => {
+          alerts.push({
+            type: "info",
+            text: `<strong>Optimization:</strong> ${r.message}`,
+          });
+        });
+        if (alerts.length === 0) {
+          alerts.push({
+            type: "success",
+            text: "<strong>All Clear:</strong> System performance is within normal parameters.",
+          });
+        }
+        document.getElementById("alertsContainer").innerHTML = alerts
+          .map(
+            (a) =>
+              `<div class="alert-item alert-${a.type}"><span>${a.type === "critical" ? "!" : a.type === "warning" ? "⚠" : a.type === "success" ? "✓" : "i"}</span><div>${a.text}</div></div>`,
+          )
+          .join("");
+      }
 
-        function renderRecommendations(recs) {
-            const container = document.getElementById('recommendationsContainer');
-            if (!recs.length) {
-                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✓</div>No optimization recommendations — consultation times align with configuration.</div>';
-                return;
-            }
-            container.innerHTML = recs.map(r => `
+      function renderRecommendations(recs) {
+        const container = document.getElementById("recommendationsContainer");
+        if (!recs.length) {
+          container.innerHTML =
+            '<div class="empty-state"><div class="empty-state-icon">✓</div>No optimization recommendations — consultation times align with configuration.</div>';
+          return;
+        }
+        container.innerHTML = recs
+          .map(
+            (r) => `
                 <div class="recommendation-card">
                     <strong>${r.doctor}</strong> — ${r.message}
                     <div style="margin-top:0.375rem; font-size:0.75rem; color:var(--text-muted);">${r.created_at} · Variance: ${r.variance_percent}%</div>
                 </div>
-            `).join('');
-        }
+            `,
+          )
+          .join("");
+      }
 
-        async function refreshAnalytics() {
-            const res = await API.analytics();
-            if (!res.success) {
-                Toast.show(res.error || 'Failed to load analytics', 'error');
-                return;
-            }
-            analyticsData = res;
-            renderAnalyticsKPIs(res);
-            Toast.show('Analytics refreshed', 'success');
+      async function refreshAnalytics() {
+        const res = await API.analytics();
+        if (!res.success) {
+          Toast.show(res.error || "Failed to load analytics", "error");
+          return;
         }
+        analyticsData = res;
+        renderAnalyticsKPIs(res);
+        Toast.show("Analytics refreshed", "success");
+      }
 
-        async function renderDoctors() {
-            const res = await API.adminDoctors();
-            if (!res.success) return;
-            document.getElementById('doctorsList').innerHTML = res.doctors.length
-                ? res.doctors.map(d => `
+      async function renderDoctors() {
+        const res = await API.adminDoctors();
+        if (!res.success) return;
+        document.getElementById("doctorsList").innerHTML = res.doctors.length
+          ? res.doctors
+              .map(
+                (d) => `
                     <tr>
                         <td><strong>${d.name}</strong></td>
                         <td>${d.specialization}</td>
                         <td>${d.avg_consultation_time} min</td>
                         <td>${d.max_queue_size}</td>
-                        <td><span class="badge ${d.is_available ? 'badge-success' : 'badge-warning'}">${d.is_available ? 'Active' : 'Inactive'}</span></td>
+                        <td><span class="badge ${d.is_available ? "badge-success" : "badge-warning"}">${d.is_available ? "Active" : "Inactive"}</span></td>
                         <td><button class="btn btn-outline" style="padding:0.25rem 0.75rem;" onclick="editDoctor(${d.id})">Edit</button></td>
-                    </tr>`).join('')
-                : '<tr><td colspan="6" class="empty-state">No doctors configured</td></tr>';
+                    </tr>`,
+              )
+              .join("")
+          : '<tr><td colspan="6" class="empty-state">No doctors configured</td></tr>';
+      }
+
+      function addDoctor() {
+        const name = prompt("Doctor full name:");
+        const username = prompt("Username:");
+        if (!name || !username) return;
+        API.adminAddDoctor({
+          full_name: name,
+          username,
+          password: "doctor123",
+        }).then((res) => {
+          Toast.show(
+            res.success ? "Doctor added" : res.error || "Failed",
+            res.success ? "success" : "error",
+          );
+          if (res.success) renderDoctors();
+        });
+      }
+      function editDoctor(id) {
+        Toast.show("Edit doctor ID: " + id, "info");
+      }
+
+      function updateMaxTokens() {
+        const val =
+          parseInt(document.getElementById("avgConsultTime").value, 10) || 10;
+        document.getElementById("maxTokens").value = Math.floor(120 / val);
+      }
+
+      async function saveSlotConfig() {
+        const consultTime = parseInt(
+          document.getElementById("avgConsultTime").value,
+          10,
+        );
+        const res = await API.adminSaveSlotConfig({
+          avg_consultation_time: consultTime,
+        });
+        if (res.success) {
+          document.getElementById("maxTokens").value = res.max_tokens_per_slot;
+          Toast.show("Slot configuration saved", "success");
+        } else Toast.show(res.error || "Failed", "error");
+      }
+
+      async function saveThrottleConfig() {
+        const threshold =
+          parseInt(document.getElementById("throttleThreshold").value, 10) ||
+          20;
+        const res = await API.adminSaveThrottleConfig({
+          max_queue_size: threshold,
+        });
+        Toast.show(
+          res.success ? "Throttle settings saved" : res.error || "Failed",
+          res.success ? "success" : "error",
+        );
+        updateThrottleStatus();
+      }
+
+      async function updateThrottleStatus() {
+        document.getElementById("lastCheckTime").textContent =
+          new Date().toLocaleTimeString();
+        const res = await API.adminThrottleConfig();
+        if (res.success) {
+          const badge = document.getElementById("throttleStatusBadge");
+          badge.textContent = res.is_throttled ? "ACTIVE" : "INACTIVE";
+          badge.className =
+            "throttle-status " +
+            (res.is_throttled ? "throttle-active" : "throttle-inactive");
         }
-
-        function addDoctor() {
-            const name = prompt('Doctor full name:');
-            const username = prompt('Username:');
-            if (!name || !username) return;
-            API.adminAddDoctor({ full_name: name, username, password: 'doctor123' }).then(res => {
-                Toast.show(res.success ? 'Doctor added' : (res.error || 'Failed'), res.success ? 'success' : 'error');
-                if (res.success) renderDoctors();
-            });
+        if (analyticsData) {
+          document.getElementById("throttleEvents").textContent =
+            analyticsData.throttle_events ?? 0;
         }
-        function editDoctor(id) { Toast.show('Edit doctor ID: ' + id, 'info'); }
+      }
 
-        function updateMaxTokens() {
-            const val = parseInt(document.getElementById('avgConsultTime').value, 10) || 10;
-            document.getElementById('maxTokens').value = Math.floor(120 / val);
+      let logs = [];
+
+      function renderLogs() {
+        const container = document.getElementById("logsList");
+        if (!logs.length) {
+          container.innerHTML =
+            '<div class="empty-state">No system logs recorded</div>';
+          return;
         }
-
-        async function saveSlotConfig() {
-            const consultTime = parseInt(document.getElementById('avgConsultTime').value, 10);
-            const res = await API.adminSaveSlotConfig({ avg_consultation_time: consultTime });
-            if (res.success) {
-                document.getElementById('maxTokens').value = res.max_tokens_per_slot;
-                Toast.show('Slot configuration saved', 'success');
-            } else Toast.show(res.error || 'Failed', 'error');
-        }
-
-        async function saveThrottleConfig() {
-            const threshold = parseInt(document.getElementById('throttleThreshold').value, 10) || 20;
-            const res = await API.adminSaveThrottleConfig({ max_queue_size: threshold });
-            Toast.show(res.success ? 'Throttle settings saved' : (res.error || 'Failed'), res.success ? 'success' : 'error');
-            updateThrottleStatus();
-        }
-
-        async function updateThrottleStatus() {
-            document.getElementById('lastCheckTime').textContent = new Date().toLocaleTimeString();
-            const res = await API.adminThrottleConfig();
-            if (res.success) {
-                const badge = document.getElementById('throttleStatusBadge');
-                badge.textContent = res.is_throttled ? 'ACTIVE' : 'INACTIVE';
-                badge.className = 'throttle-status ' + (res.is_throttled ? 'throttle-active' : 'throttle-inactive');
-            }
-            if (analyticsData) {
-                document.getElementById('throttleEvents').textContent = analyticsData.throttle_events ?? 0;
-            }
-        }
-
-        let logs = [];
-
-        function renderLogs() {
-            const container = document.getElementById('logsList');
-            if (!logs.length) {
-                container.innerHTML = '<div class="empty-state">No system logs recorded</div>';
-                return;
-            }
-            container.innerHTML = logs.map(log => `
+        container.innerHTML = logs
+          .map(
+            (log) => `
                 <div class="log-entry">
                     <span class="log-time">${new Date(log.time).toLocaleString()}</span>
                     <span class="log-user">${log.user}</span>
                     <span class="log-action">${log.action}</span>
                     <span class="badge badge-info">${log.type}</span>
                 </div>
-            `).join('');
-        }
+            `,
+          )
+          .join("");
+      }
 
-        API.requireStaff(['admin']).then(user => {
-            if (!user) return;
-            const name = user.name || 'Administrator';
-            document.getElementById('adminName').textContent = name;
-            document.getElementById('adminAvatar').textContent = name.charAt(0).toUpperCase();
+      API.requireStaff(["admin"]).then((user) => {
+        if (!user) return;
+        const name = user.name || "Administrator";
+        document.getElementById("adminName").textContent = name;
+        document.getElementById("adminAvatar").textContent = name
+          .charAt(0)
+          .toUpperCase();
 
+        updateMaxTokens();
+        refreshAnalytics();
+
+        API.adminSlotConfig().then((r) => {
+          if (r.success && r.avg_consultation_time) {
+            document.getElementById("avgConsultTime").value =
+              r.avg_consultation_time;
             updateMaxTokens();
-            refreshAnalytics();
-
-            API.adminSlotConfig().then(r => {
-                if (r.success && r.avg_consultation_time) {
-                    document.getElementById('avgConsultTime').value = r.avg_consultation_time;
-                    updateMaxTokens();
-                }
-            });
-
-            API.adminThrottleLogs().then(r => {
-                if (r.success) {
-                    logs = r.logs.map(l => ({
-                        time: l.triggered_at,
-                        type: 'throttle',
-                        user: l.doctor,
-                        action: `${l.action} — queue: ${l.queue_length} (threshold: ${l.threshold})`,
-                    }));
-                    renderLogs();
-                }
-            });
+          }
         });
 
-        window.showSection = showSection;
-        window.refreshAnalytics = refreshAnalytics;
-        window.addDoctor = addDoctor;
-        window.editDoctor = editDoctor;
-        window.updateMaxTokens = updateMaxTokens;
-        window.saveSlotConfig = saveSlotConfig;
-        window.saveThrottleConfig = saveThrottleConfig;
-        window.updateThrottleStatus = updateThrottleStatus;
+        API.adminThrottleLogs().then((r) => {
+          if (r.success) {
+            logs = r.logs.map((l) => ({
+              time: l.triggered_at,
+              type: "throttle",
+              user: l.doctor,
+              action: `${l.action} — queue: ${l.queue_length} (threshold: ${l.threshold})`,
+            }));
+            renderLogs();
+          }
+        });
+      });
+
+      window.showSection = showSection;
+      window.refreshAnalytics = refreshAnalytics;
+      window.addDoctor = addDoctor;
+      window.editDoctor = editDoctor;
+      window.updateMaxTokens = updateMaxTokens;
+      window.saveSlotConfig = saveSlotConfig;
+      window.saveThrottleConfig = saveThrottleConfig;
+      window.updateThrottleStatus = updateThrottleStatus;
     </script>
-</body>
+  </body>
 </html>
