@@ -49,8 +49,8 @@
         </div>
     </div>
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js"></script>
-    <script src="../js/api.js"></script>
+    <script src="../js/app.js?v=20260710f"></script>
+    <script src="../js/api.js?v=20260710f"></script>
     <script>
         const roleRedirects = {
             receptionist: '../reception/dashboard.html',
@@ -69,6 +69,7 @@
             const res = await API.staffLogin({ username, password, role });
             LoadingOverlay.hide();
             if (!res.success) { Toast.show(res.error || 'Login failed', 'error'); return; }
+            API.setAuth(res.token, res.user);
             StorageManager.setUser(res.user);
             Toast.show('Login successful!', 'success');
             setTimeout(() => { window.location.href = roleRedirects[role]; }, 800);

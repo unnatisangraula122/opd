@@ -1,10 +1,11 @@
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.models import User
+from accounts.services.auth_tokens import issue_api_token, revoke_request_token
 from core.permissions import STAFF_ROLES, IsPatient, IsStaff
 from core.services.otp import is_otp_verified, verify_otp
 from core.services.sms import sms_patient_registration
@@ -57,12 +58,12 @@ def patient_register(request):
             return Response({'success': False, 'error': 'Patient ID not found'}, status=404)
         if existing.phone != phone:
             return Response({'success': False, 'error': 'Phone number does not match patient record'}, status=400)
-        if existing.has_usable_password() and not existing.check_password(''):
-            try:
-                if User.objects.filter(phone=phone, role='patient').exclude(pk=existing.pk).exists():
-                    pass
-            except Exception:
-                pass
+        if existing.has_usable_password():
+            return Response({
+                'success': False,
+                'error': 'This patient already has an online account. Please use Old Patient login.',
+                'already_registered': True,
+            }, status=400)
         existing.password = make_password(password)
         if full_name:
             existing.first_name = full_name.split()[0] if ' ' in full_name else full_name
@@ -72,23 +73,31 @@ def patient_register(request):
         if address:
             existing.address = address
         existing.save()
-        login(request, existing)
+        api_token = issue_api_token(existing)
         return Response({
             'success': True,
             'message': 'Account activated successfully!',
-            'patient': {
-                'id': existing.id,
-                'patient_id': existing.patient_id,
-                'name': existing.get_full_name() or full_name,
-                'phone': phone,
-            },
+            'token': api_token.key,
+            'patient': _user_payload(existing),
         })
 
     if not full_name:
         return Response({'success': False, 'error': 'Full name required for new registration'}, status=400)
 
-    if User.objects.filter(phone=phone, role='patient').exists():
-        return Response({'success': False, 'error': 'Phone number already registered'}, status=400)
+    existing_by_phone = User.objects.filter(phone=phone, role='patient').first()
+    if existing_by_phone:
+        if existing_by_phone.has_usable_password():
+            return Response({
+                'success': False,
+                'error': 'This phone number already has an online account. Please use Old Patient login.',
+                'already_registered': True,
+            }, status=400)
+        if existing_by_phone.patient_code:
+            return Response({
+                'success': False,
+                'error': 'This phone number belongs to a registered patient. Use Patient ID to activate your account.',
+                'already_registered': True,
+            }, status=400)
 
     username = f'pat_{phone}'
     if User.objects.filter(username=username).exists():
@@ -143,10 +152,11 @@ def patient_login(request):
     if not user or not password or not user.check_password(password):
         return Response({'success': False, 'error': 'Invalid credentials'}, status=401)
 
-    login(request, user)
+    api_token = issue_api_token(user)
     return Response({
         'success': True,
         'message': 'Welcome back!',
+        'token': api_token.key,
         'patient': _user_payload(user),
     })
 
@@ -154,7 +164,7 @@ def patient_login(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsPatient])
 def patient_logout(request):
-    logout(request)
+    revoke_request_token(request)
     return Response({'success': True, 'message': 'Logged out'})
 
 
@@ -183,10 +193,11 @@ def patient_login_otp(request):
     except User.DoesNotExist:
         return Response({'success': False, 'error': 'No patient account for this phone number'}, status=404)
 
-    login(request, user)
+    api_token = issue_api_token(user)
     return Response({
         'success': True,
         'message': 'Welcome back!',
+        'token': api_token.key,
         'patient': _user_payload(user),
     })
 
@@ -231,14 +242,14 @@ def staff_login(request):
     if expected_role and user.role != expected_role:
         return Response({'success': False, 'error': f'Account is not a {expected_role}'}, status=403)
 
-    login(request, user)
-    return Response({'success': True, 'user': _user_payload(user)})
+    api_token = issue_api_token(user)
+    return Response({'success': True, 'user': _user_payload(user), 'token': api_token.key})
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsStaff])
 def staff_logout(request):
-    logout(request)
+    revoke_request_token(request)
     return Response({'success': True, 'message': 'Logged out'})
 
 

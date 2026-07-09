@@ -34,12 +34,29 @@ class LoadingOverlay {
 
 // Storage Manager
 const StorageManager = {
-    set(key, value) { localStorage.setItem(`smartOPD_${key}`, JSON.stringify(value)); },
-    get(key) { const data = localStorage.getItem(`smartOPD_${key}`); return data ? JSON.parse(data) : null; },
-    remove(key) { localStorage.removeItem(`smartOPD_${key}`); },
-    getUser() { return this.get('user'); },
-    setUser(user) { this.set('user', user); },
-    logout() { this.remove('user'); window.location.href = '../index.html'; },
+    set(key, value) { sessionStorage.setItem(`smartOPD_${key}`, JSON.stringify(value)); },
+    get(key) { const data = sessionStorage.getItem(`smartOPD_${key}`); return data ? JSON.parse(data) : null; },
+    remove(key) { sessionStorage.removeItem(`smartOPD_${key}`); },
+    getUser() {
+        if (typeof API !== 'undefined' && API.getStoredUser) {
+            return API.getStoredUser() || this.get('user');
+        }
+        return this.get('user');
+    },
+    setUser(user) {
+        if (typeof API !== 'undefined' && API.setAuth && API.getToken()) {
+            API.setAuth(API.getToken(), { ...user, role: user.role || API.getStoredUser()?.role });
+        }
+        this.set('user', user);
+    },
+    logout(redirectUrl = '../index.html') {
+        if (typeof API !== 'undefined' && API.logout) {
+            API.logout(redirectUrl);
+            return;
+        }
+        this.remove('user');
+        window.location.href = redirectUrl;
+    },
     getBookings() { return this.get('bookings') || []; },
     addBooking(booking) { const bookings = this.getBookings(); bookings.push(booking); this.set('bookings', bookings); },
     getLabReports() { return this.get('labReports') || []; },
@@ -95,6 +112,31 @@ const TimeUtils = {
         if (dateInput instanceof Date) return new Date(dateInput.getTime());
         const parsed = new Date(`${String(dateInput).slice(0, 10)}T00:00:00`);
         return Number.isNaN(parsed.getTime()) ? null : parsed;
+    },
+
+    /** Local calendar date as YYYY-MM-DD (never use toISOString for this). */
+    localDateISO(d = new Date()) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    },
+
+    addLocalDays(isoOrDate, days) {
+        const base = this.parseDate(isoOrDate) || new Date();
+        const d = new Date(base.getTime());
+        d.setDate(d.getDate() + days);
+        return this.localDateISO(d);
+    },
+
+    formatApptDateLabel(isoDate, now = new Date()) {
+        if (!isoDate) return '—';
+        const relation = this.compareAppointmentDay(isoDate, now);
+        if (relation === 'today') return 'Today';
+        if (relation === 'future' && this.isSameLocalDay(isoDate, this.addLocalDays(now, 1))) return 'Tomorrow';
+        const d = this.parseDate(isoDate);
+        if (!d) return isoDate;
+        return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     },
 
     isSameLocalDay(a, b) {
@@ -170,7 +212,7 @@ const TimeUtils = {
     },
 
     getAppointmentSlotStatus(appointment, now = new Date()) {
-        const tokenStatus = String(appointment.status || '').toLowerCase().replace('_', '-');
+        const tokenStatus = String(appointment.status || '').toLowerCase().replace(/_/g, '-');
         const bounds = this.getSlotBounds(appointment);
         const dayRelation = this.compareAppointmentDay(appointment.date, now);
         const currentMinutes = this.nowMinutes(now);
@@ -314,6 +356,39 @@ const TimeUtils = {
         }
         return 'Check-in is not available right now.';
     },
+
+    applyServerSlotConfig(slots = {}) {
+        Object.entries(slots).forEach(([slotType, cfg]) => {
+            const type = this.normalizeSlotType(slotType);
+            if (!type || !this.SLOT_CONFIG[type] || !cfg) return;
+            const [startHour, startMinute] = String(cfg.start_time || '09:00').split(':').map(Number);
+            const [endHour, endMinute] = String(cfg.end_time || '11:00').split(':').map(Number);
+            Object.assign(this.SLOT_CONFIG[type], {
+                startHour,
+                startMinute,
+                endHour,
+                endMinute,
+                startTime: cfg.start_time,
+                endTime: cfg.end_time,
+                displayTime: cfg.time_range || this.SLOT_CONFIG[type].displayTime,
+                checkinOpensMinutesBefore: cfg.checkin_opens_minutes_before ?? 15,
+                avgConsultationMinutes: cfg.avg_consultation_minutes,
+                maxTokens: cfg.max_tokens,
+            });
+        });
+    },
+
+    async loadSlotConfig() {
+        try {
+            const res = await fetch('/api/core/slot-config/', { credentials: 'include' });
+            const data = await res.json();
+            if (data.success && data.slots) {
+                this.applyServerSlotConfig(data.slots);
+            }
+        } catch (_) {
+            /* keep defaults */
+        }
+    },
 };
 
 const PatientPriority = {
@@ -344,6 +419,18 @@ const PatientPriority = {
         checkbox.checked = isElderly;
         checkbox.disabled = true;
     },
+
+    defaultDisabledFlag(appointment) {
+        if (!appointment) return false;
+        return !!(appointment.is_disabled || appointment.patient_is_disabled);
+    },
+};
+
+const PatientDisplay = {
+    label(name, patientId) {
+        const n = String(name || '').trim() || 'Patient';
+        return patientId ? `${n} (${patientId})` : n;
+    },
 };
 
 // Export
@@ -352,6 +439,16 @@ window.LoadingOverlay = LoadingOverlay;
 window.StorageManager = StorageManager;
 window.TimeUtils = TimeUtils;
 window.PatientPriority = PatientPriority;
+window.PatientDisplay = PatientDisplay;
+
+function logoutPortal(redirectUrl = '../index.html') {
+    if (typeof API !== 'undefined' && API.logout) {
+        API.logout(redirectUrl);
+    } else {
+        window.location.href = redirectUrl;
+    }
+}
+window.logoutPortal = logoutPortal;
 
 /** Unified appointment status labels — matches backend DISPLAY_STATUS */
 const AppointmentStatus = {
@@ -393,6 +490,30 @@ const AppointmentStatus = {
     },
 };
 
+/** Highlight the active sidebar item (staff + patient dashboards). */
+const SidebarNav = {
+    activate(navEl) {
+        if (!navEl || !navEl.classList.contains('sidebar-nav-item')) return;
+        const scope = navEl.closest('nav') || navEl.closest('aside') || document;
+        scope.querySelectorAll('.sidebar-nav-item').forEach((item) => {
+            item.classList.remove('active');
+        });
+        navEl.classList.add('active');
+    },
+
+    setActiveByKey(key, root = document) {
+        if (!key) return;
+        const el = root.querySelector(`.sidebar-nav-item[data-nav="${key}"]`);
+        if (el) this.activate(el);
+    },
+
+    highlightCurrentPage() {
+        const page = window.location.pathname.split('/').pop() || 'dashboard.html';
+        const el = document.querySelector(`.sidebar-nav-item[data-page="${page}"]`);
+        if (el) this.activate(el);
+    },
+};
+
 /** Shared polling — triggers slot expiry via /sync/ then runs callback */
 const PollManager = {
     _timers: {},
@@ -415,3 +536,5 @@ const PollManager = {
 
 window.AppointmentStatus = AppointmentStatus;
 window.PollManager = PollManager;
+window.SidebarNav = SidebarNav;
+TimeUtils.loadSlotConfig();

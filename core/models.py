@@ -31,7 +31,7 @@ class DoctorProfile(models.Model):
         (not just any token today) and pauses/resumes check-ins.
         Logs every state change into ThrottleLog for the admin dashboard.
         """
-        today = timezone.now().date()
+        today = timezone.localdate()
         current_slot = self.slots.filter(date=today).filter(
             slot_type=self.get_current_slot_type()
         ).first()
@@ -60,14 +60,8 @@ class DoctorProfile(models.Model):
         return self.is_throttled
 
     def get_current_slot_type(self):
-        now = timezone.localtime().time()
-        if datetime.strptime('09:00', '%H:%M').time() <= now < datetime.strptime('11:00', '%H:%M').time():
-            return 'morning'
-        elif datetime.strptime('12:00', '%H:%M').time() <= now < datetime.strptime('14:00', '%H:%M').time():
-            return 'afternoon'
-        elif datetime.strptime('15:00', '%H:%M').time() <= now < datetime.strptime('17:00', '%H:%M').time():
-            return 'evening'
-        return 'morning'
+        from core.services.slot_config import get_active_slot_type
+        return get_active_slot_type()
 
 
 class ConsultationSlot(models.Model):
@@ -82,24 +76,32 @@ class ConsultationSlot(models.Model):
     max_tokens = models.IntegerField(editable=False)
 
     def save(self, *args, **kwargs):
-        self.max_tokens = 120 // self.doctor.avg_consultation_time
+        from core.services.slot_config import get_slot_type_config
+        config = get_slot_type_config(self.slot_type)
+        self.max_tokens = config.max_tokens
         super().save(*args, **kwargs)
 
     @property
     def start_time(self):
-        times = {'morning': '09:00', 'afternoon': '12:00', 'evening': '15:00'}
-        return times[self.slot_type]
+        from core.services.slot_config import get_slot_type_config
+        return get_slot_type_config(self.slot_type).start_time_str
 
     @property
     def end_time(self):
-        times = {'morning': '11:00', 'afternoon': '14:00', 'evening': '17:00'}
-        return times[self.slot_type]
+        from core.services.slot_config import get_slot_type_config
+        return get_slot_type_config(self.slot_type).end_time_str
 
     @property
     def checkin_opens_at(self):
-        """15 minutes before slot start, per the proposal's Step 3 rule."""
+        from core.services.slot_config import get_slot_type_config
+        config = get_slot_type_config(self.slot_type)
         start = datetime.strptime(self.start_time, '%H:%M')
-        return (start - timedelta(minutes=15)).strftime('%H:%M')
+        return (start - timedelta(minutes=config.checkin_opens_minutes_before)).strftime('%H:%M')
+
+    @property
+    def avg_consultation_minutes(self):
+        from core.services.slot_config import get_slot_type_config
+        return get_slot_type_config(self.slot_type).avg_consultation_minutes
 
     @property
     def tokens_booked(self):
@@ -120,6 +122,52 @@ class ConsultationSlot(models.Model):
 
     class Meta:
         unique_together = ['date', 'slot_type']
+
+
+class SlotTypeConfig(models.Model):
+    """Per-slot timing and capacity — drives max tokens and estimated appointment times."""
+    SLOT_TYPE = ConsultationSlot.SLOT_TYPE
+
+    slot_type = models.CharField(max_length=20, choices=SLOT_TYPE, unique=True)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    avg_consultation_minutes = models.PositiveIntegerField(default=10)
+    checkin_opens_minutes_before = models.PositiveIntegerField(default=15)
+
+    class Meta:
+        verbose_name = 'Slot type configuration'
+        verbose_name_plural = 'Slot type configurations'
+
+    @property
+    def duration_minutes(self):
+        start = datetime.combine(timezone.localdate(), self.start_time)
+        end = datetime.combine(timezone.localdate(), self.end_time)
+        if end <= start:
+            end += timedelta(days=1)
+        return int((end - start).total_seconds() // 60)
+
+    @property
+    def max_tokens(self):
+        if self.avg_consultation_minutes <= 0:
+            return 0
+        return max(self.duration_minutes // self.avg_consultation_minutes, 1)
+
+    @property
+    def start_time_str(self):
+        return self.start_time.strftime('%H:%M')
+
+    @property
+    def end_time_str(self):
+        return self.end_time.strftime('%H:%M')
+
+    @property
+    def time_range(self):
+        def label(value):
+            return value.strftime('%I:%M %p').lstrip('0')
+        return f"{label(self.start_time)} - {label(self.end_time)}"
+
+    def __str__(self):
+        return f"{self.slot_type} ({self.start_time.strftime('%H:%M')}-{self.end_time.strftime('%H:%M')})"
 
 
 class Token(models.Model):
@@ -210,9 +258,11 @@ class Token(models.Model):
                 datetime.strptime(self.slot.start_time, '%H:%M').time()
             )
             naive_estimate = slot_start + timedelta(
-                minutes=(token_count - 1) * self.slot.doctor.avg_consultation_time
+                minutes=(token_count - 1) * self.slot.avg_consultation_minutes
             )
-            self.estimated_time = timezone.make_aware(naive_estimate)
+            self.estimated_time = timezone.make_aware(
+                naive_estimate, timezone.get_current_timezone()
+            )
 
         if self.patient_age is not None:
             try:
@@ -448,21 +498,27 @@ class LabOrder(models.Model):
     consultation = models.ForeignKey(Consultation, on_delete=models.CASCADE, related_name='lab_orders')
     token = models.ForeignKey(Token, on_delete=models.CASCADE, related_name='lab_orders')
     test_name = models.CharField(max_length=150)
+    fee = models.DecimalField(max_digits=10, decimal_places=2, default=500)
     instructions = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ordered')
     ordered_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
     def mark_fee_paid(self):
-        self.status = 'fee_paid'
-        self.save()
-        LabQueueEntry.objects.get_or_create(
+        """Record payment and place the order in the lab technician queue."""
+        now = timezone.now()
+        entry, _ = LabQueueEntry.objects.update_or_create(
             lab_order=self,
-            token=self.token,
-            defaults={'lab_fee_paid': True}
+            defaults={
+                'token_id': self.token_id,
+                'lab_fee_paid': True,
+                'status': 'waiting',
+                'entered_at': now,
+            },
         )
         self.status = 'in_queue'
-        self.save()
+        self.save(update_fields=['status'])
+        return entry
 
     def __str__(self):
         return f"{self.test_name} - {self.token.token_number} ({self.status})"

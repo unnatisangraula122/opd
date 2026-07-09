@@ -1,4 +1,4 @@
-from .common import health_check, csrf_token
+from .common import health_check, csrf_token, public_slot_config, public_lab_catalog
 from .auth import (
     patient_register, patient_login, patient_login_otp, patient_logout,
     get_current_patient, patient_reset_password, staff_login, staff_logout, auth_me,
@@ -9,6 +9,7 @@ from .booking import available_slots, book_token, cancel_token, cancel_token_pub
 from .reception import (
     search_patient, check_in_patient, register_walkin_patient,
     reception_appointments, reception_lab_payments, pay_lab_fee, throttle_status,
+    reception_tokens_booked, reception_patients, reception_patient_detail,
 )
 from .doctor import (
     doctor_schedule, doctor_queue, next_patient,

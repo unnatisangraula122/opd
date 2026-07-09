@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Registered Patients - General OPD</title>
+    <link rel="stylesheet" href="../css/style.css?v=20260710" />
+    <style>
+      .toolbar {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.5rem;
+        align-items: center;
+      }
+      .toolbar .form-input {
+        flex: 1;
+        min-width: 220px;
+      }
+      .patient-id-badge {
+        font-family: monospace;
+        font-weight: 700;
+        color: var(--primary);
+      }
+      .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--text-muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sidebar-layout">
+      <div class="sidebar">
+        <div style="padding: 1.5rem">
+          <div class="logo" style="margin-bottom: 2rem">
+            <span class="logo-icon"></span
+            ><span class="logo-text">GENERAL OPD</span>
+          </div>
+          <div style="text-align: center; margin-bottom: 2rem">
+            <div
+              style="
+                width: 70px;
+                height: 70px;
+                background: rgba(59, 151, 151, 0.1);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 1rem;
+                color: var(--secondary);
+              "
+            >
+              <span data-icon="reception" data-icon-size="22"></span>
+            </div>
+            <h4>Reception Desk</h4>
+            <p style="color: var(--text-muted)" id="receptionName">Receptionist</p>
+            <p style="color: var(--text-muted); font-size: 0.75rem" id="currentDateTime"></p>
+          </div>
+          <nav>
+            <div class="sidebar-nav-item" data-page="dashboard.html" onclick="window.location.href = 'dashboard.html'">
+              <span data-icon="clipboard" data-icon-size="18"></span> Dashboard
+            </div>
+            <div class="sidebar-nav-item" data-page="checkin.html" onclick="window.location.href = 'checkin.html'">
+              <span data-icon="checkin" data-icon-size="18"></span> Check-in Desk
+            </div>
+            <div class="sidebar-nav-item" data-page="tokens-booked.html" onclick="window.location.href = 'tokens-booked.html'">
+              <span data-icon="token" data-icon-size="18"></span> Tokens Booked
+            </div>
+            <div class="sidebar-nav-item active" data-page="patients.html">
+              <span data-icon="users" data-icon-size="18"></span> Patients
+            </div>
+            <div class="sidebar-nav-item" onclick="logoutPortal('../index.html')">
+              <span data-icon="logout" data-icon-size="18"></span> Logout
+            </div>
+          </nav>
+        </div>
+      </div>
+
+      <div class="main-content">
+        <h1 style="margin-bottom: 1.5rem">Registered Patients</h1>
+
+        <div class="toolbar">
+          <input
+            type="text"
+            class="form-input"
+            id="searchInput"
+            placeholder="Search by Patient ID, name, or phone..."
+            onkeydown="if(event.key==='Enter') searchPatients()"
+            oninput="scheduleSearch()"
+          />
+          <button class="btn btn-primary" onclick="searchPatients()">Search</button>
+          <button class="btn btn-outline" onclick="clearSearch()">Clear</button>
+        </div>
+
+        <div class="card">
+          <div class="table-container">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Patient ID</th>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Age</th>
+                  <th>Address</th>
+                  <th>Visits</th>
+                  <th>Registered</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="patientsTableBody">
+                <tr><td colspan="8" class="empty-state">Loading patients...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="editPatientModal" class="modal">
+      <div class="modal-content" style="max-width: 560px">
+        <div class="modal-header">
+          <h3>Edit Patient</h3>
+          <button type="button" onclick="closeEditModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Patient ID</label>
+            <input type="text" class="form-input" id="editPatientId" readonly />
+          </div>
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label class="form-label">First Name <span class="required">*</span></label>
+              <input type="text" class="form-input" id="editFirstName" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Last Name</label>
+              <input type="text" class="form-input" id="editLastName" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone <span class="required">*</span></label>
+              <input type="tel" class="form-input" id="editPhone" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Age <span class="required">*</span></label>
+              <input type="number" class="form-input" id="editAge" min="1" max="120" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-input" id="editEmail" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Address</label>
+            <input type="text" class="form-input" id="editAddress" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Priority Status</label>
+            <label><input type="checkbox" id="editDisabled" /> Disabled (priority queue)</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="savePatient()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="../js/icons.js"></script>
+    <script src="../js/app.js?v=20260710f"></script>
+    <script src="../js/api.js?v=20260710f"></script>
+    <script>
+      let patients = [];
+      let editingPatientId = null;
+      let searchQuery = '';
+      let searchTimer = null;
+
+      function scheduleSearch() {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+          searchQuery = document.getElementById('searchInput').value.trim();
+          loadPatients();
+        }, 300);
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function renderPatientsTable() {
+        const tbody = document.getElementById('patientsTableBody');
+        if (!patients.length) {
+          const emptyMsg = searchQuery
+            ? `No patients found for "${escapeHtml(searchQuery)}".`
+            : 'No registered patients found.';
+          tbody.innerHTML = `<tr><td colspan="8" class="empty-state">${emptyMsg}</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = patients.map((p) => `
+          <tr>
+            <td><span class="patient-id-badge">${escapeHtml(p.patient_id || '—')}</span></td>
+            <td>${escapeHtml(p.full_name || `${p.first_name || ''} ${p.last_name || ''}`.trim())}</td>
+            <td>${escapeHtml(p.phone || '—')}</td>
+            <td>${escapeHtml(p.age ?? '—')}</td>
+            <td>${escapeHtml(p.address || '—')}</td>
+            <td>${escapeHtml(p.visit_count ?? 0)}</td>
+            <td>${escapeHtml(p.registered_at || '—')}</td>
+            <td>
+              <button class="btn btn-outline" onclick="openEditModal(${p.id})">Edit</button>
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      async function loadPatients() {
+        try {
+          if (typeof API.receptionPatients !== 'function') {
+            throw new Error('Please hard refresh (Ctrl+Shift+R) to load the latest app scripts.');
+          }
+          const res = await API.receptionPatients(searchQuery);
+          if (!res.success) {
+            document.getElementById('patientsTableBody').innerHTML =
+              `<tr><td colspan="8" class="empty-state">${escapeHtml(res.error || 'Failed to load patients')}</td></tr>`;
+            return;
+          }
+          patients = res.patients || [];
+          renderPatientsTable();
+        } catch (err) {
+          document.getElementById('patientsTableBody').innerHTML =
+            `<tr><td colspan="8" class="empty-state">${escapeHtml(err.message || 'Failed to load patients')}</td></tr>`;
+        }
+      }
+
+      function searchPatients() {
+        clearTimeout(searchTimer);
+        searchQuery = document.getElementById('searchInput').value.trim();
+        loadPatients();
+      }
+
+      function clearSearch() {
+        clearTimeout(searchTimer);
+        searchQuery = '';
+        document.getElementById('searchInput').value = '';
+        loadPatients();
+      }
+
+      function openEditModal(userId) {
+        const patient = patients.find((p) => p.id === userId);
+        if (!patient) return;
+        editingPatientId = userId;
+        document.getElementById('editPatientId').value = patient.patient_id || '';
+        document.getElementById('editFirstName').value = patient.first_name || '';
+        document.getElementById('editLastName').value = patient.last_name || '';
+        document.getElementById('editPhone').value = patient.phone || '';
+        document.getElementById('editAge').value = patient.age ?? '';
+        document.getElementById('editEmail').value = patient.email || '';
+        document.getElementById('editAddress').value = patient.address || '';
+        document.getElementById('editDisabled').checked = !!patient.is_disabled;
+        document.getElementById('editPatientModal').classList.add('active');
+      }
+
+      function closeEditModal() {
+        editingPatientId = null;
+        document.getElementById('editPatientModal').classList.remove('active');
+      }
+
+      async function savePatient() {
+        if (!editingPatientId) return;
+        const payload = {
+          first_name: document.getElementById('editFirstName').value.trim(),
+          last_name: document.getElementById('editLastName').value.trim(),
+          phone: document.getElementById('editPhone').value.trim(),
+          age: parseInt(document.getElementById('editAge').value, 10),
+          email: document.getElementById('editEmail').value.trim(),
+          address: document.getElementById('editAddress').value.trim(),
+          is_disabled: document.getElementById('editDisabled').checked,
+        };
+        if (!payload.first_name || !payload.phone || !payload.age) {
+          Toast.show('First name, phone, and age are required', 'error');
+          return;
+        }
+        LoadingOverlay.show();
+        const res = await API.receptionUpdatePatient(editingPatientId, payload);
+        LoadingOverlay.hide();
+        if (!res.success) {
+          Toast.show(res.error || 'Update failed', 'error');
+          return;
+        }
+        closeEditModal();
+        Toast.show(res.message || 'Patient updated', 'success');
+        await loadPatients();
+      }
+
+      function updateDateTime() {
+        document.getElementById('currentDateTime').innerHTML = new Date().toLocaleString();
+      }
+
+      setInterval(updateDateTime, 1000);
+      updateDateTime();
+
+      API.requireStaff(['receptionist', 'admin']).then(async (user) => {
+        if (!user) return;
+        document.getElementById('receptionName').textContent = user.name || 'Receptionist';
+        if (typeof SidebarNav !== 'undefined') SidebarNav.highlightCurrentPage();
+        await loadPatients();
+      });
+    </script>
+  </body>
+</html>

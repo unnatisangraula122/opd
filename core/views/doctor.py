@@ -12,7 +12,7 @@ from core.models import (
 from core.permissions import IsDoctor
 from core.services.analytics import get_next_eligible_token
 from core.services.workflow import complete_consultation as workflow_complete_consultation
-from core.utils import format_local_time, get_doctor_for_user, serialize_token
+from core.utils import format_local_time, get_doctor_for_user, patient_id_for_token, serialize_token
 
 
 def _queue_for_doctor(doctor_id, slot_type=None, statuses=('checked_in',)):
@@ -23,7 +23,7 @@ def _queue_for_doctor(doctor_id, slot_type=None, statuses=('checked_in',)):
     tokens = Token.objects.filter(
         slot__in=doctor_slots,
         status__in=statuses,
-    ).select_related('slot').prefetch_related('queue_entry')
+    ).select_related('slot', 'patient').prefetch_related('queue_entry')
 
     queue_list = []
     for token in tokens:
@@ -32,6 +32,7 @@ def _queue_for_doctor(doctor_id, slot_type=None, statuses=('checked_in',)):
             'position': entry.queue_position if entry else len(queue_list) + 1,
             'token_id': token.id,
             'token_number': token.token_number,
+            'patient_id': patient_id_for_token(token),
             'patient_name': token.patient_name,
             'patient_age': token.patient_age,
             'patient_phone': token.patient_phone,
@@ -189,7 +190,7 @@ def doctor_completed_today(request):
         status__in=['completed', 'pending_lab', 'pending_pharmacy'],
     ).exclude(
         consultation_ended_at__isnull=True,
-    ).select_related('consultation', 'slot').order_by('-consultation_ended_at')
+    ).select_related('consultation', 'slot', 'patient').order_by('-consultation_ended_at')
 
     completed = []
     for token in tokens:
@@ -203,6 +204,7 @@ def doctor_completed_today(request):
         completed.append({
             'token_id': token.id,
             'token_number': token.token_number,
+            'patient_id': patient_id_for_token(token),
             'patient_name': token.patient_name,
             'patient_age': token.patient_age,
             'status': token.status,
@@ -225,7 +227,7 @@ def doctor_consultation_detail(request, token_id):
         return Response({'success': False, 'error': 'Doctor profile not found'}, status=404)
 
     try:
-        token = Token.objects.select_related('slot__doctor').get(
+        token = Token.objects.select_related('slot__doctor', 'patient').get(
             id=token_id,
             slot__doctor=profile,
             status='consulting',
@@ -239,6 +241,7 @@ def doctor_consultation_detail(request, token_id):
         'token': {
             'token_id': token.id,
             'token_number': token.token_number,
+            'patient_id': patient_id_for_token(token),
             'patient_name': token.patient_name,
             'patient_age': token.patient_age,
             'is_followup': token.is_followup,

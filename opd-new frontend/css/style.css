@@ -450,9 +450,9 @@ div.sidebar .sidebar-nav-item:hover {
 }
 
 div.sidebar .sidebar-nav-item.active {
-    background: rgba(59, 151, 151, 0.08);
-    color: var(--secondary-dark);
-    font-weight: 500;
+    background: rgba(59, 151, 151, 0.12);
+    color: var(--secondary-dark, #0f766e);
+    font-weight: 600;
 }
 
 div.sidebar .sidebar-nav-item .med-icon-svg {

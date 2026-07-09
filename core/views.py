@@ -651,12 +651,16 @@ def create_lab_order(request, token_id):
     
     if not test_name:
         return Response({'success': False, 'error': 'Test name required'}, status=400)
-    
+
+    from core.services.lab_catalog import resolve_lab_test
+    test = resolve_lab_test(test_name)
     lab_order = LabOrder.objects.create(
         consultation=consultation,
         token=token,
-        test_name=test_name,
-        instructions=instructions
+        test_name=test['name'],
+        fee=test['fee'],
+        instructions=instructions,
+        status='fee_pending',
     )
     
     # Update token status

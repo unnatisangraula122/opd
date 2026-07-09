@@ -200,6 +200,7 @@ class LabOrderAdmin(admin.ModelAdmin):
     list_display = [
         'token',
         'test_name',
+        'fee',
         'status',
         'ordered_at',
         'completed_at'

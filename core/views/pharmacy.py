@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from core import constants as C
+from core.utils import patient_id_for_token
 from core.models import Payment, PharmacyQueueEntry, Prescription, Token
 from core.permissions import IsPharmacist
 from core.services.workflow import pharmacy_mark_ready
@@ -21,7 +22,7 @@ def _serialize_pharmacy_entry(entry):
         'appointment_id': token.id,
         'token_id': token.id,
         'token_number': token.token_number,
-        'patient_id': token.patient.patient_id if token.patient_id and hasattr(token.patient, 'patient_id') else None,
+        'patient_id': patient_id_for_token(token),
         'patient_name': token.patient_name,
         'patient_age': token.patient_age,
         'doctor_name': str(token.slot.doctor),
@@ -53,7 +54,7 @@ def pharmacy_queue(request):
     today = timezone.localdate()
     entries = PharmacyQueueEntry.objects.filter(
         token__slot__date=today,
-    ).select_related('token__slot__doctor', 'token__consultation').order_by('entered_at')
+    ).select_related('token__slot__doctor', 'token__consultation', 'token__patient').order_by('entered_at')
 
     waiting = []
     processing = []

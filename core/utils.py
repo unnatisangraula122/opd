@@ -19,11 +19,38 @@ def doctor_display_name(doctor):
     return f"Dr. {doctor.user.get_full_name()} - {DOCTOR_SPECIALIZATION_LABEL}"
 
 
+def doctor_name_short(doctor):
+    return f"Dr. {doctor.user.get_full_name()}"
+
+
+def doctor_specialty(doctor):
+    return doctor.specialization or DOCTOR_SPECIALIZATION_LABEL
+
+
 def is_elderly_by_age(age):
     try:
         return int(age) >= ELDERLY_AGE_THRESHOLD
     except (TypeError, ValueError):
         return False
+
+
+def patient_id_for_token(token):
+    """Canonical PAT code for a token's linked patient account, if any."""
+    patient = getattr(token, 'patient', None)
+    if patient is not None:
+        return getattr(patient, 'patient_code', None) or getattr(patient, 'patient_id', None)
+    return None
+
+
+def resolve_disabled_flag(explicit_value, *, patient_user=None, token=None):
+    """Check-in disabled flag: explicit toggle > patient profile > token default."""
+    if explicit_value is not None:
+        return bool(explicit_value)
+    if patient_user is not None and getattr(patient_user, 'is_disabled', False):
+        return True
+    if token is not None:
+        return bool(getattr(token, 'is_disabled', False))
+    return False
 
 
 def normalize_phone(phone):
@@ -58,17 +85,31 @@ def duplicate_slot_booking_error(slot):
     )
 
 
+def patient_has_online_account(user):
+    """True when the patient has already activated portal login with a password."""
+    return bool(
+        user
+        and getattr(user, 'role', None) == 'patient'
+        and user.has_usable_password()
+    )
+
+
+OLD_PATIENT_LOGIN_MSG = (
+    'This patient already has an online account. Please use Old Patient login.'
+)
+OLD_PATIENT_BOOKING_MSG = (
+    'This phone number belongs to a registered patient. '
+    'Please select Old Patient and verify your Patient ID.'
+)
+
+
 def slot_type_display(slot_type):
     return slot_type.upper() if slot_type else ''
 
 
 def slot_time_range(slot_type):
-    ranges = {
-        'morning': '9:00 AM - 11:00 AM',
-        'afternoon': '12:00 PM - 2:00 PM',
-        'evening': '3:00 PM - 5:00 PM',
-    }
-    return ranges.get(slot_type, '')
+    from core.services.slot_config import get_slot_type_config
+    return get_slot_type_config(slot_type).time_range if slot_type else ''
 
 
 def format_local_time(dt, fmt='%I:%M %p'):
@@ -94,6 +135,7 @@ def serialize_slot(slot):
         'start_time': slot.start_time,
         'end_time': slot.end_time,
         'time_range': slot_time_range(slot.slot_type),
+        'avg_consultation_minutes': slot.avg_consultation_minutes,
         'tokens_available': max(tokens_left, 0),
         'tokens_booked': slot.tokens_booked,
         'max_tokens': slot.max_tokens,
@@ -124,6 +166,7 @@ def serialize_token(token, include_queue=False, include_workflow=False):
         'slot_type_raw': token.slot.slot_type,
         'start_time': token.slot.start_time,
         'end_time': token.slot.end_time,
+        'avg_consultation_minutes': token.slot.avg_consultation_minutes,
         'is_elderly': token.is_elderly,
         'is_disabled': token.is_disabled,
         'is_followup': token.is_followup,
@@ -135,9 +178,16 @@ def serialize_token(token, include_queue=False, include_workflow=False):
     patient_user = getattr(token, 'patient', None)
     if patient_user and getattr(patient_user, 'patient_id', None):
         data['patient_id'] = patient_user.patient_id
-    if include_queue and hasattr(token, 'queue_entry'):
-        data['queue_position'] = token.queue_entry.queue_position
-        data['priority'] = token.queue_entry.priority
+    if patient_user is not None:
+        data['patient_is_disabled'] = bool(getattr(patient_user, 'is_disabled', False))
+    if include_queue:
+        try:
+            entry = token.queue_entry
+        except Exception:
+            entry = None
+        if entry:
+            data['queue_position'] = entry.queue_position
+            data['priority'] = entry.priority
 
     if include_workflow:
         pharmacy = getattr(token, 'pharmacy_queue_entry', None)
@@ -173,6 +223,8 @@ def _consolidate_slot_for_day(day, slot_type, assigned_doctor):
 
 def ensure_today_tomorrow_slots():
     """Create 3 slots per day — one doctor per slot (morning/afternoon/evening)."""
+    from core.services.slot_config import ensure_slot_type_configs, refresh_consultation_slot_capacities
+    ensure_slot_type_configs()
     doctors = list(DoctorProfile.objects.filter(is_available=True).order_by('id'))
     if not doctors:
         return
@@ -183,6 +235,7 @@ def ensure_today_tomorrow_slots():
         for idx, slot_type in enumerate(SLOT_TYPES):
             assigned_doctor = doctors[idx % len(doctors)]
             _consolidate_slot_for_day(day, slot_type, assigned_doctor)
+    refresh_consultation_slot_capacities()
 
 
 def get_daily_slots_for_dates(dates):

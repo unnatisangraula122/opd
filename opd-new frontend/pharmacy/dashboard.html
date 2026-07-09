@@ -305,11 +305,12 @@
                     <p style="color: var(--text-muted)" id="pharmacistName">Pharmacist</p>
                 </div>
                 <nav>
-                    <div class="sidebar-nav-item active" onclick="showTab('queue')"><span data-icon="clipboard" data-icon-size="18"></span> Prescription Queue</div>
-                    <div class="sidebar-nav-item" onclick="showTab('processing')"><span data-icon="settings" data-icon-size="18"></span> Processing</div>
-                    <div class="sidebar-nav-item" onclick="showTab('dispensed')"><span data-icon="checkCircle" data-icon-size="18"></span> Dispensed</div>
-                    <div class="sidebar-nav-item" onclick="showTab('inventory')"><span data-icon="clipboard" data-icon-size="18"></span> Inventory</div>
-                    <div class="sidebar-nav-item" onclick="window.location.href='../index.html'"><span data-icon="logout" data-icon-size="18"></span> Logout</div>
+                    <div class="sidebar-nav-item active" data-nav="queue" data-tab="queue" onclick="showTab('queue', this)"><span data-icon="clipboard" data-icon-size="18"></span> Prescription Queue</div>
+                    <div class="sidebar-nav-item" data-nav="processing" data-tab="processing" onclick="showTab('processing', this)"><span data-icon="settings" data-icon-size="18"></span> Processing</div>
+                    <div class="sidebar-nav-item" data-nav="ready" data-tab="ready" onclick="showTab('ready', this)"><span data-icon="pill" data-icon-size="18"></span> Ready for Pickup</div>
+                    <div class="sidebar-nav-item" data-nav="dispensed" data-tab="dispensed" onclick="showTab('dispensed', this)"><span data-icon="checkCircle" data-icon-size="18"></span> Dispensed</div>
+                    <div class="sidebar-nav-item" data-nav="inventory" data-tab="inventory" onclick="showTab('inventory', this)"><span data-icon="clipboard" data-icon-size="18"></span> Inventory</div>
+                    <div class="sidebar-nav-item" onclick="logoutPortal('../index.html')"><span data-icon="logout" data-icon-size="18"></span> Logout</div>
                 </nav>
             </div>
         </div>
@@ -322,11 +323,11 @@
 
             <!-- Filter Buttons -->
             <div class="filter-buttons">
-                <button class="filter-btn active" onclick="filterPrescriptions('all')">All</button>
-                <button class="filter-btn" onclick="filterPrescriptions('pending')">Pending</button>
-                <button class="filter-btn" onclick="filterPrescriptions('processing')">Processing</button>
-                <button class="filter-btn" onclick="filterPrescriptions('dispensed')">Dispensed</button>
-                <button class="filter-btn" onclick="filterPrescriptions('ready')">Ready for Pickup</button>
+                <button class="filter-btn active" data-filter="all" onclick="filterPrescriptions('all')">All</button>
+                <button class="filter-btn" data-filter="pending" onclick="filterPrescriptions('pending')">Pending</button>
+                <button class="filter-btn" data-filter="processing" onclick="filterPrescriptions('processing')">Processing</button>
+                <button class="filter-btn" data-filter="ready" onclick="filterPrescriptions('ready')">Ready for Pickup</button>
+                <button class="filter-btn" data-filter="dispensed" onclick="filterPrescriptions('dispensed')">Dispensed</button>
             </div>
 
             <!-- Queue Tab -->
@@ -342,6 +343,14 @@
                 <div class="card">
                     <h3 style="margin-bottom:1rem;">Processing Prescriptions</h3>
                     <div id="processingList"></div>
+                </div>
+            </div>
+
+            <!-- Ready Tab -->
+            <div id="readyTab" style="display:none;">
+                <div class="card">
+                    <h3 style="margin-bottom:1rem;">Ready for Pickup</h3>
+                    <div id="readyList"></div>
                 </div>
             </div>
 
@@ -382,18 +391,97 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closePrescriptionModal()">Close</button>
                 <button class="btn btn-primary" id="processBtn" onclick="processPrescription()">Start Processing</button>
+                <button class="btn btn-primary" id="readyBtn" onclick="readyForPickup()" style="display:none;">Mark Ready for Pickup</button>
                 <button class="btn btn-success" id="dispenseBtn" onclick="dispensePrescription()" style="display:none;">Dispense Medicines</button>
             </div>
         </div>
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js"></script>
-    <script src="../js/api.js"></script>
+    <script src="../js/app.js?v=20260710f"></script>
+    <script src="../js/api.js?v=20260710f"></script>
     <script>
         let pharmacyQueue = [];
         let currentFilter = 'all';
         let currentPrescriptionId = null;
+
+        const FILTER_EMPTY_MESSAGES = {
+            all: 'No prescriptions in queue',
+            pending: 'No pending prescriptions',
+            processing: 'No prescriptions being processed',
+            ready: 'No prescriptions ready for pickup',
+            dispensed: 'No prescriptions dispensed today',
+        };
+
+        const STATUS_BADGES = {
+            pending: { label: 'Pending', class: 'status-pending' },
+            processing: { label: 'Processing', class: 'status-processing' },
+            ready: { label: 'Ready for Pickup', class: 'status-ready' },
+            dispensed: { label: 'Dispensed', class: 'status-dispensed' },
+        };
+
+        function prescriptionsForFilter(filter = currentFilter) {
+            if (filter === 'all') {
+                return pharmacyQueue.filter((p) => p.status !== 'dispensed');
+            }
+            return pharmacyQueue.filter((p) => p.status === filter);
+        }
+
+        function prescriptionActionButtons(p) {
+            if (p.status === 'pending') {
+                return `<button class="dispense-btn" onclick="processPrescription(${p.id})">Start Processing</button>`;
+            }
+            if (p.status === 'processing') {
+                return `<button class="dispense-btn" onclick="readyForPickup(${p.id})">Ready for Pickup</button>`;
+            }
+            if (p.status === 'ready') {
+                return `<button class="dispense-btn" onclick="dispensePrescription(${p.id})">Dispense</button>`;
+            }
+            return '';
+        }
+
+        function prescriptionCardHtml(p, idx) {
+            const badge = STATUS_BADGES[p.status] || STATUS_BADGES.pending;
+            return `
+                <div class="prescription-card ${p.priority === 'ELDERLY' ? 'priority' : ''}">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div style="display:flex; gap:1rem;">
+                            ${typeof idx === 'number' ? `<div class="queue-position">${idx + 1}</div>` : ''}
+                            <div>
+                                <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                                    <h4>${PatientDisplay.label(p.patient, p.patient_id)}</h4>
+                                    ${p.priority === 'ELDERLY' ? '<span class="badge badge-priority">👴 Priority</span>' : ''}
+                                    <span class="status-badge ${badge.class}">${badge.label}</span>
+                                </div>
+                                <p style="color:var(--text-muted); font-size:0.875rem;">
+                                    Token: ${p.token} | Doctor: ${p.doctor} | Age: ${p.age}
+                                </p>
+                                <p style="font-size:0.875rem;">
+                                    <strong>Diagnosis:</strong> ${p.diagnosis || '—'}
+                                </p>
+                                <p style="font-size:0.875rem;">
+                                    <strong>Medicines:</strong> ${p.medicines.map((m) => m.name).join(', ') || '—'}
+                                </p>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                            <button class="view-btn" onclick="viewPrescription(${p.id})">View</button>
+                            ${prescriptionActionButtons(p)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderList(containerId, items, emptyMessage) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            if (!items.length) {
+                container.innerHTML = `<div class="alert alert-info">${emptyMessage}</div>`;
+                return;
+            }
+            container.innerHTML = items.map((p, idx) => prescriptionCardHtml(p, idx)).join('');
+        }
 
         async function initializePharmacyData() {
             const res = await API.pharmacyQueue();
@@ -410,6 +498,7 @@
                 entry_id: e.entry_id,
                 token: e.token_number,
                 patient: e.patient_name,
+                patient_id: e.patient_id,
                 age: e.patient_age,
                 doctor: e.doctor_name,
                 date: e.date,
@@ -453,110 +542,23 @@
         }
 
         function renderPrescriptions() {
-            const container = document.getElementById('prescriptionQueue');
-            const filtered = pharmacyQueue.filter(p => {
-                if (currentFilter === 'all') return true;
-                return p.status === currentFilter;
-            }).filter(p => p.status === 'pending' || p.status === 'ready');
-            
-            if (filtered.length === 0) {
-                container.innerHTML = '<div class="alert alert-info">No prescriptions in queue</div>';
-                return;
-            }
-            
-            container.innerHTML = filtered.map((p, idx) => `
-                <div class="prescription-card ${p.priority === 'ELDERLY' ? 'priority' : ''}">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <div style="display:flex; gap:1rem;">
-                            <div class="queue-position">${idx + 1}</div>
-                            <div>
-                                <div style="display:flex; align-items:center; gap:0.5rem;">
-                                    <h4>${p.patient}</h4>
-                                    ${p.priority === 'ELDERLY' ? '<span class="badge badge-priority">👴 Priority</span>' : ''}
-                                    ${p.status === 'ready' ? '<span class="status-badge status-ready">Ready for Pickup</span>' : '<span class="status-badge status-pending">Pending</span>'}
-                                </div>
-                                <p style="color:var(--text-muted); font-size:0.875rem;">
-                                    Token: ${p.token} | Doctor: ${p.doctor} | Age: ${p.age}
-                                </p>
-                                <p style="font-size:0.875rem;">
-                                    <strong>Diagnosis:</strong> ${p.diagnosis}
-                                </p>
-                                <p style="font-size:0.875rem;">
-                                    <strong>Medicines:</strong> ${p.medicines.map(m => m.name).join(', ')}
-                                </p>
-                            </div>
-                        </div>
-                        <div style="display:flex; gap:0.5rem;">
-                            <button class="view-btn" onclick="viewPrescription(${p.id})">View</button>
-                            ${p.status === 'pending' ? `<button class="dispense-btn" onclick="processPrescription(${p.id})">Start Processing</button>` : ''}
-                            ${p.status === 'ready' ? `<button class="dispense-btn" onclick="dispensePrescription(${p.id})">Dispense</button>` : ''}
-                        </div>
-                    </div>
-                </div>
-            `).join('');
+            renderList(
+                'prescriptionQueue',
+                prescriptionsForFilter(currentFilter),
+                FILTER_EMPTY_MESSAGES[currentFilter] || FILTER_EMPTY_MESSAGES.all,
+            );
         }
 
         function renderProcessing() {
-            const container = document.getElementById('processingList');
-            const processing = pharmacyQueue.filter(p => p.status === 'processing');
-            
-            if (processing.length === 0) {
-                container.innerHTML = '<div class="alert alert-info">No prescriptions being processed</div>';
-                return;
-            }
-            
-            container.innerHTML = processing.map(p => `
-                <div class="prescription-card">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <div>
-                            <div style="display:flex; align-items:center; gap:0.5rem;">
-                                <h4>${p.patient}</h4>
-                                <span class="status-badge status-processing"><span data-icon="settings" data-icon-size="18"></span> Processing</span>
-                            </div>
-                            <p style="color:var(--text-muted); font-size:0.875rem;">
-                                Token: ${p.token} | Doctor: ${p.doctor}
-                            </p>
-                            <p style="font-size:0.875rem;">
-                                <strong>Medicines:</strong> ${p.medicines.map(m => m.name).join(', ')}
-                            </p>
-                        </div>
-                        <div style="display:flex; gap:0.5rem;">
-                            <button class="view-btn" onclick="viewPrescription(${p.id})">View</button>
-                            <button class="dispense-btn" onclick="readyForPickup(${p.id})">Ready for Pickup</button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
+            renderList('processingList', prescriptionsForFilter('processing'), FILTER_EMPTY_MESSAGES.processing);
+        }
+
+        function renderReady() {
+            renderList('readyList', prescriptionsForFilter('ready'), FILTER_EMPTY_MESSAGES.ready);
         }
 
         function renderDispensed() {
-            const container = document.getElementById('dispensedList');
-            const dispensed = pharmacyQueue.filter(p => p.status === 'dispensed');
-            
-            if (dispensed.length === 0) {
-                container.innerHTML = '<div class="alert alert-info">No prescriptions dispensed today</div>';
-                return;
-            }
-            
-            container.innerHTML = dispensed.map(p => `
-                <div class="prescription-card">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <div>
-                            <div style="display:flex; align-items:center; gap:0.5rem;">
-                                <h4>${p.patient}</h4>
-                                <span class="status-badge status-dispensed"><span data-icon="checkCircle" data-icon-size="18"></span> Dispensed</span>
-                            </div>
-                            <p style="color:var(--text-muted); font-size:0.875rem;">
-                                Token: ${p.token} | Doctor: ${p.doctor}
-                            </p>
-                            <p style="font-size:0.875rem;">
-                                <strong>Dispensed:</strong> ${p.medicines.map(m => m.name).join(', ')}
-                            </p>
-                        </div>
-                        <button class="view-btn" onclick="viewPrescription(${p.id})">View</button>
-                    </div>
-                </div>
-            `).join('');
+            renderList('dispensedList', prescriptionsForFilter('dispensed'), FILTER_EMPTY_MESSAGES.dispensed);
         }
 
         function renderInventory() {
@@ -625,7 +627,7 @@
                     </div>
 
                     <div class="info-grid">
-                        <div><span class="label">Patient</span><br><span class="value">${p.patient}</span></div>
+                        <div><span class="label">Patient</span><br><span class="value">${PatientDisplay.label(p.patient, p.patient_id)}</span></div>
                         <div><span class="label">Token</span><br><span class="value">${p.token}</span></div>
                         <div><span class="label">Age</span><br><span class="value">${p.age} years</span></div>
                         <div><span class="label">Date</span><br><span class="value">${p.date}</span></div>
@@ -669,8 +671,9 @@
                 </div>
             `;
 
-            document.getElementById('processBtn').style.display = p.status === 'pending' ? 'block' : 'none';
-            document.getElementById('dispenseBtn').style.display = p.status === 'ready' ? 'block' : 'none';
+            document.getElementById('processBtn').style.display = p.status === 'pending' ? 'inline-block' : 'none';
+            document.getElementById('readyBtn').style.display = p.status === 'processing' ? 'inline-block' : 'none';
+            document.getElementById('dispenseBtn').style.display = p.status === 'ready' ? 'inline-block' : 'none';
 
             document.getElementById('prescriptionModal').classList.add('active');
         }
@@ -680,30 +683,38 @@
         // ============================================
 
         async function processPrescription(id) {
-            const res = await API.pharmacyStart(id);
+            const entryId = id || currentPrescriptionId;
+            if (!entryId) return;
+            const res = await API.pharmacyStart(entryId);
             if (!res.success) { Toast.show(res.error || 'Failed', 'error'); return; }
             await initializePharmacyData();
             closePrescriptionModal();
-            Toast.show(`Processing prescription`, 'info');
+            goToPharmacyStage('processing', 'processing');
+            Toast.show('Prescription moved to processing', 'info');
         }
 
         async function readyForPickup(id) {
-            const prescription = pharmacyQueue.find(p => p.id === id);
+            const entryId = id || currentPrescriptionId;
+            const prescription = pharmacyQueue.find((p) => p.id === entryId);
             if (!prescription) return;
-            const res = await API.pharmacyReady(id);
-            if (!res.success) { Toast.show(res.error || 'Failed', 'error'); return; }
-            await initializePharmacyData();
-            Toast.show(`Prescription for ${prescription.patient} is ready for pickup`, 'success');
-        }
-
-        async function dispensePrescription(id) {
-            const prescription = pharmacyQueue.find(p => p.id === id);
-            if (!prescription) return;
-            const res = await API.pharmacyComplete(id, { amount: prescription.total_bill || 100 });
+            const res = await API.pharmacyReady(entryId);
             if (!res.success) { Toast.show(res.error || 'Failed', 'error'); return; }
             await initializePharmacyData();
             closePrescriptionModal();
-            Toast.show(`Medicines dispensed to ${prescription.patient}`, 'success');
+            goToPharmacyStage('ready', 'ready');
+            Toast.show(`Prescription for ${PatientDisplay.label(prescription.patient, prescription.patient_id)} is ready for pickup`, 'success');
+        }
+
+        async function dispensePrescription(id) {
+            const entryId = id || currentPrescriptionId;
+            const prescription = pharmacyQueue.find((p) => p.id === entryId);
+            if (!prescription) return;
+            const res = await API.pharmacyComplete(entryId, { amount: prescription.total_bill || 100 });
+            if (!res.success) { Toast.show(res.error || 'Failed', 'error'); return; }
+            await initializePharmacyData();
+            closePrescriptionModal();
+            goToPharmacyStage('dispensed', 'dispensed');
+            Toast.show(`Medicines dispensed to ${PatientDisplay.label(prescription.patient, prescription.patient_id)}`, 'success');
         }
 
         function closePrescriptionModal() {
@@ -714,36 +725,75 @@
         // FILTER AND TAB FUNCTIONS
         // ============================================
 
-        function filterPrescriptions(filter) {
-            currentFilter = filter;
-            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-            if (event && event.target) {
-                event.target.classList.add('active');
-            }
-            renderPrescriptions();
-        }
-
-        function showTab(tab) {
+        function goToPharmacyStage(filter, tab) {
+            setActiveFilter(filter);
             document.getElementById('queueTab').style.display = tab === 'queue' ? 'block' : 'none';
             document.getElementById('processingTab').style.display = tab === 'processing' ? 'block' : 'none';
+            document.getElementById('readyTab').style.display = tab === 'ready' ? 'block' : 'none';
             document.getElementById('dispensedTab').style.display = tab === 'dispensed' ? 'block' : 'none';
             document.getElementById('inventoryTab').style.display = tab === 'inventory' ? 'block' : 'none';
-            
-            document.querySelectorAll('.sidebar-nav-item').forEach(el => el.classList.remove('active'));
-            if (event && event.target) {
-                event.target.closest('.sidebar-nav-item').classList.add('active');
+            setActiveSidebar(tab);
+            renderActiveView();
+        }
+
+        function setActiveFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach((btn) => {
+                btn.classList.toggle('active', btn.dataset.filter === filter);
+            });
+        }
+
+        function setActiveSidebar(tab) {
+            if (typeof SidebarNav !== 'undefined') {
+                SidebarNav.setActiveByKey(tab);
             }
-            
-            if (tab === 'queue') renderPrescriptions();
-            if (tab === 'processing') renderProcessing();
-            if (tab === 'dispensed') renderDispensed();
-            if (tab === 'inventory') renderInventory();
+        }
+
+        function filterPrescriptions(filter) {
+            if (filter === 'processing') goToPharmacyStage('processing', 'processing');
+            else if (filter === 'ready') goToPharmacyStage('ready', 'ready');
+            else if (filter === 'dispensed') goToPharmacyStage('dispensed', 'dispensed');
+            else goToPharmacyStage(filter === 'pending' ? 'pending' : 'all', 'queue');
+        }
+
+        function showTab(tab, navEl) {
+            if (tab === 'inventory') {
+                setActiveFilter(currentFilter);
+                document.getElementById('queueTab').style.display = 'none';
+                document.getElementById('processingTab').style.display = 'none';
+                document.getElementById('readyTab').style.display = 'none';
+                document.getElementById('dispensedTab').style.display = 'none';
+                document.getElementById('inventoryTab').style.display = 'block';
+                if (navEl) setActiveSidebar('inventory');
+                renderActiveView();
+                return;
+            }
+
+            const filterForTab = tab === 'queue' ? 'all' : tab;
+            goToPharmacyStage(filterForTab, tab);
+        }
+
+        function renderActiveView() {
+            const visibleTab = ['processing', 'ready', 'dispensed', 'inventory'].find((tab) => {
+                const el = document.getElementById(`${tab}Tab`);
+                return el && el.style.display !== 'none';
+            }) || 'queue';
+
+            if (visibleTab === 'inventory') {
+                renderInventory();
+                return;
+            }
+            if (visibleTab === 'processing') renderProcessing();
+            else if (visibleTab === 'ready') renderReady();
+            else if (visibleTab === 'dispensed') renderDispensed();
+            else renderPrescriptions();
         }
 
         function renderAll() {
             renderStats();
-            renderPrescriptions();
+            renderActiveView();
             renderProcessing();
+            renderReady();
             renderDispensed();
             renderInventory();
         }

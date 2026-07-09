@@ -84,6 +84,19 @@
         padding: 1rem;
         margin-bottom: 1rem;
       }
+      .lab-report-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+      .lab-report-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-shrink: 0;
+        align-items: center;
+      }
       .payment-receipt {
         background: #fff;
         border: 2px solid #000;
@@ -107,8 +120,19 @@
       .payment-receipt .receipt-row {
         display: flex;
         justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.75rem;
         font-size: 0.85rem;
         margin-bottom: 0.35rem;
+      }
+      .payment-receipt .receipt-label {
+        flex: 0 0 auto;
+        min-width: 5.5rem;
+      }
+      .payment-receipt .receipt-value {
+        flex: 1 1 auto;
+        text-align: right;
+        word-break: break-word;
       }
       .payment-receipt .receipt-total {
         border-top: 1px dashed #000;
@@ -216,8 +240,19 @@
       .token-receipt-row {
         display: flex;
         justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.75rem;
         font-size: 0.85rem;
         margin-bottom: 0.35rem;
+      }
+      .token-receipt-row .receipt-label {
+        flex: 0 0 auto;
+        min-width: 5.5rem;
+      }
+      .token-receipt-row .receipt-value {
+        flex: 1 1 auto;
+        text-align: right;
+        word-break: break-word;
       }
       .token-receipt-divider {
         border-top: 1px dashed #000;
@@ -305,31 +340,33 @@
           <nav>
             <div
               class="sidebar-nav-item active"
+              data-nav="overview"
               onclick="showSection('overview', this)"
             >
               <span data-icon="chart" data-icon-size="18"></span> Overview
             </div>
-            <div class="sidebar-nav-item" onclick="showSection('queue', this)">
+            <div class="sidebar-nav-item" data-nav="queue" onclick="showSection('queue', this)">
               <span data-icon="clock" data-icon-size="18"></span> Live Queue
             </div>
-            <div class="sidebar-nav-item" onclick="showSection('appointments', this)">
+            <div class="sidebar-nav-item" data-nav="appointments" onclick="showSection('appointments', this)">
               <span data-icon="calendar" data-icon-size="18"></span> Appointments
             </div>
             <div
               class="sidebar-nav-item"
+              data-nav="prescriptions"
               onclick="showSection('prescriptions', this)"
             >
               <span data-icon="pharmacy" data-icon-size="18"></span> Prescriptions
             </div>
-            <div class="sidebar-nav-item" onclick="showSection('lab-reports', this)">
+            <div class="sidebar-nav-item" data-nav="lab-reports" onclick="showSection('lab-reports', this)">
               <span data-icon="microscope" data-icon-size="18"></span> Lab Reports
             </div>
-            <div class="sidebar-nav-item" onclick="showSection('bills', this)">
+            <div class="sidebar-nav-item" data-nav="bills" onclick="showSection('bills', this)">
               <span data-icon="wallet" data-icon-size="18"></span> Bills & Payments
             </div>
             <div
               class="sidebar-nav-item"
-              onclick="window.location.href = '../index.html'"
+              onclick="logoutPortal('../index.html')"
             >
               <span data-icon="logout" data-icon-size="18"></span> Logout
             </div>
@@ -527,12 +564,12 @@
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js?v=20260707"></script>
-    <script src="../js/api.js"></script>
+    <script src="../js/app.js?v=20260710g"></script>
+    <script src="../js/api.js?v=20260710f"></script>
     <script>
       // Appointment slot status — shared logic in TimeUtils (app.js)
       function getAppointmentStatus(appointment) {
-        return TimeUtils.getAppointmentSlotStatus(appointment);
+        return slotStatusForAppointment(appointment);
       }
 
       // ============================================
@@ -561,25 +598,46 @@
         return String(status || '').toLowerCase().replace(/-/g, '_');
       }
 
+      function appointmentEstimatedMinutes(apt) {
+        const fromClock = TimeUtils.parseClockToMinutes(apt.time);
+        if (fromClock != null) return fromClock;
+        const bounds = TimeUtils.getSlotBounds(apt);
+        return bounds.startMinutes ?? 9999;
+      }
+
       function appointmentSortKey(apt) {
-        const slot = TimeUtils.normalizeSlotType(apt.slot);
+        const slot = TimeUtils.normalizeSlotType(apt.slot || apt.slot_type || apt.slot_type_raw);
         const slotRank = SLOT_ORDER[slot] ?? 9;
-        return `${apt.date || ''}-${slotRank}-${apt.time || ''}`;
+        const est = String(appointmentEstimatedMinutes(apt)).padStart(4, '0');
+        return `${apt.date || ''}-${String(slotRank).padStart(2, '0')}-${est}`;
+      }
+
+      function slotStatusForAppointment(apt, now = new Date()) {
+        return TimeUtils.getAppointmentSlotStatus({
+          date: apt.date,
+          slot: apt.slot || apt.slot_type || apt.slot_type_raw,
+          slot_type: apt.slot_type,
+          slot_type_raw: apt.slot_type_raw,
+          start_time: apt.start_time,
+          end_time: apt.end_time,
+          status: normalizeStatus(apt.status) === 'booked' ? 'booked' : apt.status,
+        }, now);
       }
 
       function isValidNextAppointment(apt, now = new Date()) {
         const status = normalizeStatus(apt.status);
         if (['completed', 'cancelled', 'expired'].includes(status)) return false;
 
-        const aptStatus = TimeUtils.getAppointmentSlotStatus(apt, now);
+        const aptStatus = slotStatusForAppointment(apt, now);
+        const dayRelation = TimeUtils.compareAppointmentDay(apt.date, now);
 
         if (['checked_in', 'consulting', 'pending_lab', 'pending_pharmacy'].includes(status)) {
-          return true;
+          return dayRelation === 'today' && !aptStatus.isPassed;
         }
 
         if (status !== 'booked') return false;
         if (aptStatus.isPassed || aptStatus.status === 'passed') return false;
-        return aptStatus.status === 'upcoming' || aptStatus.status === 'active';
+        return aptStatus.isUpcoming || aptStatus.isActive;
       }
 
       function findNextAppointment(list = appointments, now = new Date()) {
@@ -649,12 +707,13 @@
               <div class="token-number">${escapeHtml(apt.token)}</div>
             </div>
             <div class="token-receipt-divider"></div>
-            <div class="token-receipt-row"><span>Patient</span><span>${escapeHtml(currentPatientName)}</span></div>
-            <div class="token-receipt-row"><span>Doctor</span><span>${escapeHtml(apt.doctor)}</span></div>
-            <div class="token-receipt-row"><span>Date</span><span>${escapeHtml(formatApptDate(apt.date))}</span></div>
-            <div class="token-receipt-row"><span>Slot</span><span>${escapeHtml(apt.slot)}</span></div>
-            <div class="token-receipt-row"><span>Est. Time</span><span>${escapeHtml(apt.time || '—')}</span></div>
-            ${payment ? `<div class="token-receipt-row"><span>Amount Paid</span><span>Rs ${payment.amount}</span></div>` : ''}
+            ${tokenReceiptRow('Patient', currentPatientName)}
+            ${tokenReceiptRow('Doctor', formatDoctorReceiptName(apt.doctor) || '—')}
+            ${tokenReceiptRow('Specialty', doctorSpecialtyForBill({ token_number: apt.token, doctor_name: apt.doctor }))}
+            ${tokenReceiptRow('Date', formatApptDate(apt.date))}
+            ${tokenReceiptRow('Slot', apt.slot)}
+            ${tokenReceiptRow('Est. Time', apt.time || '—')}
+            ${payment ? `<div class="token-receipt-row"><span class="receipt-label">Amount Paid</span><span class="receipt-value">Rs ${payment.amount}</span></div>` : ''}
             <div style="font-size:0.8rem; margin-top:0.75rem; padding:0.5rem; border:1px dashed #000;">
               Arrive at reception 15 minutes before your slot for check-in.
             </div>
@@ -681,17 +740,50 @@
       }
 
       function formatApptDate(isoDate) {
-        if (!isoDate) return '—';
-        const d = new Date(`${isoDate}T00:00:00`);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const aptDay = new Date(d);
-        aptDay.setHours(0, 0, 0, 0);
-        if (aptDay.getTime() === today.getTime()) return 'Today';
-        if (aptDay.getTime() === tomorrow.getTime()) return 'Tomorrow';
-        return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        return TimeUtils.formatApptDateLabel(isoDate);
+      }
+
+      function mapPaymentBill(b) {
+        return {
+          id: b.payment_id,
+          token_number: b.token_number,
+          doctor_name: formatDoctorReceiptName(b.doctor_name || ''),
+          doctor_specialization: b.doctor_specialization || '',
+          visit_date: b.visit_date ? formatApptDate(b.visit_date) : '',
+          date: (b.paid_at_display || '').split(',')[0],
+          paid_at_display: b.paid_at_display,
+          description: (b.payment_type || '').replace(/_/g, ' '),
+          amount: b.amount,
+          status: b.status,
+          reference_number: b.reference_number,
+        };
+      }
+
+      function formatDoctorReceiptName(name) {
+        if (!name) return '';
+        return String(name).split(' - ')[0].trim();
+      }
+
+      function doctorNameForBill(bill) {
+        if (bill.doctor_name) return bill.doctor_name;
+        const apt = appointments.find((a) => a.token === bill.token_number);
+        return formatDoctorReceiptName(apt?.doctor || '') || '—';
+      }
+
+      function doctorSpecialtyForBill(bill) {
+        if (bill.doctor_specialization) return bill.doctor_specialization;
+        const apt = appointments.find((a) => a.token === bill.token_number);
+        if (!apt?.doctor) return 'General Physician';
+        const parts = String(apt.doctor).split(' - ');
+        return parts.length > 1 ? parts.slice(1).join(' - ').trim() : 'General Physician';
+      }
+
+      function receiptRow(label, value) {
+        return `<div class="receipt-row"><span class="receipt-label">${label}</span><span class="receipt-value">${escapeHtml(value)}</span></div>`;
+      }
+
+      function tokenReceiptRow(label, value) {
+        return `<div class="token-receipt-row"><span class="receipt-label">${label}</span><span class="receipt-value">${escapeHtml(value)}</span></div>`;
       }
 
       function mapTokensFromApi(tokens) {
@@ -752,16 +844,7 @@
           }));
         }
         if (journeyRes.payments?.length) {
-          bills = journeyRes.payments.map((b) => ({
-            id: b.payment_id,
-            token_number: b.token_number,
-            date: (b.paid_at_display || '').split(',')[0],
-            paid_at_display: b.paid_at_display,
-            description: (b.payment_type || '').replace(/_/g, ' '),
-            amount: b.amount,
-            status: b.status,
-            reference_number: b.reference_number,
-          }));
+          bills = journeyRes.payments.map(mapPaymentBill);
         }
         activeJourney = journeyRes.journey || null;
       }
@@ -817,16 +900,7 @@
             }));
           }
           if (journeyRes.payments?.length) {
-            bills = journeyRes.payments.map((b) => ({
-              id: b.payment_id,
-              token_number: b.token_number,
-              date: (b.paid_at_display || '').split(',')[0],
-              paid_at_display: b.paid_at_display,
-              description: (b.payment_type || '').replace(/_/g, ' '),
-              amount: b.amount,
-              status: b.status,
-              reference_number: b.reference_number,
-            }));
+            bills = journeyRes.payments.map(mapPaymentBill);
           }
         }
         renderOverview();
@@ -898,10 +972,9 @@
         };
         document.getElementById("sectionTitle").innerText = titles[section] || section;
 
-        document
-          .querySelectorAll(".sidebar-nav-item")
-          .forEach((el) => el.classList.remove("active"));
-        if (navEl) navEl.classList.add("active");
+        if (typeof SidebarNav !== 'undefined') {
+          SidebarNav.activate(navEl || document.querySelector(`[data-nav="${section}"]`));
+        }
 
         if (section === "overview") renderOverview();
         if (section === "queue") renderLiveQueue();
@@ -936,11 +1009,6 @@
         const nextCard = document.getElementById("nextAppointmentCard");
         if (next) {
           const aptStatus = getAppointmentStatus(next);
-          const inClinic = ['checked_in', 'consulting', 'pending_lab', 'pending_pharmacy'].includes(normalizeStatus(next.status));
-          if (aptStatus.isPassed && !inClinic) {
-            nextCard.style.display = 'none';
-            document.getElementById("nextAppointmentContent").innerHTML = '';
-          } else {
           nextCard.style.display = '';
           document.getElementById("nextAppointmentContent").innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
@@ -956,7 +1024,6 @@
               </div>
             </div>
           `;
-          }
         } else {
           nextCard.style.display = '';
           document.getElementById("nextAppointmentContent").innerHTML =
@@ -983,8 +1050,9 @@
 
       async function renderLiveQueue() {
         const container = document.getElementById("liveQueueContent");
-        const today = new Date().toISOString().split("T")[0];
-        const todayAppointments = appointments.filter((a) => a.date === today);
+        const todayAppointments = appointments.filter(
+          (a) => TimeUtils.compareAppointmentDay(a.date) === 'today'
+        );
         const todayAppointment = todayAppointments.find(isValidNextAppointment)
           || todayAppointments.find((a) => ['checked_in', 'consulting', 'pending_lab', 'pending_pharmacy'].includes(normalizeStatus(a.status)));
 
@@ -1156,7 +1224,7 @@
           window.open(report.report_url, '_blank');
           return;
         }
-        Toast.show(report.result || 'No file attached — see findings above.', 'info');
+        Toast.show(report.result || 'No file attached — see result above.', 'info');
       }
 
       function renderLabReports() {
@@ -1169,16 +1237,18 @@
           .map(
             (l) => `
               <div class="lab-report-card">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;">
+                <div class="lab-report-card-header">
                   <div>
                     <strong>${l.test}</strong><br>
                     <small>${l.date} · Token ${l.token_number || '—'}</small><br>
                     <small>${l.doctor || ''}</small>
                   </div>
-                  <button class="btn btn-outline" onclick="viewLabReport(${l.id})">View Report</button>
-                  ${l.report_url ? `<a class="btn btn-outline" href="${l.report_url}" download>Download</a>` : ''}
+                  <div class="lab-report-actions">
+                    <button type="button" class="btn btn-outline" onclick="viewLabReport(${l.id})">View Report</button>
+                    ${l.report_url ? `<a class="btn btn-outline" href="${l.report_url}" download>Download</a>` : ''}
+                  </div>
                 </div>
-                <div style="margin-top:0.75rem; font-size:0.9rem;"><strong>Findings:</strong> ${l.result}</div>
+                <div style="margin-top:0.75rem; font-size:0.9rem;"><strong>Result:</strong> ${l.result || '—'}</div>
               </div>
             `
           )
@@ -1194,14 +1264,15 @@
               <h4>GENERAL OPD</h4>
               <div style="font-size:0.75rem;">Payment Receipt</div>
             </div>
-            <div class="receipt-row"><span>Receipt No.</span><span>${bill.reference_number || bill.id}</span></div>
-            <div class="receipt-row"><span>Date</span><span>${bill.paid_at_display || bill.date}</span></div>
-            <div class="receipt-row"><span>Token</span><span>${bill.token_number || '—'}</span></div>
-            <div class="receipt-row"><span>Doctor</span><span>${bill.doctor_name || '—'}</span></div>
-            <div class="receipt-row"><span>Visit Date</span><span>${bill.visit_date || bill.date}</span></div>
-            <div class="receipt-row"><span>Description</span><span>${bill.description}</span></div>
-            <div class="receipt-row"><span>Status</span><span>${bill.status}</span></div>
-            <div class="receipt-row receipt-total"><span>Amount Paid</span><span>Rs ${bill.amount}</span></div>
+            ${receiptRow('Receipt No.', bill.reference_number || bill.id)}
+            ${receiptRow('Date', bill.paid_at_display || bill.date)}
+            ${receiptRow('Token', bill.token_number || '—')}
+            ${receiptRow('Doctor', doctorNameForBill(bill))}
+            ${receiptRow('Specialty', doctorSpecialtyForBill(bill))}
+            ${receiptRow('Visit Date', bill.visit_date || bill.date)}
+            ${receiptRow('Description', bill.description)}
+            ${receiptRow('Status', bill.status)}
+            <div class="receipt-row receipt-total"><span class="receipt-label">Amount Paid</span><span class="receipt-value">Rs ${bill.amount}</span></div>
             <div style="text-align:center; margin-top:1rem; font-size:0.7rem;">Thank you for visiting General OPD</div>
           </div>`;
         document.getElementById('receiptModal').classList.add('active');

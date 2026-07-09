@@ -8,7 +8,7 @@ from rest_framework.response import Response
 
 from core.models import ConsultationSlot, FollowupRule, LabOrder, Payment, Prescription, Token
 from core.permissions import IsPatient
-from core.utils import format_local_time, serialize_token
+from core.utils import format_local_time, doctor_name_short, doctor_specialty, serialize_token
 
 
 def _patient_token_filter(user, prefix=''):
@@ -130,7 +130,8 @@ def patient_bills(request):
             'reference_number': pay.reference_number or '',
             'paid_at': pay.paid_at.isoformat() if pay.paid_at else None,
             'paid_at_display': format_local_time(pay.paid_at, '%d %b %Y, %I:%M %p') if pay.paid_at else None,
-            'doctor_name': str(pay.token.slot.doctor),
+            'doctor_name': doctor_name_short(pay.token.slot.doctor),
+            'doctor_specialization': doctor_specialty(pay.token.slot.doctor),
             'visit_date': pay.token.slot.date.isoformat(),
         })
     return Response({'success': True, 'bills': data})

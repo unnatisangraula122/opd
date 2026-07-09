@@ -67,11 +67,7 @@
         <div class="sidebar-footer">
           <div
             class="sidebar-nav-item"
-            onclick="
-              API.staffLogout().then(
-                () => (window.location.href = '/staff/login.html'),
-              )
-            "
+            onclick="API.logout('../staff/login.html')"
           >
             <span class="nav-icon">↩</span> Sign Out
           </div>
@@ -271,31 +267,12 @@
               <div>
                 <h3 class="panel-title">Slot Configuration</h3>
                 <p class="panel-subtitle">
-                  Max tokens = 120 ÷ average consultation time (minutes)
+                  Max tokens = slot duration (minutes) ÷ average consultation time for each slot
                 </p>
               </div>
             </div>
-            <div class="config-row">
-              <div class="form-group">
-                <label class="form-label"
-                  >Average Consultation Time (minutes)</label
-                >
-                <input
-                  type="number"
-                  class="form-input"
-                  id="avgConsultTime"
-                  value="10"
-                  oninput="updateMaxTokens()"
-                  min="5"
-                  max="30"
-                />
-              </div>
-              <div class="form-group">
-                <label class="form-label">Max Tokens per Slot</label>
-                <input type="text" class="form-input" id="maxTokens" readonly />
-              </div>
-            </div>
-            <button class="btn btn-primary" onclick="saveSlotConfig()">
+            <div id="slotConfigGrid" class="grid grid-1" style="gap: 1rem"></div>
+            <button class="btn btn-primary" style="margin-top: 1rem" onclick="saveSlotConfig()">
               Save Configuration
             </button>
           </div>
@@ -410,8 +387,8 @@
     </div>
 
     <script src="/js/icons.js"></script>
-    <script src="/js/app.js"></script>
-    <script src="/js/api.js"></script>
+    <script src="/js/app.js?v=20260710f"></script>
+    <script src="/js/api.js?v=20260710f"></script>
     <script>
       let analyticsData = null;
       const sectionTitles = {
@@ -431,7 +408,11 @@
         document
           .querySelectorAll(".sidebar-nav-item[data-section]")
           .forEach((n) => n.classList.remove("active"));
-        if (el) el.classList.add("active");
+        if (el && typeof SidebarNav !== 'undefined') {
+          SidebarNav.activate(el);
+        } else if (el) {
+          el.classList.add("active");
+        }
         const [title, meta] = sectionTitles[section] || ["Dashboard", ""];
         document.getElementById("pageTitle").textContent = title;
         document.getElementById("pageMeta").textContent = meta;
@@ -632,24 +613,87 @@
         Toast.show("Edit doctor ID: " + id, "info");
       }
 
+      const SLOT_TYPES = ['morning', 'afternoon', 'evening'];
+      let slotConfigState = {};
+
+      function slotLabel(type) {
+        return type.charAt(0).toUpperCase() + type.slice(1);
+      }
+
+      function computeDurationMinutes(start, end) {
+        const [sh, sm] = start.split(':').map(Number);
+        const [eh, em] = end.split(':').map(Number);
+        return Math.max((eh * 60 + em) - (sh * 60 + sm), 0);
+      }
+
+      function renderSlotConfigForms(slots = {}) {
+        slotConfigState = slots;
+        document.getElementById('slotConfigGrid').innerHTML = SLOT_TYPES.map((type) => {
+          const cfg = slots[type] || {};
+          const start = cfg.start_time || '09:00';
+          const end = cfg.end_time || '11:00';
+          const avg = cfg.avg_consultation_minutes || 10;
+          const duration = computeDurationMinutes(start, end);
+          const maxTokens = avg > 0 ? Math.floor(duration / avg) : 0;
+          return `
+            <div class="config-card" data-slot-type="${type}">
+              <h4>${slotLabel(type)} Slot</h4>
+              <div class="config-row">
+                <div class="form-group">
+                  <label class="form-label">Start Time</label>
+                  <input type="time" class="form-input slot-start" id="${type}Start" value="${start}" oninput="updateSlotMaxTokens('${type}')">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">End Time</label>
+                  <input type="time" class="form-input slot-end" id="${type}End" value="${end}" oninput="updateSlotMaxTokens('${type}')">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Avg Consultation (minutes)</label>
+                  <input type="number" class="form-input slot-avg" id="${type}AvgConsult" value="${avg}" min="1" max="60" oninput="updateSlotMaxTokens('${type}')">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Slot Duration (minutes)</label>
+                  <input type="text" class="form-input" id="${type}Duration" value="${duration}" readonly>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Max Tokens</label>
+                  <input type="text" class="form-input" id="${type}MaxTokens" value="${maxTokens}" readonly>
+                </div>
+              </div>
+            </div>`;
+        }).join('');
+      }
+
+      function updateSlotMaxTokens(type) {
+        const start = document.getElementById(`${type}Start`)?.value || '09:00';
+        const end = document.getElementById(`${type}End`)?.value || '11:00';
+        const avg = parseInt(document.getElementById(`${type}AvgConsult`)?.value, 10) || 10;
+        const duration = computeDurationMinutes(start, end);
+        const maxTokens = avg > 0 ? Math.floor(duration / avg) : 0;
+        const durationEl = document.getElementById(`${type}Duration`);
+        const maxEl = document.getElementById(`${type}MaxTokens`);
+        if (durationEl) durationEl.value = duration;
+        if (maxEl) maxEl.value = maxTokens;
+      }
+
       function updateMaxTokens() {
-        const val =
-          parseInt(document.getElementById("avgConsultTime").value, 10) || 10;
-        document.getElementById("maxTokens").value = Math.floor(120 / val);
+        SLOT_TYPES.forEach(updateSlotMaxTokens);
       }
 
       async function saveSlotConfig() {
-        const consultTime = parseInt(
-          document.getElementById("avgConsultTime").value,
-          10,
-        );
-        const res = await API.adminSaveSlotConfig({
-          avg_consultation_time: consultTime,
-        });
+        const slots = {};
+        for (const type of SLOT_TYPES) {
+          slots[type] = {
+            start_time: document.getElementById(`${type}Start`).value,
+            end_time: document.getElementById(`${type}End`).value,
+            avg_consultation_minutes: parseInt(document.getElementById(`${type}AvgConsult`).value, 10) || 10,
+          };
+        }
+        const res = await API.adminSaveSlotConfig({ slots });
         if (res.success) {
-          document.getElementById("maxTokens").value = res.max_tokens_per_slot;
-          Toast.show("Slot configuration saved", "success");
-        } else Toast.show(res.error || "Failed", "error");
+          renderSlotConfigForms(res.slots || {});
+          Toast.show('Slot configuration saved', 'success');
+        } else Toast.show(res.error || 'Failed', 'error');
       }
 
       async function saveThrottleConfig() {
@@ -714,15 +758,12 @@
           .charAt(0)
           .toUpperCase();
 
-        updateMaxTokens();
         refreshAnalytics();
         PollManager.start('admin', refreshAnalytics, 10000);
 
         API.adminSlotConfig().then((r) => {
-          if (r.success && r.avg_consultation_time) {
-            document.getElementById("avgConsultTime").value =
-              r.avg_consultation_time;
-            updateMaxTokens();
+          if (r.success && r.slots) {
+            renderSlotConfigForms(r.slots);
           }
         });
 

@@ -36,6 +36,35 @@
         background: #dbeafe;
         color: var(--info);
       }
+      #reportViewModal .modal-content {
+        max-width: 720px;
+        width: 95%;
+      }
+      .report-preview-box {
+        margin-top: 1rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: #f8fafc;
+        overflow: hidden;
+      }
+      .report-preview-box iframe {
+        display: block;
+        width: 100%;
+        height: 420px;
+        border: none;
+      }
+      .report-preview-box img {
+        display: block;
+        max-width: 100%;
+        max-height: 420px;
+        margin: 0 auto;
+      }
+      .report-preview-placeholder {
+        padding: 2rem;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+      }
     </style>
   </head>
   <body>
@@ -68,18 +97,18 @@
             </p>
           </div>
           <nav>
-            <div class="sidebar-nav-item active" onclick="showTab('pending')">
+            <div class="sidebar-nav-item active" data-nav="pending" onclick="showTab('pending', this)">
               <span data-icon="flask" data-icon-size="18"></span> Pending Tests
             </div>
-            <div class="sidebar-nav-item" onclick="showTab('processing')">
+            <div class="sidebar-nav-item" data-nav="processing" onclick="showTab('processing', this)">
               <span data-icon="settings" data-icon-size="18"></span> In Progress
             </div>
-            <div class="sidebar-nav-item" onclick="showTab('completed')">
+            <div class="sidebar-nav-item" data-nav="completed" onclick="showTab('completed', this)">
               <span data-icon="checkCircle" data-icon-size="18"></span> Completed
             </div>
             <div
               class="sidebar-nav-item"
-              onclick="window.location.href = '../index.html'"
+              onclick="logoutPortal('../index.html')"
             >
               <span data-icon="logout" data-icon-size="18"></span> Logout
             </div>
@@ -172,36 +201,77 @@
       </div>
     </div>
 
+    <!-- View Report Modal -->
+    <div id="reportViewModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Lab Report</h3>
+          <button type="button" onclick="closeReportModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="reportViewBody"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeReportModal()">Close</button>
+          <a id="reportOpenLink" class="btn btn-outline" href="#" target="_blank" rel="noopener" style="display:none;">Open in New Tab</a>
+          <a id="reportDownloadLink" class="btn btn-primary" href="#" download style="display:none;">Download File</a>
+        </div>
+      </div>
+    </div>
+
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js"></script>
-    <script src="../js/api.js"></script>
+    <script src="../js/app.js?v=20260710f"></script>
+    <script src="../js/api.js?v=20260710f"></script>
     <script>
       let pendingTests = [];
       let processingTests = [];
       let completedTests = [];
       let currentTestId = null;
 
-      async function loadLabQueue() {
-        const res = await API.labQueue();
-        if (!res.success) return;
-        pendingTests = (res.pending || []).map((t, idx) => ({
-          id: t.order_id, order_id: t.order_id, patient: t.patient_name, token: t.token_number,
-          tests: [t.test_name], status: 'pending',
-        }));
-        processingTests = (res.processing || []).map(t => ({
-          id: t.order_id, order_id: t.order_id, patient: t.patient_name, token: t.token_number,
-          tests: [t.test_name], status: 'processing',
-        }));
-        completedTests = (res.completed || []).map(t => ({
-          id: t.order_id, order_id: t.order_id, patient: t.patient_name, token: t.token_number,
-          tests: [t.test_name], status: 'completed',
-        }));
-        renderPending();
-        renderProcessing();
-        renderCompleted();
+      function mapLabItem(t, status) {
+        return {
+          id: t.order_id,
+          order_id: t.order_id,
+          patient: t.patient_name,
+          patient_id: t.patient_id,
+          token: t.token_number,
+          tests: [t.test_name],
+          status,
+          orderedAt: t.ordered_at,
+          startedAt: t.started_at,
+          completedAt: t.completed_at,
+          findings: t.findings || '',
+          reportUrl: t.report_url || null,
+          fee: t.fee,
+        };
       }
 
-      function showTab(tab) {
+      function formatLabDate(iso) {
+        if (!iso) return '—';
+        const d = new Date(iso);
+        return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString();
+      }
+
+      async function loadLabQueue() {
+        try {
+          const res = await API.labQueue();
+          if (!res.success) {
+            const msg = res.error || res.detail || 'Could not load lab queue';
+            document.getElementById('pendingList').innerHTML =
+              `<p style="text-align:center;color:var(--danger);">${msg}</p>`;
+            return;
+          }
+          pendingTests = (res.pending || []).map((t) => mapLabItem(t, 'pending'));
+          processingTests = (res.processing || []).map((t) => mapLabItem(t, 'processing'));
+          completedTests = (res.completed || []).map((t) => mapLabItem(t, 'completed'));
+          renderPending();
+          renderProcessing();
+          renderCompleted();
+        } catch (err) {
+          document.getElementById('pendingList').innerHTML =
+            `<p style="text-align:center;color:var(--danger);">Failed to load lab queue. Please refresh.</p>`;
+        }
+      }
+
+      function showTab(tab, navEl) {
         document.getElementById("pendingTab").style.display =
           tab === "pending" ? "block" : "none";
         document.getElementById("processingTab").style.display =
@@ -209,9 +279,13 @@
         document.getElementById("completedTab").style.display =
           tab === "completed" ? "block" : "none";
 
+        if (typeof SidebarNav !== 'undefined') {
+          SidebarNav.activate(navEl || document.querySelector(`[data-nav="${tab}"]`));
+        }
+
         if (tab === "pending") loadLabQueue();
-        if (tab === "processing") renderProcessing();
-        if (tab === "completed") renderCompleted();
+        if (tab === "processing") loadLabQueue();
+        if (tab === "completed") loadLabQueue();
       }
 
       function renderPending() {
@@ -226,9 +300,9 @@
                 <div class="test-card">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                         <div>
-                            <h4>${t.patient} <span class="status-badge status-pending">Pending</span></h4>
-                            <p><strong>Token:</strong> ${t.token} | <strong>Ordered:</strong> ${new Date(t.orderedAt).toLocaleString()}</p>
-                            <p><strong>Tests:</strong> ${t.tests.join(", ")}</p>
+                            <h4>${PatientDisplay.label(t.patient, t.patient_id)} <span class="status-badge status-pending">Pending</span></h4>
+                            <p><strong>Token:</strong> ${t.token} | <strong>Ordered:</strong> ${t.orderedAt ? new Date(t.orderedAt).toLocaleString() : '—'}</p>
+                            <p><strong>Tests:</strong> ${t.tests.join(", ")}${t.fee ? ` | <strong>Fee:</strong> Rs. ${t.fee}` : ''}</p>
                         </div>
                         <button class="btn btn-primary" onclick="startTest(${t.id})">Start Test →</button>
                     </div>
@@ -250,8 +324,8 @@
                 <div class="test-card">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                         <div>
-                            <h4>${t.patient} <span class="status-badge status-processing">In Progress</span></h4>
-                            <p><strong>Token:</strong> ${t.token} | <strong>Started:</strong> ${new Date(t.startedAt).toLocaleString()}</p>
+                            <h4>${PatientDisplay.label(t.patient, t.patient_id)} <span class="status-badge status-processing">In Progress</span></h4>
+                            <p><strong>Token:</strong> ${t.token} | <strong>Started:</strong> ${formatLabDate(t.startedAt)}</p>
                             <p><strong>Tests:</strong> ${t.tests.join(", ")}</p>
                         </div>
                         <button class="btn btn-success" onclick="openResultModal(${t.id})">Add Results</button>
@@ -274,12 +348,12 @@
                 <div class="test-card">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                         <div>
-                            <h4>${t.patient} <span class="status-badge status-completed">Completed</span></h4>
-                            <p><strong>Token:</strong> ${t.token} | <strong>Completed:</strong> ${new Date(t.completedAt).toLocaleString()}</p>
+                            <h4>${PatientDisplay.label(t.patient, t.patient_id)} <span class="status-badge status-completed">Completed</span></h4>
+                            <p><strong>Token:</strong> ${t.token} | <strong>Completed:</strong> ${formatLabDate(t.completedAt)}</p>
                             <p><strong>Tests:</strong> ${t.tests.join(", ")}</p>
-                            <p><strong>Result:</strong> ${t.result || "See report"}</p>
+                            <p><strong>Result:</strong> ${t.findings || "See report"}</p>
                         </div>
-                        <button class="btn btn-outline" onclick="viewReport(${t.id})">View Report</button>
+                        <button type="button" class="btn btn-outline" onclick="viewReport(${t.id})">View Report</button>
                     </div>
                 </div>
             `,
@@ -320,22 +394,49 @@
         Toast.show("Report submitted successfully!", "success");
       }
 
+      function reportPreviewHtml(url) {
+        if (!url) {
+          return '<div class="report-preview-placeholder">No report file uploaded — text findings only.</div>';
+        }
+        const lower = url.toLowerCase().split('?')[0];
+        if (lower.endsWith('.pdf')) {
+          return `<iframe src="${url}#toolbar=1" title="Lab report PDF"></iframe>`;
+        }
+        if (/\.(jpg|jpeg|png|gif|webp)$/i.test(lower)) {
+          return `<img src="${url}" alt="Lab report image">`;
+        }
+        return `<div class="report-preview-placeholder">Inline preview not available.<br>Use <strong>Open in New Tab</strong> or <strong>Download</strong> below.</div>`;
+      }
+
       function viewReport(id) {
         const test = completedTests.find((t) => t.id === id);
-        if (test) {
-          ModalManager.open(
-            `
-                    <p><strong>Patient:</strong> ${test.patient}</p>
-                    <p><strong>Token:</strong> ${test.token}</p>
-                    <p><strong>Tests:</strong> ${test.tests.join(", ")}</p>
-                    <p><strong>Result:</strong> ${test.result}</p>
-                    <p><strong>Normal Range:</strong> ${test.normalRange || "Not specified"}</p>
-                    <p><strong>Notes:</strong> ${test.notes || "None"}</p>
-                    <p><strong>Completed:</strong> ${new Date(test.completedAt).toLocaleString()}</p>
-                `,
-            "Lab Report",
-          );
+        if (!test) return;
+        document.getElementById('reportViewBody').innerHTML = `
+          <p><strong>Patient:</strong> ${PatientDisplay.label(test.patient, test.patient_id)}</p>
+          <p><strong>Token:</strong> ${test.token}</p>
+          <p><strong>Tests:</strong> ${test.tests.join(', ')}</p>
+          <p><strong>Findings:</strong> ${test.findings || 'No findings recorded'}</p>
+          <p><strong>Completed:</strong> ${formatLabDate(test.completedAt)}</p>
+          <div class="report-preview-box">${reportPreviewHtml(test.reportUrl)}</div>
+        `;
+        const openLink = document.getElementById('reportOpenLink');
+        const downloadLink = document.getElementById('reportDownloadLink');
+        if (test.reportUrl) {
+          openLink.href = test.reportUrl;
+          openLink.style.display = 'inline-block';
+          downloadLink.href = test.reportUrl;
+          downloadLink.style.display = 'inline-block';
+        } else {
+          openLink.style.display = 'none';
+          openLink.removeAttribute('href');
+          downloadLink.style.display = 'none';
+          downloadLink.removeAttribute('href');
         }
+        document.getElementById('reportViewModal').classList.add('active');
+      }
+
+      function closeReportModal() {
+        document.getElementById('reportViewModal').classList.remove('active');
       }
 
       function closeResultModal() {

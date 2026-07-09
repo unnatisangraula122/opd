@@ -341,15 +341,15 @@
             <p style="color: var(--text-muted); font-size: 0.75rem" id="currentDateTime"></p>
           </div>
           <nav>
-            <div class="sidebar-nav-item active" onclick="showTab('queue', this)">
+            <div class="sidebar-nav-item active" data-nav="queue" onclick="showTab('queue', this)">
               <span data-icon="users" data-icon-size="18"></span> Patient Queue
             </div>
-            <div class="sidebar-nav-item" onclick="showTab('completed', this)">
+            <div class="sidebar-nav-item" data-nav="completed" onclick="showTab('completed', this)">
               <span data-icon="checkCircle" data-icon-size="18"></span> Completed Today
             </div>
             <div
               class="sidebar-nav-item"
-              onclick="window.location.href = '../index.html'"
+              onclick="logoutPortal('../index.html')"
             >
               <span data-icon="logout" data-icon-size="18"></span> Logout
             </div>
@@ -385,8 +385,8 @@
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js"></script>
-    <script src="../js/api.js"></script>
+    <script src="../js/app.js?v=20260710f"></script>
+    <script src="../js/api.js?v=20260710f"></script>
     <script>
       let queue = [];
 
@@ -401,6 +401,7 @@
           token_id: p.token_id,
           token: p.token_number,
           patient: p.patient_name,
+          patient_id: p.patient_id,
           age: p.patient_age,
           category: p.priority === 'HIGH' ? 'ELDERLY' : 'GENERAL',
           is_followup: p.is_followup,
@@ -427,7 +428,7 @@
               <strong>${p.token}</strong>
               ${p.is_followup ? ' <span class="badge badge-warning">Follow-up</span>' : ''}
               ${p.category === 'ELDERLY' ? ' <span class="badge badge-priority">Priority</span>' : ''}
-              <h4 style="margin:0.35rem 0;">${p.patient} (${p.age} yrs)</h4>
+              <h4 style="margin:0.35rem 0;">${PatientDisplay.label(p.patient, p.patient_id)} (${p.age} yrs)</h4>
             </div>
           </div>`).join('');
       }
@@ -452,6 +453,7 @@
           token_id: next.token_id,
           token: next.token,
           patient: next.patient,
+          patient_id: next.patient_id,
           age: next.age,
           category: next.category,
           is_followup: next.is_followup,
@@ -459,7 +461,7 @@
         }));
         window.open(`consultation.html?token_id=${next.token_id}`, '_blank');
         await loadDoctorQueue();
-        Toast.show(`Consultation opened for ${next.patient}`, 'success');
+        Toast.show(`Consultation opened for ${PatientDisplay.label(next.patient, next.patient_id)}`, 'success');
       }
 
       async function loadCompletedToday() {
@@ -491,7 +493,7 @@
                 ${res.completed.map(c => `
                   <tr>
                     <td><strong>${c.token_number}</strong></td>
-                    <td>${c.patient_name}<br><small>${c.patient_age} yrs</small></td>
+                    <td>${PatientDisplay.label(c.patient_name, c.patient_id)}<br><small>${c.patient_age} yrs</small></td>
                     <td>${c.diagnosis || '—'}</td>
                     <td>${c.completed_at || '—'}</td>
                     <td>${c.duration_minutes != null ? c.duration_minutes + ' min' : '—'}</td>
@@ -503,10 +505,9 @@
       }
 
       function showTab(tab, navEl) {
-        document.querySelectorAll('.sidebar-nav-item').forEach(el => {
-          if (!el.textContent.includes('Logout')) el.classList.remove('active');
-        });
-        if (navEl) navEl.classList.add('active');
+        if (typeof SidebarNav !== 'undefined') {
+          SidebarNav.activate(navEl || document.querySelector(`[data-nav="${tab}"]`));
+        }
 
         document.getElementById('queueView').style.display = tab === 'queue' ? 'block' : 'none';
         document.getElementById('completedView').style.display = tab === 'completed' ? 'block' : 'none';

@@ -61,13 +61,13 @@
             </div>
             <div class="option-card" onclick="showNewPatient()">
                 <div class="med-icon-box" style="margin:0 auto 1rem;" data-icon="edit" data-icon-size="28"></div>
-                <h3>New Patient Registration</h3>
+                <h3>New Patient</h3>
                 <p style="color:var(--text-muted);">First time? Register using your Patient ID</p>
             </div>
             <div class="divider">OR</div>
             <div class="option-card" onclick="showExistingPatient()">
                 <div class="med-icon-box" style="margin:0 auto 1rem;" data-icon="lock" data-icon-size="28"></div>
-                <h3>Existing Patient Login</h3>
+                <h3>Old Patient</h3>
                 <p style="color:var(--text-muted);">Login with Patient ID or Phone OTP</p>
             </div>
         </div>
@@ -76,7 +76,7 @@
         <!-- Step A1: New Patient - Enter Patient ID & Phone -->
         <div id="newPatientStep1" class="login-card" style="display:none;">
             <button class="btn btn-outline" style="margin-bottom:1rem;" onclick="backToLoginType()">← Back</button>
-            <h3>New Patient Registration</h3>
+            <h3>New Patient</h3>
             <p style="color:var(--text-muted); margin-bottom:1rem;">Please enter the details from your OPD card</p>
             <div class="form-group">
                 <label class="form-label">Patient ID <span class="required">*</span></label>
@@ -140,7 +140,7 @@
         <!-- Step B1: Existing Patient - Enter Credentials -->
         <div id="existingPatientLogin" class="login-card" style="display:none;">
             <button class="btn btn-outline" style="margin-bottom:1rem;" onclick="backToLoginType()">← Back</button>
-            <h3>Existing Patient Login</h3>
+            <h3>Old Patient</h3>
             <div class="form-group">
                 <label class="form-label">Patient ID <span class="required">*</span></label>
                 <input type="text" class="form-input" id="loginPatientId" placeholder="Enter your Patient ID">
@@ -249,8 +249,8 @@
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js"></script>
-    <script src="../js/api.js"></script>
+    <script src="../js/app.js?v=20260710f"></script>
+    <script src="../js/api.js?v=20260710f"></script>
     <script>
         // Global variables
         let regData = {};
@@ -325,13 +325,15 @@
             }
         }
 
-        function savePatientSession(patient) {
-            StorageManager.setUser({
+        function savePatientSession(patient, token) {
+            const user = {
+                ...patient,
                 patientId: patient.patient_id,
-                phone: patient.phone,
-                name: patient.name,
+                role: 'patient',
                 isLoggedIn: true,
-            });
+            };
+            API.setAuth(token, user);
+            StorageManager.setUser(user);
         }
         
         // ==================== NAVIGATION FUNCTIONS ====================
@@ -418,9 +420,18 @@
             }
 
             LoadingOverlay.show();
-            const validation = await API.validateOldPatient({ patient_id: id, phone });
+            const validation = await API.validateOldPatient({
+                patient_id: id,
+                phone,
+                purpose: 'portal_activation',
+            });
             if (!validation.success) {
                 LoadingOverlay.hide();
+                if (validation.already_registered) {
+                    Toast.show(validation.error || 'Please use Old Patient login', 'warning');
+                    showExistingPatient();
+                    return;
+                }
                 Toast.show(validation.error || 'Patient ID and phone do not match', 'error');
                 return;
             }
@@ -539,10 +550,15 @@
             }).then(res => {
                 LoadingOverlay.hide();
                 if (!res.success) {
+                    if (res.already_registered) {
+                        Toast.show(res.error || 'Please use Old Patient login', 'warning');
+                        showExistingPatient();
+                        return;
+                    }
                     Toast.show(res.error || 'Registration failed', 'error');
                     return;
                 }
-                savePatientSession(res.patient);
+                savePatientSession(res.patient, res.token);
                 Toast.show(res.message || 'Registration successful! Redirecting to dashboard...', 'success');
                 setTimeout(() => window.location.href = 'dashboard.html', 1500);
             });
@@ -579,7 +595,7 @@
                     Toast.show(res.error || 'Invalid credentials', 'error');
                     return;
                 }
-                savePatientSession(res.patient);
+                savePatientSession(res.patient, res.token);
                 Toast.show('Login successful! Redirecting...', 'success');
                 setTimeout(() => window.location.href = 'dashboard.html', 1500);
             });
@@ -627,7 +643,7 @@
             }
 
             stopTimer();
-            savePatientSession(res.patient);
+            savePatientSession(res.patient, res.token);
             Toast.show('Login successful! Redirecting...', 'success');
             setTimeout(() => window.location.href = 'dashboard.html', 1500);
         }

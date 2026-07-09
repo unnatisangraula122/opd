@@ -17,6 +17,7 @@ from core.utils import (
     ensure_today_tomorrow_slots,
     get_daily_slots_for_dates,
     patient_has_active_slot_booking,
+    OLD_PATIENT_BOOKING_MSG,
     serialize_slot,
     format_local_time,
     serialize_token,
@@ -27,6 +28,10 @@ from core.utils import (
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def available_slots(request):
+    from core.services.slot_config import is_slot_bookable
+    from core.services.workflow import expire_all_ended_slots
+
+    expire_all_ended_slots()
     today = timezone.localdate()
     tomorrow = today + timedelta(days=1)
     date_filter = request.query_params.get('date')
@@ -40,17 +45,19 @@ def available_slots(request):
     slots = get_daily_slots_for_dates(dates)
 
     available = []
-    grouped = {}
+    grouped = {'today': [], 'tomorrow': []}
     for slot in slots:
-        if slot.is_full:
+        if not is_slot_bookable(slot):
             continue
         serialized = serialize_slot(slot)
         available.append(serialized)
         key = 'today' if slot.date == today else 'tomorrow'
-        grouped.setdefault(key, []).append(serialized)
+        grouped[key].append(serialized)
 
     return Response({
         'success': True,
+        'today': today.isoformat(),
+        'tomorrow': tomorrow.isoformat(),
         'count': len(available),
         'slots': available,
         'grouped': grouped,
@@ -60,13 +67,16 @@ def available_slots(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def book_token(request):
+    from core.services.workflow import expire_all_ended_slots
+
+    expire_all_ended_slots()
     ensure_today_tomorrow_slots()
     slot_id = request.data.get('slot_id')
     patient_name = request.data.get('patient_name')
     patient_age = request.data.get('patient_age')
     patient_phone = request.data.get('patient_phone')
     patient_address = request.data.get('patient_address', '')
-    is_disabled = request.data.get('is_disabled', False)
+    is_disabled_raw = request.data.get('is_disabled')
     payment_method = request.data.get('payment_method', 'esewa')
     amount = request.data.get('amount')
     patient_id = request.data.get('patient_id')
@@ -75,7 +85,16 @@ def book_token(request):
         return Response({'success': False, 'error': 'Missing required fields'}, status=400)
 
     if patient_id and not patient_phone:
-        return Response({'success': False, 'error': 'Patient phone required for returning patients'}, status=400)
+        return Response({'success': False, 'error': 'Patient phone required for old patients'}, status=400)
+
+    if not patient_id and patient_phone:
+        existing_patient = User.objects.filter(phone=patient_phone, role='patient').first()
+        if existing_patient and existing_patient.patient_code:
+            return Response({
+                'success': False,
+                'error': OLD_PATIENT_BOOKING_MSG,
+                'requires_old_patient': True,
+            }, status=400)
 
     patient_user = None
     if patient_id:
@@ -98,8 +117,11 @@ def book_token(request):
     except ConsultationSlot.DoesNotExist:
         return Response({'success': False, 'error': 'Slot not found'}, status=404)
 
-    if slot.is_full:
-        return Response({'success': False, 'error': f'Slot is full! Maximum {slot.max_tokens} tokens allowed.'}, status=400)
+    from core.services.slot_config import is_slot_bookable
+    if not is_slot_bookable(slot):
+        if slot.is_full:
+            return Response({'success': False, 'error': f'Slot is full! Maximum {slot.max_tokens} tokens allowed.'}, status=400)
+        return Response({'success': False, 'error': 'This slot has already passed. Please choose another slot or date.'}, status=400)
 
     if slot.doctor.is_throttled:
         return Response({'success': False, 'error': 'Doctor queue is at capacity. Check-in throttled.'}, status=400)
@@ -116,6 +138,13 @@ def book_token(request):
             'error': duplicate_slot_booking_error(slot),
         }, status=400)
 
+    if is_disabled_raw is not None:
+        disabled_flag = bool(is_disabled_raw)
+    elif patient_user:
+        disabled_flag = bool(getattr(patient_user, 'is_disabled', False))
+    else:
+        disabled_flag = False
+
     token = Token.objects.create(
         slot=slot,
         patient=patient_user,
@@ -123,7 +152,7 @@ def book_token(request):
         patient_age=patient_age,
         patient_phone=patient_phone,
         patient_address=patient_address,
-        is_disabled=bool(is_disabled),
+        is_disabled=disabled_flag,
     )
 
     base, service, total = consultation_fee_with_charge()

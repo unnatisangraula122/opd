@@ -55,13 +55,14 @@
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js"></script>
-    <script src="../js/api.js"></script>
+    <script src="../js/app.js?v=20260710f"></script>
+    <script src="../js/api.js?v=20260710f"></script>
     <script>
       let currentPatient = null;
       let doctorName = 'Doctor';
       let medicines = [];
       let selectedLabTests = [];
+      let labCatalog = [];
       let consultationStartTime = null;
       let timerInterval = null;
       let patientHistoryData = null;
@@ -80,7 +81,7 @@
         }
         const visits = patientHistoryData.history || [];
         if (!visits.length) {
-          return `<div class="patient-history-panel"><strong>Returning patient</strong> (${patientHistoryData.prior_visit_count} prior visit(s)).</div>`;
+          return `<div class="patient-history-panel"><strong>Old patient</strong> (${patientHistoryData.prior_visit_count} prior visit(s)).</div>`;
         }
         return `<div class="patient-history-panel"><strong>Patient History</strong> (${patientHistoryData.prior_visit_count} prior visits)
           ${visits.map(v => `<div class="history-visit"><strong>${v.date}</strong> · ${v.token_number} · ${v.doctor_name}
@@ -105,15 +106,15 @@
         document.getElementById('consultationForm').innerHTML = `
           ${renderPatientHistoryPanel()}
           <div class="patient-info-box">
-            <div><span class="label">Patient</span><br><span class="value">${currentPatient.patient}</span></div>
+            <div><span class="label">Patient</span><br><span class="value">${PatientDisplay.label(currentPatient.patient, currentPatient.patient_id)}</span></div>
             <div><span class="label">Token</span><br><span class="value">${currentPatient.token}</span></div>
             <div><span class="label">Age</span><br><span class="value">${currentPatient.age} years</span></div>
             <div><span class="label">Type</span><br><span class="value">${currentPatient.is_followup ? 'Follow-up' : currentPatient.category || 'General'}</span></div>
           </div>
           <div class="form-group"><label class="form-label">Symptoms *</label><textarea class="form-textarea" id="symptoms" rows="3"></textarea></div>
           <div class="form-group"><label class="form-label">Diagnosis *</label><input class="form-input" id="diagnosis" placeholder="Enter diagnosis"></div>
-          <div class="form-group"><label class="form-label">Medicines</label><div id="medicinesList"></div><div class="add-medicine" onclick="addMedicine()">+ Add Medicine</div></div>
-          <div class="form-group"><label class="form-label">Lab Tests</label><div id="labTestsList"></div></div>
+          <div class="form-group"><label class="form-label">Medicines <span style="font-weight:normal;color:var(--text-muted);">(optional)</span></label><div id="medicinesList"></div><div class="add-medicine" onclick="addMedicine()">+ Add Medicine</div></div>
+          <div class="form-group"><label class="form-label">Lab Tests <span style="font-weight:normal;color:var(--text-muted);">(optional — only if you suggest lab work)</span></label><div id="labTestsList"></div></div>
           <div class="form-group"><label class="form-label">Follow-up Date</label><input type="date" class="form-input" id="followUp"><small style="color:var(--text-muted);">Follow-up within 3 days is fee exempt</small></div>
           <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="notes" rows="2"></textarea></div>
           <div style="display:flex; gap:1rem; margin-top:1rem;">
@@ -129,6 +130,17 @@
       const MED_DURATIONS = ['3 days','5 days','7 days','10 days','14 days','21 days','30 days'];
       const MED_ROUTES = ['Oral','Topical','IV','IM','Sublingual','Inhalation'];
       const MED_TIMINGS = ['Before meals','After meals','With meals','Empty stomach','Any time'];
+
+      async function loadLabCatalog() {
+        const res = await API.labCatalog();
+        if (res.success && Array.isArray(res.tests)) {
+          labCatalog = res.tests;
+        }
+      }
+
+      function formatLabFee(fee) {
+        return `Rs. ${Number(fee).toLocaleString('en-NP')}`;
+      }
 
       function medSelect(options, value, onChange) {
         const opts = options.map(o => `<option value="${o}" ${o === value ? 'selected' : ''}>${o}</option>`).join('');
@@ -152,20 +164,27 @@
       function removeMedicine(i) { medicines.splice(i, 1); renderMedicines(); }
       function updateMedicine(i, f, v) { medicines[i][f] = v; }
 
-      const availableTests = ['Complete Blood Count (CBC)','Lipid Profile','Blood Glucose (Fasting)','Liver Function Test (LFT)','Kidney Function Test (KFT)','ECG (12-lead)','Troponin I','Thyroid Profile (TSH)','Vitamin D3','HbA1c'];
       function renderLabTests() {
         const c = document.getElementById('labTestsList');
         if (!c) return;
+        const selectedNames = selectedLabTests.map(t => t.name);
         c.innerHTML = (selectedLabTests.length ? selectedLabTests.map((t, i) => `
-          <div class="lab-test-item"><span>${t}</span><button class="btn btn-outline btn-sm" onclick="removeLabTest(${i})">X</button></div>`).join('') : '') + `
+          <div class="lab-test-item"><span>${t.name} <small style="color:var(--text-muted);">(${formatLabFee(t.fee)})</small></span><button class="btn btn-outline btn-sm" onclick="removeLabTest(${i})">X</button></div>`).join('') : '<p style="color:var(--text-muted);font-size:0.85rem;">No lab tests ordered.</p>') + `
           <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
             <select class="form-select" id="newLabTest" style="flex:1;"><option value="">-- Select test --</option>
-              ${availableTests.filter(t => !selectedLabTests.includes(t)).map(t => `<option>${t}</option>`).join('')}
+              ${labCatalog.filter(t => !selectedNames.includes(t.name)).map(t => `<option value="${t.name}">${t.name} — ${formatLabFee(t.fee)}</option>`).join('')}
             </select>
             <button class="btn btn-outline" onclick="addSelectedLabTest()">Add</button>
           </div>`;
       }
-      function addSelectedLabTest() { const t = document.getElementById('newLabTest')?.value; if (t && !selectedLabTests.includes(t)) { selectedLabTests.push(t); renderLabTests(); } }
+      function addSelectedLabTest() {
+        const name = document.getElementById('newLabTest')?.value;
+        if (!name) return;
+        const test = labCatalog.find(t => t.name === name);
+        if (!test || selectedLabTests.some(t => t.name === name)) return;
+        selectedLabTests.push({ name: test.name, fee: test.fee, code: test.code });
+        renderLabTests();
+      }
       function removeLabTest(i) { selectedLabTests.splice(i, 1); renderLabTests(); }
 
       function completeConsultation() {
@@ -175,16 +194,16 @@
         const followUp = document.getElementById('followUp')?.value;
         if (!symptoms) { Toast.show('Please enter symptoms', 'error'); return; }
         if (!diagnosis) { Toast.show('Please enter diagnosis', 'error'); return; }
-        if (!medicines.length && !selectedLabTests.length) { Toast.show('Add at least one medicine or lab test', 'error'); return; }
-        for (let i = 0; i < medicines.length; i++) {
-          const m = medicines[i];
+        const filledMedicines = medicines.filter(m => m.name || m.dosage || m.duration || m.instructions);
+        for (let i = 0; i < filledMedicines.length; i++) {
+          const m = filledMedicines[i];
           if (!m.name || !m.dosage || !m.duration || !m.instructions) { Toast.show(`Fill all fields for medicine ${i + 1}`, 'error'); return; }
         }
         const end = new Date();
         const duration = Math.floor((end - consultationStartTime) / 1000);
         currentPrescriptionData = {
           token: currentPatient.token, patient: currentPatient.patient, age: currentPatient.age, doctor: doctorName,
-          date: new Date().toISOString().split('T')[0], symptoms, diagnosis, medicines, labTests: selectedLabTests,
+          date: new Date().toISOString().split('T')[0], symptoms, diagnosis, medicines: filledMedicines, labTests: selectedLabTests,
           followUp: followUp || 'Not specified', notes: notes || 'No additional notes',
           consultationStart: consultationStartTime.toLocaleTimeString(), consultationEnd: end.toLocaleTimeString(),
           consultationDuration: `${Math.floor(duration / 60)}m ${duration % 60}s`,
@@ -192,8 +211,8 @@
         LoadingOverlay.show();
         API.completeConsult(currentPatient.token_id, {
           symptoms, diagnosis, notes,
-          medicines: medicines.map(m => ({ name: m.name, dosage: m.dosage, frequency: m.duration, instructions: m.instructions })),
-          lab_tests: selectedLabTests, followup_date: followUp || null,
+          medicines: filledMedicines.map(m => ({ name: m.name, dosage: m.dosage, frequency: m.duration, instructions: m.instructions })),
+          lab_tests: selectedLabTests.length ? selectedLabTests.map(t => t.name) : [], followup_date: followUp || null,
         }).then(res => {
           LoadingOverlay.hide();
           if (!res.success) { Toast.show(res.error || 'Failed', 'error'); return; }
@@ -215,7 +234,7 @@
             <div class="section"><div class="section-title">Symptoms</div><div>${data.symptoms}</div></div>
             <div class="section"><div class="section-title">Diagnosis</div><div>${data.diagnosis}</div></div>
             ${meds ? `<div class="section"><div class="section-title">Medicines</div><table class="medicine-table"><thead><tr><th>Medicine</th><th>Dosage</th><th>Duration</th><th>Instructions</th></tr></thead><tbody>${meds}</tbody></table></div>` : ''}
-            ${data.labTests?.length ? `<div class="section"><div class="section-title">Lab Tests</div>${data.labTests.map(t => `<div>• ${t}</div>`).join('')}</div>` : ''}
+            ${data.labTests?.length ? `<div class="section"><div class="section-title">Lab Tests</div>${data.labTests.map(t => `<div>• ${typeof t === 'string' ? t : t.name}${t.fee ? ` (${formatLabFee(t.fee)})` : ''}</div>`).join('')}</div>` : ''}
             <div class="section"><div class="section-title">Follow-up</div><div>${data.followUp}</div></div>
           </div>`;
         document.getElementById('prescriptionModal').classList.add('active');
@@ -242,6 +261,7 @@
             token_id: res.token.token_id,
             token: res.token.token_number,
             patient: res.token.patient_name,
+            patient_id: res.token.patient_id,
             age: res.token.patient_age,
             category: res.token.category,
             is_followup: res.token.is_followup,
@@ -252,8 +272,9 @@
         currentPatient = data;
         consultationStartTime = data.started_at ? new Date(data.started_at) : new Date();
         document.getElementById('currentPatientName').textContent =
-          `${data.patient} (Token: ${data.token})${data.is_followup ? ' · Follow-up' : ''}`;
+          `${PatientDisplay.label(data.patient, data.patient_id)} (Token: ${data.token})${data.is_followup ? ' · Follow-up' : ''}`;
         await loadPatientHistory(tokenId);
+        await loadLabCatalog();
         renderConsultationForm();
         startTimer();
       }

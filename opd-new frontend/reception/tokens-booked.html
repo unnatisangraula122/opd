@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tokens Booked - General OPD</title>
+    <link rel="stylesheet" href="../css/style.css?v=20260710" />
+    <style>
+      .date-group {
+        margin-bottom: 2rem;
+      }
+      .date-group-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--secondary);
+      }
+      .date-group-header h3 {
+        margin: 0;
+        color: var(--primary);
+      }
+      .date-count-badge {
+        background: rgba(59, 151, 151, 0.12);
+        color: var(--secondary);
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+      .slot-tag {
+        display: inline-block;
+        padding: 0.125rem 0.5rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        background: var(--secondary);
+        color: white;
+      }
+      .summary-bar {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.5rem;
+      }
+      .summary-pill {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 0.75rem 1rem;
+        min-width: 140px;
+      }
+      .summary-pill strong {
+        display: block;
+        font-size: 1.25rem;
+        color: var(--secondary);
+      }
+      .summary-pill span {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+      }
+      .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--text-muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sidebar-layout">
+      <div class="sidebar">
+        <div style="padding: 1.5rem">
+          <div class="logo" style="margin-bottom: 2rem">
+            <span class="logo-icon"></span
+            ><span class="logo-text">GENERAL OPD</span>
+          </div>
+          <div style="text-align: center; margin-bottom: 2rem">
+            <div
+              style="
+                width: 70px;
+                height: 70px;
+                background: rgba(59, 151, 151, 0.1);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 1rem;
+                color: var(--secondary);
+              "
+            >
+              <span data-icon="reception" data-icon-size="22"></span>
+            </div>
+            <h4>Reception Desk</h4>
+            <p style="color: var(--text-muted)" id="receptionName">Receptionist</p>
+            <p style="color: var(--text-muted); font-size: 0.75rem" id="currentDateTime"></p>
+          </div>
+          <nav>
+            <div class="sidebar-nav-item" data-page="dashboard.html" onclick="window.location.href = 'dashboard.html'">
+              <span data-icon="clipboard" data-icon-size="18"></span> Dashboard
+            </div>
+            <div class="sidebar-nav-item" data-page="checkin.html" onclick="window.location.href = 'checkin.html'">
+              <span data-icon="checkin" data-icon-size="18"></span> Check-in Desk
+            </div>
+            <div class="sidebar-nav-item active" data-page="tokens-booked.html" onclick="window.location.href = 'tokens-booked.html'">
+              <span data-icon="token" data-icon-size="18"></span> Tokens Booked
+            </div>
+            <div class="sidebar-nav-item" data-page="patients.html" onclick="window.location.href = 'patients.html'">
+              <span data-icon="users" data-icon-size="18"></span> Patients
+            </div>
+            <div class="sidebar-nav-item" onclick="logoutPortal('../index.html')">
+              <span data-icon="logout" data-icon-size="18"></span> Logout
+            </div>
+          </nav>
+        </div>
+      </div>
+
+      <div class="main-content">
+        <h1 style="margin-bottom: 1.5rem">Tokens Booked</h1>
+
+        <div class="summary-bar" id="summaryBar"></div>
+
+        <div id="tokensBookedContainer">
+          <div class="card empty-state">Loading bookings...</div>
+        </div>
+      </div>
+    </div>
+
+    <script src="../js/icons.js"></script>
+    <script src="../js/app.js?v=20260710f"></script>
+    <script src="../js/api.js?v=20260710f"></script>
+    <script>
+      let tokenGroups = [];
+
+      function escapeHtml(value) {
+        return String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function statusBadgeClass(status) {
+        return AppointmentStatus.badgeClass(status);
+      }
+
+      function renderSummary() {
+        const totalTokens = tokenGroups.reduce((sum, g) => sum + g.count, 0);
+        const totalDays = tokenGroups.length;
+        const todayGroup = tokenGroups.find((g) => g.date_label === 'Today');
+        const tomorrowGroup = tokenGroups.find((g) => g.date_label === 'Tomorrow');
+
+        document.getElementById('summaryBar').innerHTML = `
+          <div class="summary-pill"><strong>${totalTokens}</strong><span>Total tokens</span></div>
+          <div class="summary-pill"><strong>${totalDays}</strong><span>Days with bookings</span></div>
+          <div class="summary-pill"><strong>${todayGroup?.count || 0}</strong><span>Today</span></div>
+          <div class="summary-pill"><strong>${tomorrowGroup?.count || 0}</strong><span>Tomorrow</span></div>
+        `;
+      }
+
+      function renderGroups() {
+        const container = document.getElementById('tokensBookedContainer');
+
+        if (!tokenGroups.length) {
+          container.innerHTML = `
+            <div class="card empty-state">
+              <p>No token bookings from today onward.</p>
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = tokenGroups.map((group) => {
+          const rows = group.appointments.map((apt) => `
+            <tr>
+              <td><strong>${escapeHtml(apt.token_number)}</strong></td>
+              <td>
+                ${escapeHtml(apt.patient_name)}
+                ${apt.patient_id ? '' : ' <span class="badge badge-warning">New</span>'}
+              </td>
+              <td>${escapeHtml(apt.patient_phone || '—')}</td>
+              <td>${escapeHtml(apt.patient_id || '—')}</td>
+              <td>${escapeHtml(apt.doctor_name)}</td>
+              <td><span class="slot-tag">${escapeHtml((apt.slot_type || apt.slot_type_raw || '').toUpperCase())}</span></td>
+              <td>${escapeHtml(apt.estimated_time || '—')}</td>
+              <td>
+                <span class="status-badge ${statusBadgeClass(apt.status)}">
+                  ${escapeHtml(apt.display_status || AppointmentStatus.label(apt.status))}
+                </span>
+              </td>
+            </tr>
+          `).join('');
+
+          return `
+            <div class="card date-group">
+              <div class="date-group-header">
+                <h3>${escapeHtml(group.date_label)}</h3>
+                <span class="date-count-badge">${group.count} token${group.count === 1 ? '' : 's'}</span>
+              </div>
+              <div class="table-container">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Token</th>
+                      <th>Patient</th>
+                      <th>Phone</th>
+                      <th>Patient ID</th>
+                      <th>Doctor</th>
+                      <th>Slot</th>
+                      <th>Est. Time</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      async function refreshTokensBooked() {
+        try {
+          if (typeof API.receptionTokensBooked !== 'function') {
+            throw new Error('API not updated. Hard refresh the page (Ctrl+Shift+R).');
+          }
+          const res = await API.receptionTokensBooked();
+          if (!res.success) {
+            document.getElementById('tokensBookedContainer').innerHTML = `
+              <div class="card empty-state">
+                <p>${escapeHtml(res.error || 'Failed to load token bookings')}</p>
+              </div>`;
+            return;
+          }
+          tokenGroups = res.groups || [];
+          renderSummary();
+          renderGroups();
+        } catch (err) {
+          document.getElementById('tokensBookedContainer').innerHTML = `
+            <div class="card empty-state">
+              <p>${escapeHtml(err.message || 'Failed to load token bookings')}</p>
+            </div>`;
+        }
+      }
+
+      function updateDateTime() {
+        document.getElementById('currentDateTime').innerHTML = new Date().toLocaleString();
+      }
+
+      async function initTokensBookedPage() {
+        try {
+          const user = await API.requireStaff(['receptionist', 'admin']);
+          if (!user) return;
+          document.getElementById('receptionName').textContent = user.name || 'Receptionist';
+          if (typeof SidebarNav !== 'undefined') SidebarNav.highlightCurrentPage();
+          await refreshTokensBooked();
+          PollManager.start('reception-tokens', refreshTokensBooked, 5000);
+        } catch (err) {
+          document.getElementById('tokensBookedContainer').innerHTML = `
+            <div class="card empty-state">
+              <p>${escapeHtml(err.message || 'Failed to initialize page')}</p>
+            </div>`;
+        }
+      }
+
+      setInterval(updateDateTime, 1000);
+      updateDateTime();
+      initTokensBookedPage();
+    </script>
+  </body>
+</html>

@@ -1,4 +1,6 @@
 """Extended patient portal — unified appointment journey."""
+from datetime import timedelta
+
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
@@ -8,7 +10,7 @@ from rest_framework.response import Response
 from core import constants as C
 from core.models import LabOrder, Payment, Prescription, Token
 from core.permissions import IsPatient
-from core.utils import format_local_time, serialize_token
+from core.utils import format_local_time, serialize_token, doctor_name_short, doctor_specialty
 
 
 def _patient_token_filter(user, prefix=''):
@@ -105,6 +107,9 @@ def patient_journey(request):
             'doctor_name': str(order.token.slot.doctor),
         })
 
+    payments_qs = Payment.objects.filter(
+        _patient_token_filter(request.user, 'token__'),
+    ).select_related('token', 'token__slot__doctor').order_by('-paid_at')[:20]
     payments = [{
         'payment_id': p.id,
         'appointment_id': p.token_id,
@@ -114,14 +119,22 @@ def patient_journey(request):
         'status': p.status,
         'reference_number': p.reference_number or '',
         'paid_at_display': format_local_time(p.paid_at, '%d %b %Y, %I:%M %p') if p.paid_at else None,
-    } for p in Payment.objects.filter(_patient_token_filter(request.user, 'token__')).order_by('-paid_at')[:20]]
+        'doctor_name': doctor_name_short(p.token.slot.doctor),
+        'doctor_specialization': doctor_specialty(p.token.slot.doctor),
+        'visit_date': p.token.slot.date.isoformat(),
+    } for p in payments_qs]
 
     return Response({
         'success': True,
+        'today': today.isoformat(),
+        'tomorrow': (today + timedelta(days=1)).isoformat(),
         'has_active': bool(active_token),
         'journey': journey,
         'prescriptions': prescriptions,
         'lab_reports': lab_reports,
         'payments': payments,
-        'tokens': [serialize_token(t, include_workflow=True) for t in tokens[:10]],
+        'tokens': [
+            serialize_token(t, include_workflow=True)
+            for t in tokens.filter(slot__date__gte=today).order_by('slot__date', 'slot__slot_type', '-created_at')[:10]
+        ],
     })

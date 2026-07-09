@@ -32,6 +32,7 @@ class User(AbstractUser):
     age = models.IntegerField(null=True, blank=True)
     address = models.CharField(max_length=255, blank=True)
     patient_code = models.CharField(max_length=12, blank=True, unique=True, null=True)
+    is_disabled = models.BooleanField(default=False)
 
     @property
     def patient_id(self):
@@ -69,3 +70,18 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.username} ({self.role})"
+
+
+class APIToken(models.Model):
+    """Per-login API token — each browser tab can hold its own token."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='api_tokens')
+    key = models.CharField(max_length=64, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f'Token for {self.user.username}'

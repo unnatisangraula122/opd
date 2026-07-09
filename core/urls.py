@@ -4,6 +4,8 @@ from . import views
 urlpatterns = [
     path('health/', views.health_check, name='health'),
     path('csrf/', views.csrf_token, name='csrf'),
+    path('slot-config/', views.public_slot_config, name='slot-config'),
+    path('lab-tests/', views.public_lab_catalog, name='lab-tests'),
 
     # Auth
     path('auth/staff/login/', views.staff_login, name='staff-login'),
@@ -30,6 +32,9 @@ urlpatterns = [
     path('check-in/<int:token_id>/', views.check_in_patient, name='check-in'),
     path('reception/register/', views.register_walkin_patient, name='reception-register'),
     path('reception/appointments/', views.reception_appointments, name='reception-appointments'),
+    path('reception/tokens-booked/', views.reception_tokens_booked, name='reception-tokens-booked'),
+    path('reception/patients/', views.reception_patients, name='reception-patients'),
+    path('reception/patients/<int:user_id>/', views.reception_patient_detail, name='reception-patient-detail'),
     path('reception/lab-payments/', views.reception_lab_payments, name='reception-lab-payments'),
     path('reception/lab-pay/<int:order_id>/', views.pay_lab_fee, name='reception-lab-pay'),
     path('reception/throttle/', views.throttle_status, name='reception-throttle'),

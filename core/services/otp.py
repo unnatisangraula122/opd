@@ -41,6 +41,15 @@ def send_otp(phone: str, purpose: str) -> dict:
                 'error': 'No patient account for this phone. Use Patient ID login or register at reception first.',
             }
 
+    if purpose == 'registration':
+        existing = User.objects.filter(phone=phone, role='patient').first()
+        if existing and existing.has_usable_password():
+            return {
+                'success': False,
+                'error': 'An online account already exists for this phone. Please use Old Patient login.',
+                'already_registered': True,
+            }
+
     recent = OTPVerification.objects.filter(
         phone=phone,
         purpose=purpose,

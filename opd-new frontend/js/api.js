@@ -1,11 +1,36 @@
-// General OPD — Django API client (session + CSRF)
+// General OPD — Django API client (per-tab Bearer token + CSRF)
 
 const API = {
     base: '/api/core',
+    AUTH_TOKEN_KEY: 'opd_api_token',
+    AUTH_USER_KEY: 'opd_api_user',
 
     getCookie(name) {
         const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
         return match ? decodeURIComponent(match[2]) : null;
+    },
+
+    getToken() {
+        return sessionStorage.getItem(this.AUTH_TOKEN_KEY);
+    },
+
+    getStoredUser() {
+        try {
+            const raw = sessionStorage.getItem(this.AUTH_USER_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch {
+            return null;
+        }
+    },
+
+    setAuth(token, user) {
+        if (token) sessionStorage.setItem(this.AUTH_TOKEN_KEY, token);
+        if (user) sessionStorage.setItem(this.AUTH_USER_KEY, JSON.stringify(user));
+    },
+
+    clearAuth() {
+        sessionStorage.removeItem(this.AUTH_TOKEN_KEY);
+        sessionStorage.removeItem(this.AUTH_USER_KEY);
     },
 
     async ensureCsrf() {
@@ -16,6 +41,8 @@ const API = {
     async request(method, path, body = null, isForm = false) {
         await this.ensureCsrf();
         const headers = { 'X-CSRFToken': this.getCookie('csrftoken') || '' };
+        const token = this.getToken();
+        if (token) headers.Authorization = `Bearer ${token}`;
         const opts = { method, credentials: 'include', headers };
         if (body !== null) {
             if (isForm) {
@@ -54,8 +81,22 @@ const API = {
 
     // Auth
     patientRegister(d) { return this.post('/patient/register/', d); },
-    patientLogin(d) { return this.post('/patient/login/', d); },
-    patientLoginOtp(d) { return this.post('/patient/login/otp/', d); },
+    patientLogin(d) {
+        return this.post('/patient/login/', d).then((data) => {
+            if (data.success && data.token) {
+                this.setAuth(data.token, { ...data.patient, role: 'patient' });
+            }
+            return data;
+        });
+    },
+    patientLoginOtp(d) {
+        return this.post('/patient/login/otp/', d).then((data) => {
+            if (data.success && data.token) {
+                this.setAuth(data.token, { ...data.patient, role: 'patient' });
+            }
+            return data;
+        });
+    },
     patientLogout() { return this.post('/patient/logout/', {}); },
     patientMe() { return this.get('/patient/me/'); },
     patientResetPassword(d) { return this.post('/patient/reset-password/', d); },
@@ -67,12 +108,32 @@ const API = {
         if (phone) q += `&phone=${encodeURIComponent(phone)}`;
         return this.get(`/patient/lookup/?${q}`);
     },
-    staffLogin(d) { return this.post('/auth/staff/login/', d); },
+    staffLogin(d) {
+        return this.post('/auth/staff/login/', d).then((data) => {
+            if (data.success && data.token) this.setAuth(data.token, data.user);
+            return data;
+        });
+    },
     staffLogout() { return this.post('/auth/staff/logout/', {}); },
     authMe() { return this.get('/auth/me/'); },
 
+    async logout(redirectUrl = '../index.html') {
+        const user = this.getStoredUser();
+        try {
+            if (user?.role === 'patient') {
+                await this.patientLogout();
+            } else if (user) {
+                await this.staffLogout();
+            }
+        } catch (_) { /* clear local session even if revoke fails */ }
+        this.clearAuth();
+        if (redirectUrl) window.location.href = redirectUrl;
+    },
+
     // Booking
     getSlots(date) { return this.get(`/slots/${date ? '?date=' + date : ''}`); },
+    getSlotConfig() { return this.get('/slot-config/'); },
+    labCatalog() { return this.get('/lab-tests/'); },
     bookToken(d) { return this.post('/book/', d); },
     cancelToken(id) { return this.post(`/cancel/${id}/`, {}); },
 
@@ -88,10 +149,20 @@ const API = {
     searchPatient(q) { return this.get(`/search/?q=${encodeURIComponent(q)}`); },
     checkIn(tokenId, d) { return this.post(`/check-in/${tokenId}/`, d || {}); },
     receptionRegister(d) { return this.post('/reception/register/', d); },
-    receptionAppointments(view) {
-        const q = view ? `?view=${encodeURIComponent(view)}` : '';
+    receptionAppointments(opts = {}) {
+        const params = new URLSearchParams();
+        if (opts.view) params.set('view', opts.view);
+        if (opts.day) params.set('day', opts.day);
+        const q = params.toString() ? `?${params.toString()}` : '';
         return this.get(`/reception/appointments/${q}`);
     },
+    receptionTokensBooked() { return this.get('/reception/tokens-booked/'); },
+    receptionPatients(q = '') {
+        if (!q) return this.get('/reception/patients/');
+        return this.get(`/reception/patients/?q=${encodeURIComponent(q)}`);
+    },
+    receptionPatientDetail(userId) { return this.get(`/reception/patients/${userId}/`); },
+    receptionUpdatePatient(userId, d) { return this.put(`/reception/patients/${userId}/`, d); },
     receptionLabPayments() { return this.get('/reception/lab-payments/'); },
     payLabFee(orderId, d) { return this.post(`/reception/lab-pay/${orderId}/`, d || {}); },
     throttleStatus() { return this.get('/reception/throttle/'); },

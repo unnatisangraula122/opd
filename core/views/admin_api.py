@@ -14,6 +14,14 @@ from core.models import (
 from core.permissions import IsAdmin
 from core.services.analytics import compute_kpis, get_recommendations
 from core.utils import ensure_today_tomorrow_slots, serialize_slot
+from core.services.slot_config import (
+    ensure_slot_type_configs,
+    get_all_slot_configs_serialized,
+    get_slot_type_config,
+    parse_time_value,
+    refresh_consultation_slot_capacities,
+    SLOT_TYPES,
+)
 
 
 @api_view(['GET'])
@@ -91,22 +99,43 @@ def admin_update_doctor(request, doctor_id):
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated, IsAdmin])
 def admin_slot_config(request):
+    ensure_slot_type_configs()
     if request.method == 'GET':
-        sample = DoctorProfile.objects.first()
-        avg = sample.avg_consultation_time if sample else 10
+        slots = get_all_slot_configs_serialized()
         return Response({
             'success': True,
-            'avg_consultation_time': avg,
-            'max_tokens_per_slot': 120 // avg if avg else 12,
-            'slot_duration_minutes': 120,
+            'slots': slots,
         })
 
-    avg = int(request.data.get('avg_consultation_time', 10))
-    DoctorProfile.objects.update(avg_consultation_time=avg)
+    slots_payload = request.data.get('slots')
+    if not isinstance(slots_payload, dict):
+        return Response({'success': False, 'error': 'slots object required'}, status=400)
+
+    for slot_type in SLOT_TYPES:
+        payload = slots_payload.get(slot_type)
+        if not payload:
+            continue
+        config = get_slot_type_config(slot_type)
+        if 'start_time' in payload:
+            config.start_time = parse_time_value(payload['start_time'])
+        if 'end_time' in payload:
+            config.end_time = parse_time_value(payload['end_time'])
+        if 'avg_consultation_minutes' in payload:
+            config.avg_consultation_minutes = max(int(payload['avg_consultation_minutes']), 1)
+        if 'checkin_opens_minutes_before' in payload:
+            config.checkin_opens_minutes_before = max(int(payload['checkin_opens_minutes_before']), 0)
+        if config.end_time <= config.start_time:
+            return Response({
+                'success': False,
+                'error': f'{slot_type.title()} end time must be after start time',
+            }, status=400)
+        config.save()
+
+    refresh_consultation_slot_capacities()
     ensure_today_tomorrow_slots()
     return Response({
         'success': True,
-        'max_tokens_per_slot': 120 // avg,
+        'slots': get_all_slot_configs_serialized(),
     })
 
 

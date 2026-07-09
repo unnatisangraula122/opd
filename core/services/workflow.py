@@ -16,6 +16,7 @@ from core.models import (
     QueueEntry,
     Token,
 )
+from core.services.lab_catalog import resolve_lab_test
 
 
 def display_status(token):
@@ -125,10 +126,12 @@ def complete_consultation(
 
     LabOrder.objects.filter(consultation=consultation).delete()
     for test_name in lab_tests:
+        test = resolve_lab_test(test_name)
         LabOrder.objects.create(
             consultation=consultation,
             token=token,
-            test_name=test_name,
+            test_name=test['name'],
+            fee=test['fee'],
             status='fee_pending',
         )
 
@@ -201,11 +204,11 @@ def expire_unclaimed_for_slot(slot):
 
 
 def expire_all_ended_slots():
-    """Run for all today's slots that have passed end time."""
+    """Expire unclaimed bookings for all slots whose window has ended (today and past)."""
     from core.models import ConsultationSlot
 
     today = timezone.localdate()
     count = 0
-    for slot in ConsultationSlot.objects.filter(date=today):
+    for slot in ConsultationSlot.objects.filter(date__lte=today):
         count += expire_unclaimed_for_slot(slot)
     return count

@@ -14,6 +14,7 @@ def _serialize_patient(user):
         'phone': user.phone,
         'age': user.age,
         'address': user.address or '',
+        'has_online_account': user.has_usable_password(),
     }
 
 
@@ -23,6 +24,7 @@ def validate_old_patient(request):
     """Validate Patient ID + phone and return patient details for auto-fill."""
     patient_id = request.data.get('patient_id', '').strip()
     phone = request.data.get('phone', '').strip()
+    purpose = request.data.get('purpose', 'booking').strip().lower()
 
     if not patient_id or not phone:
         return Response({'success': False, 'error': 'Patient ID and phone number required'}, status=400)
@@ -33,6 +35,13 @@ def validate_old_patient(request):
 
     if user.phone != phone:
         return Response({'success': False, 'error': 'Phone number does not match patient record'}, status=400)
+
+    if purpose in ('portal_activation', 'registration') and user.has_usable_password():
+        return Response({
+            'success': False,
+            'error': 'This patient already has an online account. Please use Old Patient login.',
+            'already_registered': True,
+        }, status=400)
 
     return Response({'success': True, 'patient': _serialize_patient(user)})
 

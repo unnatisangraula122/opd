@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Check-in Management - General OPD</title>
+    <title>Check-in Desk - General OPD</title>
     <link rel="stylesheet" href="../css/style.css" />
     <style>
       .checkin-container {
@@ -157,10 +157,9 @@
     <div class="checkin-container">
       <!-- Token Input Section -->
       <div class="token-input-card">
-        <h2 style="margin-bottom: 1rem">Patient Check-in</h2>
+        <h2 style="margin-bottom: 0.25rem">Check-in Desk</h2>
         <p style="color: var(--text-muted); margin-bottom: 1.5rem">
-          Enter token number to check in patient. Check-in is only allowed
-          within the slot time window.
+          Dedicated patient check-in — search tokens, filter appointments, and check patients in.
         </p>
         <div style="display: flex; gap: 1rem; max-width: 500px">
           <input
@@ -318,8 +317,8 @@
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js"></script>
-    <script src="../js/api.js"></script>
+    <script src="../js/app.js?v=20260710f"></script>
+    <script src="../js/api.js?v=20260710f"></script>
     <script>
       // Slot times from shared TimeUtils (prefix used for mock token labels)
       const SLOT_CONFIG = {
@@ -327,6 +326,16 @@
         AFTERNOON: { ...TimeUtils.SLOT_CONFIG.AFTERNOON, displayTime: 'Afternoon (12:00-2:00)', prefix: 'A' },
         EVENING: { ...TimeUtils.SLOT_CONFIG.EVENING, displayTime: 'Evening (3:00-5:00)', prefix: 'E' },
       };
+      const SLOT_DISPLAY_ORDER = { MORNING: 0, AFTERNOON: 1, EVENING: 2 };
+
+      function sortAppointmentsBySlot(list) {
+        return [...list].sort((a, b) => {
+          const slotA = SLOT_DISPLAY_ORDER[a.slot] ?? 9;
+          const slotB = SLOT_DISPLAY_ORDER[b.slot] ?? 9;
+          if (slotA !== slotB) return slotA - slotB;
+          return String(a.scheduledTime || '').localeCompare(String(b.scheduledTime || ''));
+        });
+      }
 
       let allAppointments = [];
       let queues = { MORNING: [], AFTERNOON: [], EVENING: [] };
@@ -334,13 +343,46 @@
       let currentFilter = "all";
       let currentTokenData = null;
 
+      function isTodayAppointment(apt) {
+        return TimeUtils.compareAppointmentDay(apt.date) === 'today';
+      }
+
+      function getTodayAppointments() {
+        return allAppointments.filter(isTodayAppointment);
+      }
+
+      function slotStatusForAppointment(apt) {
+        return TimeUtils.getAppointmentSlotStatus({
+          date: apt.date,
+          slot: apt.slot,
+          start_time: apt.start_time,
+          end_time: apt.end_time,
+          status: apt.status === 'pending' ? 'booked' : apt.status,
+        });
+      }
+
+      function getCheckinFilterState(apt) {
+        if (apt.status === 'checked-in') {
+          if (getQueuePosition(apt.token) != null) return 'in-queue';
+          if (apt.checkinStatus === 'late') return 'late';
+          if (apt.checkinStatus === 'ontime') return 'ontime';
+          return 'checked-in';
+        }
+        if (apt.status === 'pending') {
+          const slotStatus = slotStatusForAppointment(apt);
+          if (slotStatus.isPassed) return 'expired';
+          return 'pending';
+        }
+        return 'other';
+      }
+
       function getQueuePosition(token) {
         return queueByToken[token]?.position ?? null;
       }
 
       async function refreshCheckinData() {
         const [aptRes, queueRes] = await Promise.all([
-          API.receptionAppointments(),
+          API.receptionAppointments({ day: 'today' }),
           API.waitingQueue(),
         ]);
         if (aptRes.success) {
@@ -358,10 +400,9 @@
             checkinStatus: a.checkin_status === 'missed' ? 'late' : a.checkin_status === 'present' ? 'ontime' : null,
             isNewPatient: !a.patient_id,
             patientId: a.patient_id || null,
-            priority: a.is_elderly ? 'ELDERLY' : a.is_disabled ? 'DISABLED' : 'NORMAL',
-            phone: a.patient_phone,
-            is_elderly: a.is_elderly,
             is_disabled: a.is_disabled,
+            patient_is_disabled: a.patient_is_disabled,
+            priority: a.is_elderly ? 'ELDERLY' : (a.is_disabled || a.patient_is_disabled) ? 'DISABLED' : 'NORMAL',
             patient_name: a.patient_name,
             patient_phone: a.patient_phone,
             patient_age: a.patient_age,
@@ -396,7 +437,7 @@
         document.getElementById('modalPhone').value = appointment.patient_phone || appointment.phone || '';
         document.getElementById('modalAge').value = appointment.patient_age || '';
         document.getElementById('modalAddress').value = appointment.patient_address || '';
-        document.getElementById('modalDisabled').checked = !!appointment.is_disabled;
+        document.getElementById('modalDisabled').checked = PatientPriority.defaultDisabledFlag(appointment);
         PatientPriority.syncModalElderlyCheckbox('modalAge', 'modalElderly');
       }
 
@@ -471,7 +512,7 @@
           </div>
           <div style="margin-top:0.5rem;">
             ${PatientPriority.elderlyCheckboxHtml(appointment.patient_age, 'searchElderly')}
-            <label style="margin-left:1rem;"><input type="checkbox" id="searchDisabled" ${appointment.is_disabled ? 'checked' : ''}> Disabled</label>
+            <label style="margin-left:1rem;"><input type="checkbox" id="searchDisabled" ${PatientPriority.defaultDisabledFlag(appointment) ? 'checked' : ''}> Disabled</label>
           </div>
           ${checkInReason ? `<div class="alert alert-info" style="margin-top:0.75rem;"><span>ℹ</span><div>${checkInReason}</div></div>` : ''}
           ${needsRegistration
@@ -527,6 +568,7 @@
           age: parseInt(age, 10),
           address,
           token_id: tokenId,
+          is_disabled: document.getElementById('modalDisabled')?.checked || false,
         });
         if (!regRes.success) {
           LoadingOverlay.hide();
@@ -594,37 +636,24 @@
 
       // Render appointments table
       function renderAppointmentsTable() {
-        const filteredApps = allAppointments.filter((apt) => {
+        const todayApps = getTodayAppointments();
+        const filteredApps = sortAppointmentsBySlot(todayApps.filter((apt) => {
+          const state = getCheckinFilterState(apt);
           if (currentFilter === "all") return true;
-          if (currentFilter === "pending") return apt.status === "pending";
-          if (currentFilter === "checked-in")
-            return apt.status === "checked-in";
-          if (currentFilter === "in-queue") {
-            return apt.status === "checked-in" && getQueuePosition(apt.token) !== null;
-          }
-          if (currentFilter === "expired") {
-            return apt.status === "pending" && TimeUtils.getAppointmentSlotStatus({
-              date: apt.date, slot: apt.slot, start_time: apt.start_time, end_time: apt.end_time, status: 'booked',
-            }).isPassed;
-          }
-          if (currentFilter === "ontime" || currentFilter === "late") {
-            if (apt.status !== "checked-in") return false;
-            return apt.checkinStatus === currentFilter;
-          }
+          if (currentFilter === "pending") return state === "pending";
+          if (currentFilter === "checked-in") return state === "checked-in" || state === "ontime" || state === "late";
+          if (currentFilter === "in-queue") return state === "in-queue";
+          if (currentFilter === "expired") return state === "expired";
+          if (currentFilter === "ontime") return state === "ontime";
+          if (currentFilter === "late") return state === "late";
           return true;
-        });
+        }));
 
         const tbody = document.getElementById("appointmentsTableBody");
         tbody.innerHTML = filteredApps
           .map((apt) => {
             const status = getAppointmentStatusDisplay(apt);
-            const slotStatus = TimeUtils.getAppointmentSlotStatus({
-              date: apt.date,
-              slot: apt.slot,
-              start_time: apt.start_time,
-              end_time: apt.end_time,
-              status: apt.status === 'pending' ? 'booked' : apt.status,
-            });
+            const slotStatus = slotStatusForAppointment(apt);
             const canCheckin = slotStatus.canCheckIn;
             const queuePos = getQueuePosition(apt.token);
 
@@ -654,7 +683,7 @@
             return `
                     <tr>
                         <td>${apt.token}<br>${priorityBadge}</td>
-                        <td>${apt.patient}${apt.isNewPatient ? ' <span class="badge badge-warning">New</span>' : ""}</td>
+                        <td>${PatientDisplay.label(apt.patient, apt.patientId)}${apt.isNewPatient ? ' <span class="badge badge-warning">New</span>' : ""}</td>
                         <td>${apt.doctor}</td>
                         <td><span class="slot-tag">${apt.slot}</span></td>
                         <td>${apt.scheduledTime}</td>
@@ -685,28 +714,14 @@
 
       // Render statistics
       function renderStats() {
-        const total = allAppointments.length;
-        const pending = allAppointments.filter(
-          (a) => a.status === "pending",
-        ).length;
-        const checkedIn = allAppointments.filter(
-          (a) => a.status === "checked-in",
-        ).length;
-        const expired = allAppointments.filter(
-          (a) => a.status === "pending" && TimeUtils.getAppointmentSlotStatus({
-            date: a.date, slot: a.slot, start_time: a.start_time, end_time: a.end_time, status: 'booked',
-          }).isPassed,
-        ).length;
-        const ontime = allAppointments.filter(
-          (a) => a.status === "checked-in" && a.checkinStatus === "ontime",
-        ).length;
-        const late = allAppointments.filter(
-          (a) => a.status === "checked-in" && a.checkinStatus === "late",
-        ).length;
-        const inQueue = Object.values(queues).reduce(
-          (sum, q) => sum + q.length,
-          0,
-        );
+        const todayApps = getTodayAppointments();
+        const total = todayApps.length;
+        const pending = todayApps.filter((a) => getCheckinFilterState(a) === 'pending').length;
+        const checkedIn = todayApps.filter((a) => a.status === 'checked-in').length;
+        const expired = todayApps.filter((a) => getCheckinFilterState(a) === 'expired').length;
+        const ontime = todayApps.filter((a) => getCheckinFilterState(a) === 'ontime').length;
+        const late = todayApps.filter((a) => getCheckinFilterState(a) === 'late').length;
+        const inQueue = todayApps.filter((a) => getCheckinFilterState(a) === 'in-queue').length;
 
         document.getElementById("statsContainer").innerHTML = `
                 <div class="stat-box"><div class="stat-number">${total}</div><div class="stat-label">Total</div></div>
@@ -742,6 +757,11 @@
         if (user) {
           refreshCheckinData();
           setInterval(refreshCheckinData, 5000);
+          const tokenFromUrl = new URLSearchParams(window.location.search).get('token');
+          if (tokenFromUrl) {
+            document.getElementById('tokenInput').value = tokenFromUrl;
+            searchToken();
+          }
         }
       });
     </script>
