@@ -5,8 +5,15 @@ from django.utils import timezone
 
 from accounts.models import User
 from core import constants as C
-from core.models import ConsultationSlot, DoctorProfile, LabOrder, LabQueueEntry, Token
-from core.services.workflow import complete_consultation
+from core.models import (
+    ConsultationSlot,
+    DoctorProfile,
+    LabOrder,
+    LabQueueEntry,
+    PharmacyQueueEntry,
+    Token,
+)
+from core.services.workflow import after_lab_report_uploaded, complete_consultation
 from core.views.lab import lab_queue
 from core.views.reception import pay_lab_fee
 from rest_framework.test import APIRequestFactory, force_authenticate
@@ -112,3 +119,36 @@ class LabPaymentQueueFlowTests(TestCase):
         queue_response = lab_queue(queue_request)
         pending_ids = [item['order_id'] for item in queue_response.data['pending']]
         self.assertIn(order.id, pending_ids)
+
+    def test_lab_and_pharmacy_run_in_parallel(self):
+        """Patients with Rx enter pharmacy immediately even if labs are pending."""
+        result = complete_consultation(
+            self.token,
+            symptoms='fever',
+            diagnosis='infection',
+            medicines=[{'name': 'Amoxicillin', 'dosage': '500mg', 'frequency': 'TID'}],
+            lab_tests=['Complete Blood Count (CBC)'],
+        )
+        self.token.refresh_from_db()
+
+        self.assertTrue(result['requires_lab'])
+        self.assertTrue(result['requires_pharmacy'])
+        self.assertEqual(self.token.status, C.PENDING_LAB)
+        self.assertTrue(
+            PharmacyQueueEntry.objects.filter(token=self.token, status=C.PHARMACY_WAITING).exists()
+        )
+
+        # Completing pharmacy while labs pending keeps visit on lab
+        pharmacy = PharmacyQueueEntry.objects.get(token=self.token)
+        pharmacy.complete()
+        self.token.refresh_from_db()
+        self.assertEqual(pharmacy.status, C.PHARMACY_DONE)
+        self.assertEqual(self.token.status, C.PENDING_LAB)
+
+        # Finishing labs after pharmacy completes the visit
+        order = LabOrder.objects.get(token=self.token)
+        order.status = 'completed'
+        order.save(update_fields=['status'])
+        after_lab_report_uploaded(order)
+        self.token.refresh_from_db()
+        self.assertEqual(self.token.status, C.COMPLETED)

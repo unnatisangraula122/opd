@@ -190,7 +190,9 @@ def doctor_completed_today(request):
         status__in=['completed', 'pending_lab', 'pending_pharmacy'],
     ).exclude(
         consultation_ended_at__isnull=True,
-    ).select_related('consultation', 'slot', 'patient').order_by('-consultation_ended_at')
+    ).select_related(
+        'consultation', 'slot', 'patient', 'pharmacy_queue_entry',
+    ).order_by('-consultation_ended_at')
 
     completed = []
     for token in tokens:
@@ -213,7 +215,10 @@ def doctor_completed_today(request):
             'completed_at': format_local_time(token.consultation_ended_at, '%I:%M %p'),
             'duration_minutes': duration,
             'requires_lab': consult.requires_lab if consult else False,
-            'requires_pharmacy': token.status == 'pending_pharmacy',
+            'requires_pharmacy': (
+                getattr(token, 'pharmacy_queue_entry', None) is not None
+                or token.status == 'pending_pharmacy'
+            ),
         })
     return Response({'success': True, 'completed': completed})
 

@@ -141,11 +141,15 @@ def complete_consultation(
     has_lab = bool(lab_tests)
     has_rx = bool(medicines)
 
+    # Lab and pharmacy run in parallel — Rx patients enter pharmacy immediately
+    # even when lab tests are still outstanding.
+    if has_rx:
+        _ensure_pharmacy_queue(token, len(medicines))
+
     if has_lab:
         token.status = C.PENDING_LAB
     elif has_rx:
         token.status = C.PENDING_PHARMACY
-        _ensure_pharmacy_queue(token, len(medicines))
     else:
         token.status = C.COMPLETED
 
@@ -161,14 +165,18 @@ def complete_consultation(
 
 @transaction.atomic
 def after_lab_report_uploaded(lab_order):
-    """After lab completes — route to pharmacy or mark appointment completed."""
+    """After lab completes — advance token once all labs are done."""
     token = lab_order.token
     pending_labs = token.lab_orders.exclude(status='completed').exists()
     if pending_labs:
         return token.status
 
+    pharmacy = getattr(token, 'pharmacy_queue_entry', None)
     has_undispensed_rx = token.prescriptions.filter(dispensed=False).exists()
-    if has_undispensed_rx:
+
+    if pharmacy and pharmacy.status != C.PHARMACY_DONE:
+        token.status = C.PENDING_PHARMACY
+    elif has_undispensed_rx:
         token.status = C.PENDING_PHARMACY
         _ensure_pharmacy_queue(token, token.prescriptions.count())
     else:

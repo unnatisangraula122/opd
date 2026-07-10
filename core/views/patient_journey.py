@@ -82,8 +82,27 @@ def patient_journey(request):
                 {'stage': 'checked_in', 'label': 'Checked In', 'done': active_token.status != C.BOOKED},
                 {'stage': 'waiting', 'label': 'Waiting', 'done': active_token.status not in (C.BOOKED,)},
                 {'stage': 'consulting', 'label': 'With Doctor', 'done': active_token.status not in (C.BOOKED, C.CHECKED_IN)},
-                {'stage': 'lab', 'label': 'Lab', 'done': active_token.status in (C.PENDING_PHARMACY, C.COMPLETED) and not active_token.lab_orders.exclude(status='completed').exists() if active_token.lab_orders.exists() else active_token.status == C.COMPLETED},
-                {'stage': 'pharmacy', 'label': 'Pharmacy', 'done': active_token.status == C.COMPLETED},
+                {
+                    'stage': 'lab',
+                    'label': 'Lab',
+                    'done': (
+                        not active_token.lab_orders.exclude(status='completed').exists()
+                        if active_token.lab_orders.exists()
+                        else active_token.status not in (C.BOOKED, C.CHECKED_IN, C.CONSULTING)
+                    ),
+                },
+                {
+                    'stage': 'pharmacy',
+                    'label': 'Pharmacy',
+                    'done': (
+                        pharmacy.status == C.PHARMACY_DONE
+                        if pharmacy
+                        else (
+                            not active_token.prescriptions.exists()
+                            and active_token.status not in (C.BOOKED, C.CHECKED_IN, C.CONSULTING)
+                        )
+                    ),
+                },
                 {'stage': 'completed', 'label': 'Completed', 'done': active_token.status == C.COMPLETED},
             ],
         }
@@ -135,6 +154,6 @@ def patient_journey(request):
         'payments': payments,
         'tokens': [
             serialize_token(t, include_workflow=True)
-            for t in tokens.filter(slot__date__gte=today).order_by('slot__date', 'slot__slot_type', '-created_at')[:10]
+            for t in tokens.order_by('-slot__date', 'slot__slot_type', '-created_at')
         ],
     })

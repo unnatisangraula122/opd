@@ -671,7 +671,9 @@ class PharmacyQueueEntry(models.Model):
         self.completed_at = timezone.now()
         self.save()
         self.token.prescriptions.update(dispensed=True, dispensed_at=timezone.now())
-        self.token.status = 'completed'
+        # Visit stays open if lab work is still outstanding
+        pending_labs = self.token.lab_orders.exclude(status='completed').exists()
+        self.token.status = 'pending_lab' if pending_labs else 'completed'
         self.token.save()
 
     def __str__(self):
