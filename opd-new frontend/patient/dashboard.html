@@ -564,11 +564,23 @@
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js?v=20260710g"></script>
+    <script src="../js/app.js?v=20260710k"></script>
     <script src="../js/api.js?v=20260710f"></script>
     <script>
-      // Appointment slot status — shared logic in TimeUtils (app.js)
+      // Prefer real visit status; only use slot-time labels for booked appointments.
       function getAppointmentStatus(appointment) {
+        const status = normalizeStatus(appointment.status);
+        if (['completed', 'cancelled', 'expired', 'checked_in', 'consulting', 'pending_lab', 'pending_pharmacy'].includes(status)) {
+          return {
+            status,
+            label: appointment.display_status || AppointmentStatus.label(status),
+            class: AppointmentStatus.badgeClass(status),
+            isPassed: status === 'expired' || status === 'cancelled',
+            isActive: AppointmentStatus.isActive(status),
+            isUpcoming: false,
+            canCheckIn: false,
+          };
+        }
         return slotStatusForAppointment(appointment);
       }
 
@@ -1089,7 +1101,7 @@
             <div class="card">
               <div class="alert alert-danger">
                 <span>${medIconSvg('warning', 18)}</span>
-                <div>Your appointment slot has expired. Please book a new appointment.</div>
+                <div>Your appointment was marked as a no-show. Please book a new appointment.</div>
               </div>
             </div>
           `;

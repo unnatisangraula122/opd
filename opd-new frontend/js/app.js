@@ -212,20 +212,39 @@ const TimeUtils = {
     },
 
     getAppointmentSlotStatus(appointment, now = new Date()) {
-        const tokenStatus = String(appointment.status || '').toLowerCase().replace(/_/g, '-');
+        const tokenStatus = String(appointment.status || '').toLowerCase().replace(/-/g, '_');
         const bounds = this.getSlotBounds(appointment);
         const dayRelation = this.compareAppointmentDay(appointment.date, now);
         const currentMinutes = this.nowMinutes(now);
 
+        // Prefer real visit/workflow status over slot-time "Passed".
         if (tokenStatus === 'completed') {
             return {
                 status: 'completed', label: 'Completed', class: 'status-completed', icon: '✓',
                 isPassed: false, isActive: false, isUpcoming: false, canCheckIn: false,
             };
         }
-        if (tokenStatus === 'checked-in' || tokenStatus === 'checked_in') {
+        if (tokenStatus === 'checked_in') {
             return {
-                status: 'in_queue', label: 'In Queue', class: 'status-ongoing', icon: '⏳',
+                status: 'in_queue', label: 'Waiting', class: 'status-ongoing', icon: '⏳',
+                isPassed: false, isActive: true, isUpcoming: false, canCheckIn: false,
+            };
+        }
+        if (tokenStatus === 'consulting') {
+            return {
+                status: 'consulting', label: 'With Doctor', class: 'status-ongoing', icon: '🩺',
+                isPassed: false, isActive: true, isUpcoming: false, canCheckIn: false,
+            };
+        }
+        if (tokenStatus === 'pending_lab') {
+            return {
+                status: 'pending_lab', label: 'Lab', class: 'status-ongoing', icon: '🔬',
+                isPassed: false, isActive: true, isUpcoming: false, canCheckIn: false,
+            };
+        }
+        if (tokenStatus === 'pending_pharmacy') {
+            return {
+                status: 'pending_pharmacy', label: 'Pharmacy', class: 'status-ongoing', icon: '💊',
                 isPassed: false, isActive: true, isUpcoming: false, canCheckIn: false,
             };
         }
@@ -237,11 +256,12 @@ const TimeUtils = {
         }
         if (tokenStatus === 'expired') {
             return {
-                status: 'passed', label: 'Passed', class: 'status-expired', icon: '⛔',
+                status: 'passed', label: 'No-show', class: 'status-expired', icon: '⛔',
                 isPassed: true, isActive: false, isUpcoming: false, canCheckIn: false,
             };
         }
 
+        // Time-based labels only for booked (not yet checked in) appointments.
         if (dayRelation === 'future') {
             return {
                 status: 'upcoming', label: 'Upcoming', class: 'status-upcoming', icon: '📅',
@@ -250,7 +270,7 @@ const TimeUtils = {
         }
         if (dayRelation === 'past') {
             return {
-                status: 'passed', label: 'Passed', class: 'status-expired', icon: '⛔',
+                status: 'passed', label: 'No-show', class: 'status-expired', icon: '⛔',
                 isPassed: true, isActive: false, isUpcoming: false, canCheckIn: false,
             };
         }
@@ -259,7 +279,7 @@ const TimeUtils = {
             const passedByDay = dayRelation === 'past';
             return {
                 status: passedByDay ? 'passed' : 'unknown',
-                label: passedByDay ? 'Passed' : 'Unknown',
+                label: passedByDay ? 'No-show' : 'Unknown',
                 class: passedByDay ? 'status-expired' : '',
                 icon: passedByDay ? '⛔' : '?',
                 isPassed: passedByDay,
@@ -285,7 +305,7 @@ const TimeUtils = {
             };
         }
         return {
-            status: 'passed', label: 'Passed', class: 'status-expired', icon: '⛔',
+            status: 'passed', label: 'No-show', class: 'status-expired', icon: '⛔',
             isPassed: true, isActive: false, isUpcoming: false, canCheckIn: false,
         };
     },
@@ -349,7 +369,7 @@ const TimeUtils = {
             return `Check-in opens on ${dateLabel} at ${openTime} (15 minutes before the slot).`;
         }
         if (dayRelation === 'past' || slotStatus.isPassed) {
-            return 'This appointment slot has passed. Check-in is no longer available.';
+            return 'This appointment was marked as a no-show. Check-in is no longer available.';
         }
         if (slotStatus.isUpcoming) {
             return `Check-in opens today at ${openTime} (15 minutes before the slot).`;
@@ -459,7 +479,7 @@ const AppointmentStatus = {
         pending_lab: 'Lab',
         pending_pharmacy: 'Pharmacy',
         completed: 'Completed',
-        expired: 'Expired / No Show',
+        expired: 'No-show',
         cancelled: 'Cancelled',
     },
     CSS: {

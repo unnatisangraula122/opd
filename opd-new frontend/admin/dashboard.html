@@ -457,7 +457,7 @@
         const metrics = [
           { label: "Total Patients (All Time)", value: fmt(data.total_patients_all_time) },
           { label: "Active Queue", value: fmt(data.active_queue) },
-          { label: "Expired / No Shows", value: fmt(data.expired_no_shows ?? data.no_shows) },
+          { label: "No-shows", value: fmt(data.expired_no_shows ?? data.no_shows) },
           { label: "Total Doctors", value: fmt(data.total_doctors) },
           { label: "Total Lab Tests Today", value: fmt(data.total_lab_tests) },
           { label: "Pending Lab Tests", value: fmt(data.pending_lab_tests) },

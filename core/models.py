@@ -178,7 +178,7 @@ class Token(models.Model):
         ('pending_lab', 'Pending Lab'),
         ('pending_pharmacy', 'Pending Pharmacy'),
         ('completed', 'Completed'),
-        ('expired', 'Expired'),       # never arrived before slot ended
+        ('expired', 'No-show'),       # never arrived before slot ended
         ('cancelled', 'Cancelled'),
     )
     # Arrival classification per proposal Step 3 — set once, at check-in.
@@ -310,7 +310,7 @@ class Token(models.Model):
         if now > slot_end:
             self.status = 'expired'
             self.save()
-            raise ValidationError("Slot has ended. Token has expired.")
+            raise ValidationError("Slot has ended. Marked as no-show.")
 
         self.checkin_status = 'present' if now <= slot_start else 'missed'
         self.status = 'checked_in'

@@ -92,8 +92,8 @@
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js?v=20260710h"></script>
-    <script src="../js/api.js?v=20260710h"></script>
+    <script src="../js/app.js?v=20260710i"></script>
+    <script src="../js/api.js?v=20260710i"></script>
     <script>
         let selectedDate = null, selectedDoctor = null, selectedPayment = null, bookingData = {};
         let apiSlots = { today: [], tomorrow: [] };
@@ -104,11 +104,6 @@
 
         function isSlotPassed(slotType) {
             return TimeUtils.isSlotPassed(slotType, serverToday);
-        }
-
-        function isDoctorSlotBookable(slot) {
-            if (selectedDate !== 'today') return true;
-            return !isSlotPassed(slot.slot_type_display || slot.slot_type.toUpperCase());
         }
 
         const DOCTOR_ROLE_LABEL = 'General Physician';
@@ -127,6 +122,9 @@
                 total: s.max_tokens,
                 fee: s.fee,
                 date: s.date,
+                is_ended: !!s.is_ended,
+                is_full: !!s.is_full,
+                is_bookable: s.is_bookable !== false && !s.is_ended && !s.is_full,
             };
         }
 
@@ -191,17 +189,29 @@
             URL.revokeObjectURL(link.href);
         }
 
+        function isDoctorSlotBookable(slot, dayKey = selectedDate) {
+            if (slot.is_bookable === false) return false;
+            if (slot.is_ended || slot.is_full) return false;
+            if (dayKey === 'today' && isSlotPassed(slot.slot)) return false;
+            return true;
+        }
+
+        function dayHasSlots(dayKey) {
+            return (apiSlots[dayKey] || []).length > 0;
+        }
+
         function dayHasBookableSlots(dayKey) {
             const slots = apiSlots[dayKey] || [];
             if (!slots.length) return false;
-            // Slots from API are already filtered as bookable on the server
-            if (dayKey === 'tomorrow') return true;
-            return slots.some((s) => !isSlotPassed(s.slot));
+            return slots.some((s) => isDoctorSlotBookable(s, dayKey));
         }
 
-        function dayStatusBadge(isAvailable) {
-            if (isAvailable) {
+        function dayStatusBadge(hasSlots, hasBookable) {
+            if (hasBookable) {
                 return '<div class="slot-status slot-available" style="margin-top:0.5rem;">Available</div>';
+            }
+            if (hasSlots) {
+                return '<div class="slot-status slot-passed" style="margin-top:0.5rem;">All slots ended</div>';
             }
             return '<div class="slot-status slot-passed" style="margin-top:0.5rem;">No slots available</div>';
         }
@@ -210,19 +220,22 @@
             const todayDateStr = todayDate.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
             const tomorrowDateStr = tomorrowDate.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
 
+            const hasTodaySlots = dayHasSlots('today');
+            const hasTomorrowSlots = dayHasSlots('tomorrow');
             const hasBookableToday = dayHasBookableSlots('today');
             const hasBookableTomorrow = dayHasBookableSlots('tomorrow');
 
+            // Keep the day selectable when slots exist (even if ended) so users can see them disabled.
             document.getElementById('dateContainer').innerHTML = `
-                <div class="date-card ${!hasBookableToday ? 'disabled' : ''}" onclick="${hasBookableToday ? "selectDate('today')" : ''}" id="dateToday">
+                <div class="date-card ${!hasTodaySlots ? 'disabled' : ''}" onclick="${hasTodaySlots ? "selectDate('today')" : ''}" id="dateToday">
                     <div style="font-size:1.25rem; font-weight:bold;">Today</div>
                     <div style="color:var(--text-muted);">${todayDateStr}</div>
-                    ${dayStatusBadge(hasBookableToday)}
+                    ${dayStatusBadge(hasTodaySlots, hasBookableToday)}
                 </div>
-                <div class="date-card ${!hasBookableTomorrow ? 'disabled' : ''}" onclick="${hasBookableTomorrow ? "selectDate('tomorrow')" : ''}" id="dateTomorrow">
+                <div class="date-card ${!hasTomorrowSlots ? 'disabled' : ''}" onclick="${hasTomorrowSlots ? "selectDate('tomorrow')" : ''}" id="dateTomorrow">
                     <div style="font-size:1.25rem; font-weight:bold;">Tomorrow</div>
                     <div style="color:var(--text-muted);">${tomorrowDateStr}</div>
-                    ${dayStatusBadge(hasBookableTomorrow)}
+                    ${dayStatusBadge(hasTomorrowSlots, hasBookableTomorrow)}
                 </div>
             `;
         }
@@ -242,9 +255,9 @@
             );
             document.getElementById('selectedDateDisplay').innerHTML = selectedDate==='today'?'Today':'Tomorrow';
             document.getElementById('doctorsContainer').innerHTML = list.length ? list.map(d => {
-                const isSlotPassedToday = (selectedDate === 'today') && isSlotPassed(d.slot);
-                const isFull = d.booked >= d.total;
-                const isBookable = !isSlotPassedToday && !isFull;
+                const isSlotPassedToday = d.is_ended || ((selectedDate === 'today') && isSlotPassed(d.slot));
+                const isFull = d.is_full || d.booked >= d.total;
+                const isBookable = isDoctorSlotBookable(d) && !isSlotPassedToday && !isFull;
                 const slotLabel = d.slot === 'MORNING' ? 'Morning' : d.slot === 'AFTERNOON' ? 'Afternoon' : 'Evening';
                 
                 return `<div class="doctor-card ${!isBookable ? 'disabled' : ''}" onclick="${isBookable ? `selectDoctor(${d.slot_id})` : ''}" data-doctor-id="${d.slot_id}">
@@ -254,13 +267,13 @@
                         <div style="margin:0.5rem 0; display:flex; flex-wrap:wrap; gap:0.5rem;">
                             <span class="discount-badge">${d.time}</span>
                             <span class="discount-badge">Rs.${d.fee}</span>
-                            ${isSlotPassedToday ? '<span class="slot-status slot-passed">Slot passed</span>' : ''}
-                            ${isFull ? '<span class="slot-status slot-full">Fully booked</span>' : ''}
+                            ${isSlotPassedToday ? '<span class="slot-status slot-passed">Slot ended</span>' : ''}
+                            ${isFull && !isSlotPassedToday ? '<span class="slot-status slot-full">Fully booked</span>' : ''}
                         </div>
                         <div class="progress-bar"><div class="progress-fill" style="width:${(d.booked/d.total)*100}%"></div></div>
                         <div style="display:flex; justify-content:space-between; margin-top:0.5rem; font-size:0.875rem;">
                             <span>${d.booked}/${d.total} booked</span>
-                            <span style="color:var(--secondary);">${d.total-d.booked} available</span>
+                            <span style="color:var(--secondary);">${Math.max(d.total-d.booked, 0)} available</span>
                         </div>
                     </div>
                 </div>`;
@@ -269,9 +282,12 @@
         
         function selectDoctor(slotId) {
             selectedDoctor = (apiSlots[selectedDate] || []).find(d => d.slot_id === slotId);
-            // Double-check that the slot is still bookable
+            if (!selectedDoctor || !isDoctorSlotBookable(selectedDoctor)) {
+                Toast.show('This slot cannot be booked. Please select a different slot or date.', 'error');
+                return;
+            }
             if (selectedDate === 'today' && isSlotPassed(selectedDoctor.slot)) {
-                Toast.show('This slot has already passed for today. Please select a different slot or date.', 'error');
+                Toast.show('This slot has already ended for today. Please select a different slot or date.', 'error');
                 return;
             }
             if (selectedDoctor.booked >= selectedDoctor.total) {

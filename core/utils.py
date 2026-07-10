@@ -120,9 +120,12 @@ def format_local_time(dt, fmt='%I:%M %p'):
 
 
 def serialize_slot(slot):
+    from core.services.slot_config import is_slot_bookable, is_slot_ended
+
     tokens_left = slot.max_tokens - slot.tokens_booked
     doctor = slot.doctor
     fee = float(CONSULTATION_BASE_FEE)
+    ended = is_slot_ended(slot)
     return {
         'slot_id': slot.id,
         'doctor_id': doctor.id,
@@ -141,6 +144,8 @@ def serialize_slot(slot):
         'max_tokens': slot.max_tokens,
         'fee': fee,
         'is_full': slot.is_full,
+        'is_ended': ended,
+        'is_bookable': is_slot_bookable(slot),
         'is_throttled': doctor.is_throttled,
     }
 

@@ -674,7 +674,7 @@
           status: 'booked',
         });
         if (slotStatus.isPassed) {
-          resultEl.innerHTML = `<div class="alert alert-danger"><span>${medIconSvg('warning', 18)}</span><div>This slot has passed. Token cannot be checked in.</div></div>`;
+          resultEl.innerHTML = `<div class="alert alert-danger"><span>${medIconSvg('warning', 18)}</span><div>This appointment is a no-show. Token cannot be checked in.</div></div>`;
           resultEl.style.display = "block";
           return;
         }

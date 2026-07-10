@@ -194,7 +194,7 @@
           Late
         </button>
         <button class="filter-btn" onclick="filterAppointments('expired')">
-          Expired
+          No-show
         </button>
         <button class="filter-btn" onclick="filterAppointments('checked-in')">
           Checked In
@@ -317,7 +317,7 @@
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js?v=20260710f"></script>
+    <script src="../js/app.js?v=20260710k"></script>
     <script src="../js/api.js?v=20260710f"></script>
     <script>
       // Slot times from shared TimeUtils (prefix used for mock token labels)
@@ -361,18 +361,59 @@
         });
       }
 
+      function normalizeAptStatus(status) {
+        return String(status || '').toLowerCase().replace(/-/g, '_');
+      }
+
+      function isPendingStatus(apt) {
+        const status = normalizeAptStatus(apt.status);
+        return status === 'pending' || status === 'booked';
+      }
+
+      function hasCheckedIn(apt) {
+        const status = normalizeAptStatus(apt.status);
+        return ['checked_in', 'consulting', 'pending_lab', 'pending_pharmacy', 'completed'].includes(status)
+          || !!apt.checkinStatus;
+      }
+
+      function isInDoctorQueue(apt) {
+        return normalizeAptStatus(apt.status) === 'checked_in' && getQueuePosition(apt.token) != null;
+      }
+
+      function isExpiredAppointment(apt) {
+        const status = normalizeAptStatus(apt.status);
+        if (status === 'expired') return true;
+        if (!isPendingStatus(apt)) return false;
+        return slotStatusForAppointment(apt).isPassed;
+      }
+
+      /** Primary filter categories — can overlap (e.g. on-time + in-queue). */
+      function matchesCheckinFilter(apt, filter) {
+        if (filter === 'all') return true;
+
+        const status = normalizeAptStatus(apt.status);
+        const pending = isPendingStatus(apt);
+        const expired = isExpiredAppointment(apt);
+        const checkedInNow = status === 'checked_in';
+        const inQueue = isInDoctorQueue(apt);
+
+        if (filter === 'pending') return pending && !expired;
+        if (filter === 'expired') return expired;
+        if (filter === 'ontime') return hasCheckedIn(apt) && apt.checkinStatus === 'ontime';
+        if (filter === 'late') return hasCheckedIn(apt) && apt.checkinStatus === 'late';
+        if (filter === 'checked-in') return checkedInNow;
+        if (filter === 'in-queue') return inQueue;
+        return true;
+      }
+
       function getCheckinFilterState(apt) {
-        if (apt.status === 'checked-in') {
-          if (getQueuePosition(apt.token) != null) return 'in-queue';
-          if (apt.checkinStatus === 'late') return 'late';
-          if (apt.checkinStatus === 'ontime') return 'ontime';
-          return 'checked-in';
-        }
-        if (apt.status === 'pending') {
-          const slotStatus = slotStatusForAppointment(apt);
-          if (slotStatus.isPassed) return 'expired';
-          return 'pending';
-        }
+        // Kept for stats / legacy callers — prefer matchesCheckinFilter for filters.
+        if (isExpiredAppointment(apt)) return 'expired';
+        if (isPendingStatus(apt)) return 'pending';
+        if (isInDoctorQueue(apt)) return 'in-queue';
+        if (hasCheckedIn(apt) && apt.checkinStatus === 'late') return 'late';
+        if (hasCheckedIn(apt) && apt.checkinStatus === 'ontime') return 'ontime';
+        if (normalizeAptStatus(apt.status) === 'checked_in') return 'checked-in';
         return 'other';
       }
 
@@ -397,6 +438,7 @@
             end_time: a.end_time,
             scheduledTime: a.estimated_time,
             status: a.status === 'booked' ? 'pending' : a.status === 'checked_in' ? 'checked-in' : a.status,
+            display_status: a.display_status || AppointmentStatus.label(a.status),
             checkinStatus: a.checkin_status === 'missed' ? 'late' : a.checkin_status === 'present' ? 'ontime' : null,
             isNewPatient: !a.patient_id,
             patientId: a.patient_id || null,
@@ -441,14 +483,13 @@
         PatientPriority.syncModalElderlyCheckbox('modalAge', 'modalElderly');
       }
 
-      // Determine check-in status based on arrival time
+      // Align with backend: present = on/before slot start, missed = after start but before end
       function determineCheckinStatus(appointment, arrivalTime) {
         const bounds = TimeUtils.getSlotBounds(appointment);
         if (bounds.startMinutes == null || bounds.endMinutes == null) return 'expired';
         const arrival = TimeUtils.nowMinutes(arrivalTime);
         if (arrival > bounds.endMinutes) return 'expired';
-        const gracePeriod = bounds.startMinutes + 30;
-        if (arrival > gracePeriod) return 'late';
+        if (arrival > bounds.startMinutes) return 'late';
         return 'ontime';
       }
 
@@ -482,7 +523,7 @@
           status: 'booked',
         });
         if (slotStatus.isPassed) {
-          resultDiv.innerHTML = `<div class="alert alert-danger"><span>${medIconSvg('warning', 18)}</span><div>This slot has passed.</div></div>`;
+          resultDiv.innerHTML = `<div class="alert alert-danger"><span>${medIconSvg('warning', 18)}</span><div>This appointment is a no-show. Check-in is closed.</div></div>`;
           return;
         }
         const needsRegistration = !appointment.patient_id;
@@ -601,61 +642,96 @@
         Toast.show(checkRes.message, 'success');
       }
 
-      // Get status display for appointment
       function getAppointmentStatusDisplay(apt) {
-        if (apt.status === "checked-in") {
-          const queuePos = getQueuePosition(apt.token);
-          if (queuePos) {
+        const status = normalizeAptStatus(apt.status);
+        const queuePos = getQueuePosition(apt.token);
+
+        if (status === 'checked_in') {
+          if (queuePos != null) {
             return {
               text: `In Queue (#${queuePos})`,
-              class: "status-queued",
-              statusKey: "in_queue",
+              class: 'status-queued',
+              statusKey: 'in_queue',
             };
           }
-          return { text: "Checked In", class: "status-ontime", statusKey: "completed" };
+          return { text: 'Checked In', class: 'status-ontime', statusKey: 'checked_in' };
         }
 
-        const slotStatus = TimeUtils.getAppointmentSlotStatus({
-          date: apt.date,
-          slot: apt.slot,
-          start_time: apt.start_time,
-          end_time: apt.end_time,
-          status: apt.status === 'pending' ? 'booked' : apt.status,
-        });
-        if (slotStatus.isPassed) {
-          return { text: "Expired", class: "status-expired", statusKey: "passed" };
+        if (['completed', 'cancelled', 'expired', 'consulting', 'pending_lab', 'pending_pharmacy'].includes(status)) {
+          return {
+            text: apt.display_status || AppointmentStatus.label(status),
+            class: AppointmentStatus.badgeClass(status) || (status === 'completed' ? 'status-ontime' : ''),
+            statusKey: status,
+          };
+        }
+
+        if (isExpiredAppointment(apt)) {
+          return { text: 'No-show', class: 'status-expired', statusKey: 'passed' };
+        }
+
+        const slotStatus = slotStatusForAppointment(apt);
+        if (slotStatus.isUpcoming) {
+          return { text: 'Pending Check-in', class: 'status-waiting', statusKey: 'upcoming' };
+        }
+        if (isPendingStatus(apt)) {
+          return { text: 'Pending Check-in', class: 'status-waiting', statusKey: 'pending' };
+        }
+        return {
+          text: slotStatus.label || apt.display_status || 'Unknown',
+          class: slotStatus.class || '',
+          statusKey: slotStatus.status || 'unknown',
+        };
+      }
+
+      function actionCellHtml(apt) {
+        const status = normalizeAptStatus(apt.status);
+        const slotStatus = slotStatusForAppointment(apt);
+        const queuePos = getQueuePosition(apt.token);
+
+        if (status === 'checked_in') {
+          if (queuePos != null) {
+            return `<span class="status-badge status-queued">In Queue #${queuePos}</span>`;
+          }
+          return '<span class="status-badge status-ontime">Checked In</span>';
+        }
+        if (status === 'consulting') {
+          return '<span class="status-badge status-ontime">With Doctor</span>';
+        }
+        if (status === 'pending_lab') {
+          return '<span class="status-badge status-queued">Lab</span>';
+        }
+        if (status === 'pending_pharmacy') {
+          return '<span class="status-badge status-queued">Pharmacy</span>';
+        }
+        if (status === 'completed') {
+          return '<span class="status-badge status-ontime">Completed</span>';
+        }
+        if (status === 'cancelled') {
+          return '<span class="status-badge status-expired">Cancelled</span>';
+        }
+        if (isExpiredAppointment(apt) || status === 'expired') {
+          return '<span class="status-badge status-expired">No-show</span>';
+        }
+        if (slotStatus.canCheckIn) {
+          return `<button class="btn btn-primary" onclick="quickCheckin('${apt.token}')">Check In</button>`;
         }
         if (slotStatus.isUpcoming) {
-          return { text: "Upcoming", class: "status-waiting", statusKey: "upcoming" };
+          return '<span class="status-badge status-waiting">Upcoming</span>';
         }
-        if (apt.status === "pending") {
-          return { text: "Pending", class: "status-waiting", statusKey: "pending" };
-        }
-        return { text: "Unknown", class: "", statusKey: "unknown" };
+        return '<span class="status-badge status-expired">Unavailable</span>';
       }
 
       // Render appointments table
       function renderAppointmentsTable() {
         const todayApps = getTodayAppointments();
-        const filteredApps = sortAppointmentsBySlot(todayApps.filter((apt) => {
-          const state = getCheckinFilterState(apt);
-          if (currentFilter === "all") return true;
-          if (currentFilter === "pending") return state === "pending";
-          if (currentFilter === "checked-in") return state === "checked-in" || state === "ontime" || state === "late";
-          if (currentFilter === "in-queue") return state === "in-queue";
-          if (currentFilter === "expired") return state === "expired";
-          if (currentFilter === "ontime") return state === "ontime";
-          if (currentFilter === "late") return state === "late";
-          return true;
-        }));
+        const filteredApps = sortAppointmentsBySlot(
+          todayApps.filter((apt) => matchesCheckinFilter(apt, currentFilter))
+        );
 
         const tbody = document.getElementById("appointmentsTableBody");
         tbody.innerHTML = filteredApps
           .map((apt) => {
             const status = getAppointmentStatusDisplay(apt);
-            const slotStatus = slotStatusForAppointment(apt);
-            const canCheckin = slotStatus.canCheckIn;
-            const queuePos = getQueuePosition(apt.token);
 
             let priorityBadge = "";
             if (apt.priority === "ELDERLY")
@@ -669,16 +745,15 @@
                 '<span class="priority-badge priority-pregnant">Pregnant</span>';
 
             let checkinStatusDisplay = "";
-            if (apt.status === "checked-in" && apt.checkinStatus === "late") {
+            if (hasCheckedIn(apt) && apt.checkinStatus === "late") {
               checkinStatusDisplay =
                 '<span class="status-badge status-late">Late</span>';
-            } else if (
-              apt.status === "checked-in" &&
-              apt.checkinStatus === "ontime"
-            ) {
+            } else if (hasCheckedIn(apt) && apt.checkinStatus === "ontime") {
               checkinStatusDisplay =
                 '<span class="status-badge status-ontime">On Time</span>';
             }
+
+            const queuePos = getQueuePosition(apt.token);
 
             return `
                     <tr>
@@ -689,17 +764,7 @@
                         <td>${apt.scheduledTime}</td>
                         <td><span class="status-badge ${status.class}">${statusIconSvg(status.statusKey)} ${status.text}</span> ${checkinStatusDisplay}</td>
                         <td>${queuePos ? `<span class="queue-position-badge">Position #${queuePos}</span>` : "-"}</td>
-                        <td>
-                            ${
-                              canCheckin
-                                ? `<button class="btn btn-primary" onclick="quickCheckin('${apt.token}')">Check In</button>`
-                                : slotStatus.isPassed
-                                  ? '<span class="status-badge status-expired">Passed</span>'
-                                  : slotStatus.isUpcoming
-                                    ? '<span class="status-badge status-waiting">Upcoming</span>'
-                                    : '<span class="status-badge status-expired">Unavailable</span>'
-                            }
-                          </td>
+                        <td>${actionCellHtml(apt)}</td>
                      </tr>
                 `;
           })
@@ -712,22 +777,22 @@
         searchToken();
       }
 
-      // Render statistics
+      // Render statistics — counts match filter button categories
       function renderStats() {
         const todayApps = getTodayAppointments();
         const total = todayApps.length;
-        const pending = todayApps.filter((a) => getCheckinFilterState(a) === 'pending').length;
-        const checkedIn = todayApps.filter((a) => a.status === 'checked-in').length;
-        const expired = todayApps.filter((a) => getCheckinFilterState(a) === 'expired').length;
-        const ontime = todayApps.filter((a) => getCheckinFilterState(a) === 'ontime').length;
-        const late = todayApps.filter((a) => getCheckinFilterState(a) === 'late').length;
-        const inQueue = todayApps.filter((a) => getCheckinFilterState(a) === 'in-queue').length;
+        const pending = todayApps.filter((a) => matchesCheckinFilter(a, 'pending')).length;
+        const checkedIn = todayApps.filter((a) => matchesCheckinFilter(a, 'checked-in')).length;
+        const expired = todayApps.filter((a) => matchesCheckinFilter(a, 'expired')).length;
+        const ontime = todayApps.filter((a) => matchesCheckinFilter(a, 'ontime')).length;
+        const late = todayApps.filter((a) => matchesCheckinFilter(a, 'late')).length;
+        const inQueue = todayApps.filter((a) => matchesCheckinFilter(a, 'in-queue')).length;
 
         document.getElementById("statsContainer").innerHTML = `
                 <div class="stat-box"><div class="stat-number">${total}</div><div class="stat-label">Total</div></div>
                 <div class="stat-box"><div class="stat-number">${pending}</div><div class="stat-label">Pending</div></div>
                 <div class="stat-box"><div class="stat-number">${checkedIn}</div><div class="stat-label">Checked In</div></div>
-                <div class="stat-box"><div class="stat-number">${expired}</div><div class="stat-label">Expired</div></div>
+                <div class="stat-box"><div class="stat-number">${expired}</div><div class="stat-label">No-show</div></div>
                 <div class="stat-box"><div class="stat-number">${ontime}</div><div class="stat-label">On Time</div></div>
                 <div class="stat-box"><div class="stat-number">${late}</div><div class="stat-label">Late</div></div>
                 <div class="stat-box"><div class="stat-number">${inQueue}</div><div class="stat-label">In Queue</div></div>
@@ -740,7 +805,14 @@
         document
           .querySelectorAll(".filter-btn")
           .forEach((btn) => btn.classList.remove("active"));
-        event.target.classList.add("active");
+        if (typeof event !== 'undefined' && event?.target) {
+          event.target.classList.add("active");
+        } else {
+          document.querySelectorAll('.filter-btn').forEach((btn) => {
+            const onclick = btn.getAttribute('onclick') || '';
+            if (onclick.includes(`'${filter}'`)) btn.classList.add('active');
+          });
+        }
         renderAppointmentsTable();
       }
 

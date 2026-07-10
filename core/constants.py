@@ -35,7 +35,7 @@ DISPLAY_STATUS = {
     PENDING_LAB: 'Lab',
     PENDING_PHARMACY: 'Pharmacy',
     COMPLETED: 'Completed',
-    EXPIRED: 'Expired / No Show',
+    EXPIRED: 'No-show',
     CANCELLED: 'Cancelled',
 }
 

@@ -28,7 +28,6 @@ from core.utils import (
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def available_slots(request):
-    from core.services.slot_config import is_slot_bookable
     from core.services.workflow import expire_all_ended_slots
 
     expire_all_ended_slots()
@@ -44,11 +43,10 @@ def available_slots(request):
 
     slots = get_daily_slots_for_dates(dates)
 
+    # Include ended/full slots so the UI can show them as disabled (not hidden).
     available = []
     grouped = {'today': [], 'tomorrow': []}
     for slot in slots:
-        if not is_slot_bookable(slot):
-            continue
         serialized = serialize_slot(slot)
         available.append(serialized)
         key = 'today' if slot.date == today else 'tomorrow'
