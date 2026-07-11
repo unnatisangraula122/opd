@@ -73,6 +73,10 @@ def doctor_schedule(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsDoctor])
 def doctor_queue(request, doctor_id=None):
+    from core.services.workflow import expire_all_ended_slots
+
+    expire_all_ended_slots()
+
     profile = get_doctor_for_user(request.user)
     if not profile:
         return Response({'success': False, 'error': 'Doctor profile not found'}, status=404)

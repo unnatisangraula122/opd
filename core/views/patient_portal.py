@@ -22,6 +22,10 @@ def _patient_token_filter(user, prefix=''):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsPatient])
 def get_patient_tokens(request):
+    from core.services.workflow import expire_all_ended_slots
+
+    expire_all_ended_slots()
+
     tokens = Token.objects.filter(
         _patient_token_filter(request.user)
     ).select_related('slot__doctor__user').order_by('-created_at')
@@ -33,6 +37,10 @@ def get_patient_tokens(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsPatient])
 def patient_queue_status(request):
+    from core.services.workflow import expire_all_ended_slots
+
+    expire_all_ended_slots()
+
     today = timezone.localdate()
     token = Token.objects.filter(
         _patient_token_filter(request.user),

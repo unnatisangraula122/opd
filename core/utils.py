@@ -195,7 +195,10 @@ def serialize_token(token, include_queue=False, include_workflow=False):
             data['priority'] = entry.priority
 
     if include_workflow:
-        pharmacy = getattr(token, 'pharmacy_queue_entry', None)
+        try:
+            pharmacy = token.pharmacy_queue_entry
+        except Exception:
+            pharmacy = None
         if pharmacy:
             data['pharmacy_status'] = pharmacy.status
             data['pharmacy_display'] = C.PHARMACY_DISPLAY.get(pharmacy.status, pharmacy.status)

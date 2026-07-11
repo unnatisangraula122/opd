@@ -194,9 +194,38 @@ def pharmacy_mark_ready(entry):
     return entry
 
 
+def _close_stale_side_queues(token, now):
+    """Close doctor / pharmacy / lab queue rows left open after a slot ends."""
+    _mark_queue_done(token)
+
+    try:
+        pharmacy = token.pharmacy_queue_entry
+    except PharmacyQueueEntry.DoesNotExist:
+        pharmacy = None
+    if pharmacy and pharmacy.status != C.PHARMACY_DONE:
+        pharmacy.status = C.PHARMACY_DONE
+        pharmacy.completed_at = now
+        pharmacy.save(update_fields=['status', 'completed_at'])
+
+    for lab_entry in token.lab_queue_entries.exclude(status='done'):
+        lab_entry.status = 'done'
+        lab_entry.completed_at = now
+        lab_entry.save(update_fields=['status', 'completed_at'])
+        order = lab_entry.lab_order
+        if order.status != 'completed':
+            order.status = 'completed'
+            order.completed_at = now
+            order.save(update_fields=['status', 'completed_at'])
+
+
 @transaction.atomic
 def expire_unclaimed_for_slot(slot):
-    """Mark booked-but-never-checked-in tokens as expired when slot ends."""
+    """
+    After a slot ends:
+    - booked (never checked in) → expired (no-show)
+    - checked_in / consulting / pending_lab / pending_pharmacy → completed
+      (visit day is over; do not leave dashboards stuck on With Doctor / Lab / Pharmacy)
+    """
     now = timezone.localtime()
     slot_end = timezone.make_aware(
         timezone.datetime.combine(
@@ -208,11 +237,30 @@ def expire_unclaimed_for_slot(slot):
         return 0
 
     expired = Token.objects.filter(slot=slot, status=C.BOOKED).update(status=C.EXPIRED)
-    return expired
+
+    stale = list(
+        Token.objects.filter(
+            slot=slot,
+            status__in=(C.CHECKED_IN, C.CONSULTING, C.PENDING_LAB, C.PENDING_PHARMACY),
+        ).prefetch_related('lab_queue_entries__lab_order')
+    )
+    completed = 0
+    for token in stale:
+        was_consulting = token.status == C.CONSULTING
+        token.status = C.COMPLETED
+        update_fields = ['status']
+        if was_consulting and not token.consultation_ended_at:
+            token.consultation_ended_at = now
+            update_fields.append('consultation_ended_at')
+        token.save(update_fields=update_fields)
+        _close_stale_side_queues(token, now)
+        completed += 1
+
+    return expired + completed
 
 
 def expire_all_ended_slots():
-    """Expire unclaimed bookings for all slots whose window has ended (today and past)."""
+    """Expire/close unfinished tokens for all slots whose window has ended."""
     from core.models import ConsultationSlot
 
     today = timezone.localdate()

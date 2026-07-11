@@ -53,6 +53,10 @@ def _prescription_slip(token):
 @permission_classes([IsAuthenticated, IsPatient])
 def patient_journey(request):
     """Single endpoint for patient dashboard — status, rx, lab, pharmacy, payments."""
+    from core.services.workflow import expire_all_ended_slots
+
+    expire_all_ended_slots()
+
     today = timezone.localdate()
     tokens = Token.objects.filter(
         _patient_token_filter(request.user),
@@ -67,10 +71,15 @@ def patient_journey(request):
 
     journey = None
     if active_token:
-        pharmacy = getattr(active_token, 'pharmacy_queue_entry', None)
+        try:
+            pharmacy = active_token.pharmacy_queue_entry
+        except Exception:
+            pharmacy = None
         queue_position = None
-        if hasattr(active_token, 'queue_entry'):
+        try:
             queue_position = active_token.queue_entry.queue_position
+        except Exception:
+            queue_position = None
 
         journey = {
             **serialize_token(active_token, include_queue=True, include_workflow=True),

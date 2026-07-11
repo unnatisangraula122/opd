@@ -218,6 +218,13 @@ const TimeUtils = {
         const currentMinutes = this.nowMinutes(now);
 
         // Prefer real visit/workflow status over slot-time "Passed".
+        // Past-day open visits are completed — do not keep "With Doctor" forever.
+        if (dayRelation === 'past' && ['checked_in', 'consulting', 'pending_lab', 'pending_pharmacy'].includes(tokenStatus)) {
+            return {
+                status: 'completed', label: 'Completed', class: 'status-completed', icon: '✓',
+                isPassed: false, isActive: false, isUpcoming: false, canCheckIn: false,
+            };
+        }
         if (tokenStatus === 'completed') {
             return {
                 status: 'completed', label: 'Completed', class: 'status-completed', icon: '✓',
