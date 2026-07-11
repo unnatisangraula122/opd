@@ -253,16 +253,42 @@ class Token(models.Model):
             token_count = Token.objects.filter(slot=self.slot).count() + 1
             self.token_number = f"{prefix}{token_count}"
 
-            slot_start = datetime.combine(
-                self.slot.date,
-                datetime.strptime(self.slot.start_time, '%H:%M').time()
+            tz = timezone.get_current_timezone()
+            avg = self.slot.avg_consultation_minutes
+            slot_start = timezone.make_aware(
+                datetime.combine(
+                    self.slot.date,
+                    datetime.strptime(self.slot.start_time, '%H:%M').time(),
+                ),
+                tz,
             )
-            naive_estimate = slot_start + timedelta(
-                minutes=(token_count - 1) * self.slot.avg_consultation_minutes
+            slot_end = timezone.make_aware(
+                datetime.combine(
+                    self.slot.date,
+                    datetime.strptime(self.slot.end_time, '%H:%M').time(),
+                ),
+                tz,
             )
-            self.estimated_time = timezone.make_aware(
-                naive_estimate, timezone.get_current_timezone()
-            )
+            now = timezone.localtime()
+
+            if now < slot_start:
+                # Booked before the slot opens (earlier day or same day):
+                # schedule from slot start by token order.
+                estimate = slot_start + timedelta(
+                    minutes=(token_count - 1) * avg
+                )
+            else:
+                # Booked while the slot is live: sync to now and remaining
+                # patients still waiting to see the doctor.
+                ahead = Token.objects.filter(
+                    slot=self.slot,
+                    status__in=('booked', 'checked_in', 'consulting'),
+                ).count()
+                estimate = now + timedelta(minutes=ahead * avg)
+                if estimate > slot_end:
+                    estimate = slot_end
+
+            self.estimated_time = estimate
 
         if self.patient_age is not None:
             try:
