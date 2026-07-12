@@ -69,6 +69,45 @@
         color: var(--text-muted);
         font-size: 0.9rem;
       }
+      .completed-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin: 1rem 0 1.25rem;
+      }
+      .completed-filter-btn {
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-secondary);
+        padding: 0.4rem 0.85rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .completed-filter-btn:hover {
+        border-color: var(--secondary);
+        color: var(--primary);
+        background: var(--surface-hover);
+      }
+      .completed-filter-btn.active {
+        background: var(--secondary);
+        border-color: var(--secondary);
+        color: #fff;
+      }
+      .completed-filter-count {
+        display: inline-block;
+        margin-left: 0.35rem;
+        padding: 0.05rem 0.45rem;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        background: rgba(255, 255, 255, 0.2);
+      }
+      .completed-filter-btn:not(.active) .completed-filter-count {
+        background: var(--background);
+        color: var(--text-muted);
+      }
     </style>
   </head>
   <body>
@@ -143,6 +182,7 @@
         <div id="completedTab" style="display: none">
           <div class="card">
             <h3>Completed Tests</h3>
+            <div class="completed-filters" id="completedFilters"></div>
             <div id="completedList"></div>
           </div>
         </div>
@@ -222,14 +262,23 @@
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js?v=20260712f"></script>
-    <script src="../js/api.js?v=20260712f"></script>
+    <script src="../js/app.js?v=20260712g"></script>
+    <script src="../js/api.js?v=20260712g"></script>
     <script>
       let pendingTests = [];
       let awaitingPaymentTests = [];
       let processingTests = [];
-      let completedTests = [];
+      let allCompletedTests = [];
+      let completedFilter = 'today';
       let currentTestId = null;
+
+      const COMPLETED_FILTERS = [
+        { id: 'today', label: 'Today' },
+        { id: 'yesterday', label: 'Yesterday' },
+        { id: 'week', label: 'This Week' },
+        { id: 'month', label: 'This Month' },
+        { id: 'all', label: 'All' },
+      ];
 
       function mapLabItem(t, status) {
         return {
@@ -267,9 +316,10 @@
           pendingTests = (res.pending || []).map((t) => mapLabItem(t, 'pending'));
           awaitingPaymentTests = (res.awaiting_payment || []).map((t) => mapLabItem(t, 'awaiting'));
           processingTests = (res.processing || []).map((t) => mapLabItem(t, 'processing'));
-          completedTests = (res.completed || []).map((t) => mapLabItem(t, 'completed'));
+          allCompletedTests = (res.completed_all || res.completed || []).map((t) => mapLabItem(t, 'completed'));
           renderPending();
           renderProcessing();
+          renderCompletedFilters();
           renderCompleted();
         } catch (err) {
           document.getElementById('pendingList').innerHTML =
@@ -364,10 +414,72 @@
           .join("");
       }
 
+      function startOfDay(date) {
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      }
+
+      function completedOnDay(iso, dayOffset = 0) {
+        if (!iso) return false;
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return false;
+        const now = new Date();
+        const target = startOfDay(now);
+        target.setDate(target.getDate() + dayOffset);
+        const completed = startOfDay(d);
+        return completed.getTime() === target.getTime();
+      }
+
+      function filterCompletedTests(filter) {
+        const now = new Date();
+        const todayStart = startOfDay(now);
+        const weekStart = new Date(todayStart);
+        weekStart.setDate(weekStart.getDate() - 6);
+        const monthStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
+
+        return allCompletedTests.filter((t) => {
+          if (!t.completedAt) return filter === 'all';
+          const d = new Date(t.completedAt);
+          if (Number.isNaN(d.getTime())) return false;
+          const completed = startOfDay(d);
+          if (filter === 'today') return completedOnDay(t.completedAt, 0);
+          if (filter === 'yesterday') return completedOnDay(t.completedAt, -1);
+          if (filter === 'week') return completed >= weekStart && completed <= todayStart;
+          if (filter === 'month') return completed >= monthStart && completed <= todayStart;
+          return true;
+        });
+      }
+
+      function countCompletedForFilter(filter) {
+        return filterCompletedTests(filter).length;
+      }
+
+      function renderCompletedFilters() {
+        const container = document.getElementById('completedFilters');
+        if (!container) return;
+        container.innerHTML = COMPLETED_FILTERS.map((f) => {
+          const count = countCompletedForFilter(f.id);
+          const active = completedFilter === f.id ? 'active' : '';
+          return `
+            <button type="button" class="completed-filter-btn ${active}" onclick="setCompletedFilter('${f.id}')">
+              ${f.label}<span class="completed-filter-count">${count}</span>
+            </button>
+          `;
+        }).join('');
+      }
+
+      function setCompletedFilter(filter) {
+        completedFilter = filter;
+        renderCompletedFilters();
+        renderCompleted();
+      }
+
       function renderCompleted() {
+        const completedTests = filterCompletedTests(completedFilter);
+        const filterLabel = COMPLETED_FILTERS.find((f) => f.id === completedFilter)?.label || 'Selected';
+
         if (completedTests.length === 0) {
           document.getElementById("completedList").innerHTML =
-            '<p style="text-align:center; color:var(--text-muted);">No completed tests</p>';
+            `<p style="text-align:center; color:var(--text-muted);">No completed tests for <strong>${filterLabel}</strong></p>`;
           return;
         }
         document.getElementById("completedList").innerHTML = completedTests
@@ -437,7 +549,7 @@
       }
 
       function viewReport(id) {
-        const test = completedTests.find((t) => t.id === id);
+        const test = allCompletedTests.find((t) => t.id === id);
         if (!test) return;
         document.getElementById('reportViewBody').innerHTML = `
           <p><strong>Patient:</strong> ${PatientDisplay.label(test.patient, test.patient_id)}</p>

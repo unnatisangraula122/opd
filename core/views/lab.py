@@ -66,20 +66,27 @@ def lab_queue(request):
     ).select_related('token', 'token__patient').order_by('ordered_at'):
         awaiting_payment.append(_serialize_lab_order(order))
 
-    completed = []
+    completed_today = []
     for order in LabOrder.objects.filter(
         status='completed',
         completed_at__date=today,
     ).select_related('token', 'token__patient', 'queue_entry', 'report').order_by('-completed_at'):
-        completed.append(_serialize_lab_order(order))
+        completed_today.append(_serialize_lab_order(order))
+
+    completed_all = []
+    for order in LabOrder.objects.filter(
+        status='completed',
+    ).select_related('token', 'token__patient', 'queue_entry', 'report').order_by('-completed_at'):
+        completed_all.append(_serialize_lab_order(order))
 
     return Response({
         'success': True,
         'pending': pending,
         'processing': processing,
         'awaiting_payment': awaiting_payment,
-        'completed': completed,
-        'all': pending + processing + completed,
+        'completed': completed_today,
+        'completed_all': completed_all,
+        'all': pending + processing + completed_today,
     })
 
 
