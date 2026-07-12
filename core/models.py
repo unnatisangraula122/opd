@@ -356,6 +356,17 @@ class Token(models.Model):
     def start_consultation(self):
         if self.status != 'checked_in':
             raise ValidationError(f"Cannot start consultation. Current status: {self.status}")
+
+        now = timezone.localtime()
+        slot_start = timezone.make_aware(datetime.combine(
+            self.slot.date,
+            datetime.strptime(self.slot.start_time, '%H:%M').time(),
+        ))
+        if now < slot_start:
+            raise ValidationError(
+                f"Consultation cannot start before the slot begins at {self.slot.start_time}."
+            )
+
         self.status = 'consulting'
         self.consultation_started_at = timezone.now()
         self.save()

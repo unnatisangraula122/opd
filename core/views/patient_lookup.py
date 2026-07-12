@@ -3,6 +3,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from accounts.models import User
+from core.utils import patient_has_portal_login, patient_is_new
 
 
 def _serialize_patient(user):
@@ -15,6 +16,8 @@ def _serialize_patient(user):
         'age': user.age,
         'address': user.address or '',
         'has_online_account': user.has_usable_password(),
+        'has_portal_login': patient_has_portal_login(user),
+        'is_new_patient': patient_is_new(user),
     }
 
 

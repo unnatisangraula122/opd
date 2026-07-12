@@ -477,7 +477,7 @@
 
     <script src="../js/icons.js"></script>
     <script src="../js/app.js?v=20260710g"></script>
-    <script src="../js/api.js?v=20260710f"></script>
+    <script src="../js/api.js?v=20260712c"></script>
     <script>
       // Slot display labels from shared TimeUtils
       const SLOT_CONFIG = TimeUtils.SLOT_CONFIG;
@@ -578,7 +578,7 @@
             display_status: a.display_status || AppointmentStatus.label(a.status),
             is_active: a.is_active !== false && AppointmentStatus.isActive(a.status),
             patientId: a.patient_id || null,
-            isNewPatient: !a.patient_id,
+            isNewPatient: !!a.is_new_patient,
             is_elderly: a.is_elderly,
             is_disabled: a.is_disabled,
             patient_is_disabled: a.patient_is_disabled,

@@ -94,6 +94,27 @@ def patient_has_online_account(user):
     )
 
 
+def patient_has_portal_login(user):
+    """True when the patient has logged into the patient portal at least once."""
+    return bool(
+        user
+        and getattr(user, 'role', None) == 'patient'
+        and getattr(user, 'last_login', None)
+    )
+
+
+def patient_is_new(user):
+    """
+    New patient = registered (or walk-in) but has never logged into the
+    patient portal. Unlinked walk-ins with no User row are also new.
+    """
+    if user is None:
+        return True
+    if getattr(user, 'role', None) != 'patient':
+        return False
+    return not patient_has_portal_login(user)
+
+
 OLD_PATIENT_LOGIN_MSG = (
     'This patient already has an online account. Please use Old Patient login.'
 )
@@ -185,6 +206,7 @@ def serialize_token(token, include_queue=False, include_workflow=False):
         data['patient_id'] = patient_user.patient_id
     if patient_user is not None:
         data['patient_is_disabled'] = bool(getattr(patient_user, 'is_disabled', False))
+    data['is_new_patient'] = patient_is_new(patient_user)
     if include_queue:
         try:
             entry = token.queue_entry

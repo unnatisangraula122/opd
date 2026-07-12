@@ -34,15 +34,46 @@ def _order_tokens_by_slot(queryset):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsReceptionistOrAdmin])
 def search_patient(request):
-    search_term = request.query_params.get('q', '')
+    from datetime import timedelta
+
+    search_term = (request.query_params.get('q') or '').strip()
     if not search_term:
         return Response({'success': False, 'error': 'Search term required'}, status=400)
 
+    today = timezone.localdate()
+    scope = (request.query_params.get('scope') or '').strip().lower()
+
     tokens = Token.objects.filter(
+        models.Q(token_number__iexact=search_term) |
         models.Q(token_number__icontains=search_term) |
         models.Q(patient_phone__icontains=search_term) |
         models.Q(patient_name__icontains=search_term)
-    ).select_related('slot__doctor__user', 'patient').order_by('-created_at')[:20]
+    ).select_related('slot__doctor__user', 'patient')
+
+    if scope == 'checkin':
+        # Check-in desk only deals with today's visits — never surface tomorrow's
+        # token when the same number (e.g. M3) is also booked for today.
+        tokens = tokens.filter(slot__date=today).annotate(
+            exact_token=Case(
+                When(token_number__iexact=search_term, then=0),
+                default=1,
+                output_field=IntegerField(),
+            ),
+        ).order_by('exact_token', 'estimated_time')[:20]
+    else:
+        tokens = tokens.annotate(
+            day_rank=Case(
+                When(slot__date=today, then=0),
+                When(slot__date=today + timedelta(days=1), then=1),
+                default=2,
+                output_field=IntegerField(),
+            ),
+            exact_token=Case(
+                When(token_number__iexact=search_term, then=0),
+                default=1,
+                output_field=IntegerField(),
+            ),
+        ).order_by('day_rank', 'exact_token', 'estimated_time')[:20]
 
     results = [serialize_token(t) for t in tokens]
     return Response({'success': True, 'count': len(results), 'patients': results})

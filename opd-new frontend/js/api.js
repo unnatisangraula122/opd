@@ -38,10 +38,11 @@ const API = {
         await fetch(`${this.base}/csrf/`, { credentials: 'include' });
     },
 
-    async request(method, path, body = null, isForm = false) {
+    async request(method, path, body = null, isForm = false, options = {}) {
         await this.ensureCsrf();
         const headers = { 'X-CSRFToken': this.getCookie('csrftoken') || '' };
-        const token = this.getToken();
+        const skipAuth = !!options.skipAuth;
+        const token = skipAuth ? null : this.getToken();
         if (token) headers.Authorization = `Bearer ${token}`;
         const opts = { method, credentials: 'include', headers };
         if (body !== null) {
@@ -71,18 +72,26 @@ const API = {
         } catch {
             data = { success: false, error: `Network error (${res.status || 'unknown'})` };
         }
+        if (!data.error && data.detail) {
+            data.error = Array.isArray(data.detail)
+                ? data.detail.map((d) => (d.msg || d)).join('; ')
+                : String(data.detail);
+        }
         if (!res.ok && !data.error) data.error = `Request failed (${res.status})`;
+        if (data.success === undefined && res.ok) data.success = true;
+        if (data.success === undefined && !res.ok) data.success = false;
         return data;
     },
 
-    get(path) { return this.request('GET', path); },
-    post(path, body) { return this.request('POST', path, body); },
-    put(path, body) { return this.request('PUT', path, body); },
+    get(path, options) { return this.request('GET', path, null, false, options); },
+    post(path, body, options) { return this.request('POST', path, body, false, options); },
+    put(path, body, options) { return this.request('PUT', path, body, false, options); },
 
     // Auth
-    patientRegister(d) { return this.post('/patient/register/', d); },
+    patientRegister(d) { return this.post('/patient/register/', d, { skipAuth: true }); },
     patientLogin(d) {
-        return this.post('/patient/login/', d).then((data) => {
+        this.clearAuth();
+        return this.post('/patient/login/', d, { skipAuth: true }).then((data) => {
             if (data.success && data.token) {
                 this.setAuth(data.token, { ...data.patient, role: 'patient' });
             }
@@ -90,7 +99,8 @@ const API = {
         });
     },
     patientLoginOtp(d) {
-        return this.post('/patient/login/otp/', d).then((data) => {
+        this.clearAuth();
+        return this.post('/patient/login/otp/', d, { skipAuth: true }).then((data) => {
             if (data.success && data.token) {
                 this.setAuth(data.token, { ...data.patient, role: 'patient' });
             }
@@ -109,7 +119,8 @@ const API = {
         return this.get(`/patient/lookup/?${q}`);
     },
     staffLogin(d) {
-        return this.post('/auth/staff/login/', d).then((data) => {
+        this.clearAuth();
+        return this.post('/auth/staff/login/', d, { skipAuth: true }).then((data) => {
             if (data.success && data.token) this.setAuth(data.token, data.user);
             return data;
         });
@@ -146,7 +157,11 @@ const API = {
     patientBills() { return this.get('/patient/bills/'); },
 
     // Reception
-    searchPatient(q) { return this.get(`/search/?q=${encodeURIComponent(q)}`); },
+    searchPatient(q, scope = 'checkin') {
+        const params = new URLSearchParams({ q });
+        if (scope) params.set('scope', scope);
+        return this.get(`/search/?${params.toString()}`);
+    },
     checkIn(tokenId, d) { return this.post(`/check-in/${tokenId}/`, d || {}); },
     receptionRegister(d) { return this.post('/reception/register/', d); },
     receptionAppointments(opts = {}) {

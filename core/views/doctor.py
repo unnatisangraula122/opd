@@ -12,7 +12,25 @@ from core.models import (
 from core.permissions import IsDoctor
 from core.services.analytics import get_next_eligible_token
 from core.services.workflow import complete_consultation as workflow_complete_consultation
-from core.utils import format_local_time, get_doctor_for_user, patient_id_for_token, serialize_token
+from core.utils import (
+    format_local_time, get_doctor_for_user, patient_id_for_token,
+    patient_is_new, serialize_token,
+)
+
+
+def _active_consultation_for_doctor(doctor_id, date=None):
+    """Return the doctor's in-progress consultation token for the day, if any."""
+    date = date or timezone.localdate()
+    return (
+        Token.objects.filter(
+            slot__doctor_id=doctor_id,
+            slot__date=date,
+            status='consulting',
+        )
+        .select_related('slot', 'patient')
+        .order_by('consultation_started_at')
+        .first()
+    )
 
 
 def _queue_for_doctor(doctor_id, slot_type=None, statuses=('checked_in',)):
@@ -40,8 +58,12 @@ def _queue_for_doctor(doctor_id, slot_type=None, statuses=('checked_in',)):
             'is_disabled': token.is_disabled,
             'is_followup': token.is_followup,
             'fee_exempted': token.fee_exempted,
+            'is_new_patient': patient_is_new(token.patient),
             'priority': 'HIGH' if (token.is_elderly or token.is_disabled) else 'NORMAL',
             'status': token.status,
+            'start_time': token.slot.start_time,
+            'end_time': token.slot.end_time,
+            'slot_type': token.slot.slot_type,
         })
 
     queue_list.sort(key=lambda x: (x['priority'] != 'HIGH', x['token_number']))
@@ -84,12 +106,19 @@ def doctor_queue(request, doctor_id=None):
         return Response({'success': False, 'error': 'Access denied'}, status=403)
 
     queue_list = _queue_for_doctor(profile.id)
+    active = _active_consultation_for_doctor(profile.id)
     return Response({
         'success': True,
         'doctor_id': profile.id,
         'queue_length': len(queue_list),
         'next_patient': queue_list[0] if queue_list else None,
         'queue': queue_list,
+        'active_consultation': {
+            'token_id': active.id,
+            'token_number': active.token_number,
+            'patient_name': active.patient_name,
+            'patient_id': patient_id_for_token(active),
+        } if active else None,
     })
 
 
@@ -115,6 +144,21 @@ def start_consultation(request, token_id):
     except Token.DoesNotExist:
         return Response({'success': False, 'error': 'Token not found'}, status=404)
 
+    active = _active_consultation_for_doctor(profile.id)
+    if active and active.id != token.id:
+        return Response({
+            'success': False,
+            'error': (
+                f'Finish consultation for token {active.token_number} '
+                f'({active.patient_name}) before calling the next patient.'
+            ),
+            'active_consultation': {
+                'token_id': active.id,
+                'token_number': active.token_number,
+                'patient_name': active.patient_name,
+            },
+        }, status=400)
+
     next_token = get_next_eligible_token(profile.id)
     if next_token and next_token.id != token.id:
         return Response({
@@ -133,7 +177,8 @@ def start_consultation(request, token_id):
     try:
         token.start_consultation()
     except ValidationError as exc:
-        return Response({'success': False, 'error': str(exc)}, status=400)
+        msg = '; '.join(getattr(exc, 'messages', []) or [str(exc)])
+        return Response({'success': False, 'error': msg}, status=400)
     return Response({
         'success': True,
         'message': f'Consultation started for {token.patient_name}',
@@ -338,6 +383,7 @@ def patient_history(request, token_id):
         'patient_phone': current.patient_phone,
         'is_followup': current.is_followup,
         'is_returning': prior_visits > 0,
+        'is_new_patient': patient_is_new(current.patient),
         'prior_visit_count': prior_visits,
         'history': history,
     })

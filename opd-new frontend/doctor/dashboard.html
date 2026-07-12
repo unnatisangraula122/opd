@@ -369,6 +369,7 @@
                 Call Next
               </button>
             </div>
+            <div id="activeConsultBanner" style="display:none; margin-bottom:1rem; padding:0.75rem 1rem; border:1px solid var(--warning, #d97706); background:#fffbeb; border-radius:var(--radius);"></div>
             <div id="queueList"></div>
           </div>
         </div>
@@ -385,10 +386,73 @@
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js?v=20260710f"></script>
-    <script src="../js/api.js?v=20260710f"></script>
+    <script src="../js/app.js?v=20260712a"></script>
+    <script src="../js/api.js?v=20260712a"></script>
     <script>
       let queue = [];
+      let activeConsultation = null;
+
+      function parseClockToMinutes(value) {
+        if (!value) return null;
+        const parts = String(value).split(':');
+        if (parts.length < 2) return null;
+        const h = Number(parts[0]);
+        const m = Number(parts[1]);
+        if (Number.isNaN(h) || Number.isNaN(m)) return null;
+        return h * 60 + m;
+      }
+
+      function slotHasStarted(startTime) {
+        const startMins = parseClockToMinutes(startTime);
+        if (startMins == null) return true;
+        const now = new Date();
+        return (now.getHours() * 60 + now.getMinutes()) >= startMins;
+      }
+
+      function updateCallNextButton() {
+        const btn = document.getElementById('callNextBtn');
+        const banner = document.getElementById('activeConsultBanner');
+        if (banner) {
+          if (activeConsultation) {
+            banner.style.display = '';
+            banner.innerHTML = `
+              <strong>Consultation in progress:</strong>
+              ${activeConsultation.token_number} — ${PatientDisplay.label(activeConsultation.patient_name, activeConsultation.patient_id)}.
+              Complete it before calling the next patient.
+              <button class="btn btn-outline" style="margin-left:0.75rem; font-size:0.8rem; padding:0.2rem 0.6rem;"
+                onclick="window.open('consultation.html?token_id=${activeConsultation.token_id}', '_blank')">Resume</button>
+            `;
+          } else {
+            banner.style.display = 'none';
+            banner.innerHTML = '';
+          }
+        }
+        if (!btn) return;
+        if (activeConsultation) {
+          btn.disabled = true;
+          btn.title = `Finish ${activeConsultation.token_number} (${activeConsultation.patient_name}) first`;
+          btn.textContent = `In consult: ${activeConsultation.token_number}`;
+          return;
+        }
+        if (!queue.length) {
+          btn.disabled = true;
+          btn.title = 'No patients in queue';
+          btn.textContent = 'Call Next';
+          return;
+        }
+        const next = [...queue].sort((a, b) =>
+          a.category === 'ELDERLY' && b.category !== 'ELDERLY' ? -1 : 0
+        )[0];
+        if (next && !slotHasStarted(next.start_time)) {
+          btn.disabled = true;
+          btn.title = `Slot starts at ${next.start_time}`;
+          btn.textContent = `Wait until ${next.start_time}`;
+          return;
+        }
+        btn.disabled = false;
+        btn.title = '';
+        btn.textContent = 'Call Next';
+      }
 
       async function loadDoctorQueue() {
         const res = await API.doctorQueue();
@@ -396,6 +460,7 @@
           console.warn('Doctor queue refresh failed:', res.error);
           return;
         }
+        activeConsultation = res.active_consultation || null;
         queue = (res.queue || []).map(p => ({
           id: p.token_id,
           token_id: p.token_id,
@@ -405,12 +470,15 @@
           age: p.patient_age,
           category: p.priority === 'HIGH' ? 'ELDERLY' : 'GENERAL',
           is_followup: p.is_followup,
+          is_new_patient: !!p.is_new_patient,
           fee_exempted: p.fee_exempted,
+          start_time: p.start_time,
           wait: 0,
           complaint: '',
           status: 'waiting',
         }));
         renderQueue();
+        updateCallNextButton();
       }
 
       function renderQueue() {
@@ -427,13 +495,24 @@
             <div>
               <strong>${p.token}</strong>
               ${p.is_followup ? ' <span class="badge badge-warning">Follow-up</span>' : ''}
+              ${p.is_new_patient ? ' <span class="badge badge-warning">New</span>' : ''}
               ${p.category === 'ELDERLY' ? ' <span class="badge badge-priority">Priority</span>' : ''}
               <h4 style="margin:0.35rem 0;">${PatientDisplay.label(p.patient, p.patient_id)} (${p.age} yrs)</h4>
+              ${p.start_time && !slotHasStarted(p.start_time)
+                ? `<small style="color:var(--text-muted);">Slot starts ${p.start_time} — waiting</small>`
+                : ''}
             </div>
           </div>`).join('');
       }
 
       async function callNextPatient() {
+        if (activeConsultation) {
+          Toast.show(
+            `Finish consultation for ${activeConsultation.token_number} before calling the next patient.`,
+            'error'
+          );
+          return;
+        }
         if (queue.length === 0) {
           Toast.show('No patients in queue', 'error');
           return;
@@ -442,11 +521,16 @@
           a.category === 'ELDERLY' && b.category !== 'ELDERLY' ? -1 : 0
         );
         const next = sorted[0];
+        if (!slotHasStarted(next.start_time)) {
+          Toast.show(`Consultation cannot start before the slot begins at ${next.start_time}.`, 'error');
+          return;
+        }
         LoadingOverlay.show();
         const res = await API.startConsult(next.token_id);
         LoadingOverlay.hide();
         if (!res.success) {
           Toast.show(res.error || 'Failed to start consultation', 'error');
+          await loadDoctorQueue();
           return;
         }
         sessionStorage.setItem('activeConsultation', JSON.stringify({

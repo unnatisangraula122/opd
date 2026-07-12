@@ -318,7 +318,7 @@
 
     <script src="../js/icons.js"></script>
     <script src="../js/app.js?v=20260710k"></script>
-    <script src="../js/api.js?v=20260710f"></script>
+    <script src="../js/api.js?v=20260712c"></script>
     <script>
       // Slot times from shared TimeUtils (prefix used for mock token labels)
       const SLOT_CONFIG = {
@@ -440,7 +440,7 @@
             status: a.status === 'booked' ? 'pending' : a.status === 'checked_in' ? 'checked-in' : a.status,
             display_status: a.display_status || AppointmentStatus.label(a.status),
             checkinStatus: a.checkin_status === 'missed' ? 'late' : a.checkin_status === 'present' ? 'ontime' : null,
-            isNewPatient: !a.patient_id,
+            isNewPatient: !!a.is_new_patient,
             patientId: a.patient_id || null,
             is_disabled: a.is_disabled,
             patient_is_disabled: a.patient_is_disabled,

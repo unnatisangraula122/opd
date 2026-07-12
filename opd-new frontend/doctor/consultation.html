@@ -29,7 +29,7 @@
     <nav class="navbar">
       <div class="container" style="display:flex; justify-content:space-between; align-items:center;">
         <div class="logo"><span class="logo-icon"></span><span class="logo-text">GENERAL OPD — Consultation</span></div>
-        <a href="dashboard.html" class="btn btn-outline">← Back to Queue</a>
+        <a href="dashboard.html" class="btn btn-outline" onclick="return confirmLeaveConsultation(event)">← Back to Queue</a>
       </div>
     </nav>
 
@@ -76,12 +76,16 @@
 
       function renderPatientHistoryPanel() {
         if (!patientHistoryData) return '<div class="patient-history-panel"><em>Loading patient history...</em></div>';
-        if (!patientHistoryData.is_returning && !patientHistoryData.history.length) {
-          return '<div class="patient-history-panel"><strong>New patient</strong> — no prior visit records.</div>';
+        if (patientHistoryData.is_new_patient) {
+          return '<div class="patient-history-panel"><strong>New patient</strong> — registered but has not logged into the patient portal yet.</div>';
         }
         const visits = patientHistoryData.history || [];
         if (!visits.length) {
-          return `<div class="patient-history-panel"><strong>Old patient</strong> (${patientHistoryData.prior_visit_count} prior visit(s)).</div>`;
+          return `<div class="patient-history-panel"><strong>Returning portal patient</strong>${
+            patientHistoryData.prior_visit_count
+              ? ` (${patientHistoryData.prior_visit_count} prior visit(s))`
+              : ''
+          }.</div>`;
         }
         return `<div class="patient-history-panel"><strong>Patient History</strong> (${patientHistoryData.prior_visit_count} prior visits)
           ${visits.map(v => `<div class="history-visit"><strong>${v.date}</strong> · ${v.token_number} · ${v.doctor_name}
@@ -119,10 +123,24 @@
           <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="notes" rows="2"></textarea></div>
           <div style="display:flex; gap:1rem; margin-top:1rem;">
             <button class="btn btn-primary" style="flex:1;" onclick="completeConsultation()">Complete Consultation</button>
-            <button class="btn btn-secondary" style="flex:1;" onclick="window.location.href='dashboard.html'">Back to Queue</button>
+            <button class="btn btn-secondary" style="flex:1;" onclick="leaveToQueue()">Back to Queue</button>
           </div>`;
         renderMedicines();
         renderLabTests();
+      }
+
+      function confirmLeaveConsultation(event) {
+        const ok = confirm(
+          'Consultation is still in progress. You must complete it before calling the next patient. Leave to queue anyway?'
+        );
+        if (!ok && event) event.preventDefault();
+        return ok;
+      }
+
+      function leaveToQueue() {
+        if (confirmLeaveConsultation()) {
+          window.location.href = 'dashboard.html';
+        }
       }
 
       const MED_DOSAGES = ['250mg','500mg','5mg','10mg','20mg','40mg','1 tablet','2 tablets','5ml','10ml'];
