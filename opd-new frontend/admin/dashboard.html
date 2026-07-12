@@ -44,6 +44,13 @@
           </div>
           <div
             class="sidebar-nav-item"
+            data-section="staff"
+            onclick="showSection('staff', this)"
+          >
+            <span class="nav-icon">◎</span> Staff
+          </div>
+          <div
+            class="sidebar-nav-item"
             data-section="slots"
             onclick="showSection('slots', this)"
           >
@@ -260,6 +267,47 @@
           </div>
         </div>
 
+        <!-- STAFF -->
+        <div id="staffSection" style="display: none">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Staff Accounts</h3>
+                <p class="panel-subtitle">
+                  Create and update staff credentials, roles, and account status
+                </p>
+              </div>
+              <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                <select class="form-input" id="staffRoleFilter" style="width:auto; min-width:160px;" onchange="renderStaff()">
+                  <option value="">All roles</option>
+                  <option value="admin">Administrator</option>
+                  <option value="receptionist">Receptionist</option>
+                  <option value="doctor">Doctor</option>
+                  <option value="lab_tech">Lab Technician</option>
+                  <option value="pharmacist">Pharmacist</option>
+                </select>
+                <button class="btn btn-primary" onclick="openStaffModal()">+ Add Staff</button>
+              </div>
+            </div>
+            <div class="table-container">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Phone</th>
+                    <th>Status</th>
+                    <th>Last Login</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="staffList"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- SLOTS -->
         <div id="slotsSection" style="display: none">
           <div class="panel">
@@ -386,15 +434,92 @@
       </main>
     </div>
 
+    <div id="staffModal" class="modal">
+      <div class="modal-content" style="max-width:560px;">
+        <div class="modal-header">
+          <h3 id="staffModalTitle">Add Staff</h3>
+          <button class="modal-close" onclick="closeStaffModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="staffEditId" value="" />
+          <div class="form-group">
+            <label class="form-label">Full name</label>
+            <input type="text" class="form-input" id="staffFullName" placeholder="Full name" />
+          </div>
+          <div class="grid grid-2" style="gap:0.75rem;">
+            <div class="form-group">
+              <label class="form-label">Username *</label>
+              <input type="text" class="form-input" id="staffUsername" placeholder="username" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Role *</label>
+              <select class="form-input" id="staffRole" onchange="toggleDoctorStaffFields()">
+                <option value="receptionist">Receptionist</option>
+                <option value="doctor">Doctor</option>
+                <option value="lab_tech">Lab Technician</option>
+                <option value="pharmacist">Pharmacist</option>
+                <option value="admin">Administrator</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-2" style="gap:0.75rem;">
+            <div class="form-group">
+              <label class="form-label" id="staffPasswordLabel">Password *</label>
+              <input type="password" class="form-input" id="staffPassword" placeholder="Password" autocomplete="new-password" />
+              <small id="staffPasswordHint" style="color:var(--text-muted); display:none;">Leave blank to keep current password</small>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone</label>
+              <input type="text" class="form-input" id="staffPhone" placeholder="Phone" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-input" id="staffEmail" placeholder="Email" />
+          </div>
+          <div id="doctorStaffFields" style="display:none;">
+            <div class="grid grid-2" style="gap:0.75rem;">
+              <div class="form-group">
+                <label class="form-label">Specialization</label>
+                <input type="text" class="form-input" id="staffSpecialization" value="General" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Qualification</label>
+                <input type="text" class="form-input" id="staffQualification" placeholder="e.g. MBBS" />
+              </div>
+            </div>
+            <div class="grid grid-2" style="gap:0.75rem;">
+              <div class="form-group">
+                <label class="form-label">Avg consult (min)</label>
+                <input type="number" class="form-input" id="staffAvgConsult" value="10" min="1" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Max queue</label>
+                <input type="number" class="form-input" id="staffMaxQueue" value="5" min="1" />
+              </div>
+            </div>
+          </div>
+          <div class="form-group" id="staffActiveGroup" style="display:none;">
+            <label><input type="checkbox" id="staffIsActive" checked /> Account active (can log in)</label>
+          </div>
+        </div>
+        <div class="modal-footer" style="display:flex; gap:0.5rem; justify-content:flex-end;">
+          <button class="btn btn-outline" onclick="closeStaffModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveStaff()">Save</button>
+        </div>
+      </div>
+    </div>
+
     <script src="/js/icons.js"></script>
-    <script src="/js/app.js?v=20260710f"></script>
-    <script src="/js/api.js?v=20260710f"></script>
+    <script src="/js/app.js?v=20260712d"></script>
+    <script src="/js/api.js?v=20260712d"></script>
     <script>
       let analyticsData = null;
       const sectionTitles = {
         overview: ["Overview", "Today's operational summary"],
         analytics: ["Analytics", "KPIs and adaptive scheduling insights"],
         doctors: ["Doctor Management", "Manage doctors and availability"],
+        staff: ["Staff Accounts", "Manage credentials, roles, and access"],
         slots: ["Slot Configuration", "Consultation time and token capacity"],
         throttle: ["Auto-Throttle", "Queue capacity management"],
         logs: ["System Logs", "Activity and throttle event history"],
@@ -417,6 +542,7 @@
         document.getElementById("pageTitle").textContent = title;
         document.getElementById("pageMeta").textContent = meta;
         if (section === "doctors") renderDoctors();
+        if (section === "staff") renderStaff();
         if (section === "logs") renderLogs();
         if (section === "throttle") updateThrottleStatus();
       }
@@ -594,23 +720,152 @@
       }
 
       function addDoctor() {
-        const name = prompt("Doctor full name:");
-        const username = prompt("Username:");
-        if (!name || !username) return;
-        API.adminAddDoctor({
-          full_name: name,
-          username,
-          password: "doctor123",
-        }).then((res) => {
-          Toast.show(
-            res.success ? "Doctor added" : res.error || "Failed",
-            res.success ? "success" : "error",
-          );
-          if (res.success) renderDoctors();
-        });
+        openStaffModal({ role: 'doctor' });
       }
       function editDoctor(id) {
-        Toast.show("Edit doctor ID: " + id, "info");
+        // Prefer staff editor (includes credentials); find matching user_id from doctors list
+        API.adminDoctors().then((res) => {
+          const doc = (res.doctors || []).find((d) => d.id === id);
+          if (doc?.user_id) {
+            openStaffModal({ id: doc.user_id });
+            return;
+          }
+          Toast.show('Open Staff section to edit doctor credentials', 'info');
+        });
+      }
+
+      let staffCache = [];
+
+      function escapeHtml(value) {
+        return String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      async function renderStaff() {
+        const role = document.getElementById('staffRoleFilter')?.value || '';
+        const res = await API.adminStaff(role || undefined);
+        if (!res.success) {
+          Toast.show(res.error || 'Failed to load staff', 'error');
+          return;
+        }
+        staffCache = res.staff || [];
+        const me = API.getStoredUser();
+        document.getElementById('staffList').innerHTML = staffCache.length
+          ? staffCache.map((s) => `
+              <tr>
+                <td><strong>${escapeHtml(s.full_name)}</strong>${me?.id === s.id ? ' <span class="badge badge-info">You</span>' : ''}</td>
+                <td>${escapeHtml(s.username)}</td>
+                <td><span class="badge badge-info">${escapeHtml(s.role_label || s.role)}</span></td>
+                <td>${escapeHtml(s.phone || '—')}</td>
+                <td><span class="badge ${s.is_active ? 'badge-success' : 'badge-warning'}">${s.is_active ? 'Active' : 'Disabled'}</span></td>
+                <td>${escapeHtml(s.last_login || 'Never')}</td>
+                <td><button class="btn btn-outline" style="padding:0.25rem 0.75rem;" onclick="openStaffModal({ id: ${s.id} })">Edit</button></td>
+              </tr>
+            `).join('')
+          : '<tr><td colspan="7" class="empty-state">No staff accounts found</td></tr>';
+      }
+
+      function toggleDoctorStaffFields() {
+        const role = document.getElementById('staffRole').value;
+        document.getElementById('doctorStaffFields').style.display = role === 'doctor' ? '' : 'none';
+      }
+
+      function openStaffModal(opts = {}) {
+        const modal = document.getElementById('staffModal');
+        const editId = opts.id || '';
+        document.getElementById('staffEditId').value = editId;
+        document.getElementById('staffModalTitle').textContent = editId ? 'Edit Staff' : 'Add Staff';
+        document.getElementById('staffPasswordLabel').textContent = editId ? 'Password' : 'Password *';
+        document.getElementById('staffPasswordHint').style.display = editId ? '' : 'none';
+        document.getElementById('staffActiveGroup').style.display = editId ? '' : 'none';
+        document.getElementById('staffPassword').value = '';
+        document.getElementById('staffFullName').value = '';
+        document.getElementById('staffUsername').value = '';
+        document.getElementById('staffPhone').value = '';
+        document.getElementById('staffEmail').value = '';
+        document.getElementById('staffRole').value = opts.role || 'receptionist';
+        document.getElementById('staffSpecialization').value = 'General';
+        document.getElementById('staffQualification').value = '';
+        document.getElementById('staffAvgConsult').value = '10';
+        document.getElementById('staffMaxQueue').value = '5';
+        document.getElementById('staffIsActive').checked = true;
+
+        if (editId) {
+          const existing = staffCache.find((s) => String(s.id) === String(editId));
+          const apply = (s) => {
+            document.getElementById('staffFullName').value = s.full_name || '';
+            document.getElementById('staffUsername').value = s.username || '';
+            document.getElementById('staffPhone').value = s.phone || '';
+            document.getElementById('staffEmail').value = s.email || '';
+            document.getElementById('staffRole').value = s.role || 'receptionist';
+            document.getElementById('staffIsActive').checked = !!s.is_active;
+            if (s.role === 'doctor') {
+              document.getElementById('staffSpecialization').value = s.specialization || 'General';
+              document.getElementById('staffQualification').value = s.qualification || '';
+              document.getElementById('staffAvgConsult').value = s.avg_consultation_time || 10;
+              document.getElementById('staffMaxQueue').value = s.max_queue_size || 5;
+            }
+            toggleDoctorStaffFields();
+          };
+          if (existing) {
+            apply(existing);
+          } else {
+            API.adminStaffDetail(editId).then((res) => {
+              if (res.success) apply(res.staff);
+            });
+          }
+        }
+        toggleDoctorStaffFields();
+        modal.classList.add('active');
+      }
+
+      function closeStaffModal() {
+        document.getElementById('staffModal').classList.remove('active');
+      }
+
+      async function saveStaff() {
+        const editId = document.getElementById('staffEditId').value;
+        const payload = {
+          full_name: document.getElementById('staffFullName').value.trim(),
+          username: document.getElementById('staffUsername').value.trim(),
+          role: document.getElementById('staffRole').value,
+          phone: document.getElementById('staffPhone').value.trim(),
+          email: document.getElementById('staffEmail').value.trim(),
+        };
+        const password = document.getElementById('staffPassword').value;
+        if (!payload.username) {
+          Toast.show('Username is required', 'error');
+          return;
+        }
+        if (!editId && !password) {
+          Toast.show('Password is required for new staff', 'error');
+          return;
+        }
+        if (password) payload.password = password;
+        if (editId) payload.is_active = document.getElementById('staffIsActive').checked;
+        if (payload.role === 'doctor') {
+          payload.specialization = document.getElementById('staffSpecialization').value.trim() || 'General';
+          payload.qualification = document.getElementById('staffQualification').value.trim();
+          payload.avg_consultation_time = Number(document.getElementById('staffAvgConsult').value) || 10;
+          payload.max_queue_size = Number(document.getElementById('staffMaxQueue').value) || 5;
+        }
+
+        LoadingOverlay.show();
+        const res = editId
+          ? await API.adminUpdateStaff(editId, payload)
+          : await API.adminCreateStaff(payload);
+        LoadingOverlay.hide();
+        if (!res.success) {
+          Toast.show(res.error || 'Failed to save staff', 'error');
+          return;
+        }
+        Toast.show(res.message || 'Staff saved', 'success');
+        closeStaffModal();
+        await renderStaff();
+        if (payload.role === 'doctor') renderDoctors();
       }
 
       const SLOT_TYPES = ['morning', 'afternoon', 'evening'];

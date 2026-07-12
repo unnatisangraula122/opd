@@ -4,67 +4,151 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Patient Dashboard - General OPD</title>
-    <link rel="stylesheet" href="../css/style.css?v=20260707" />
+    <link rel="stylesheet" href="../css/style.css?v=20260712e" />
     <style>
       .live-queue-card {
-        background: linear-gradient(
-          135deg,
-          var(--primary-light),
-          var(--primary)
-        );
-        color: white;
+        background: var(--surface);
+        color: var(--text-primary);
+        border: 1px solid var(--border);
         border-radius: var(--radius-lg);
-        padding: 1.5rem;
+        padding: 1.75rem 1.75rem 1.5rem;
         margin-bottom: 1.5rem;
+        box-shadow: var(--shadow);
+        position: relative;
+        overflow: hidden;
+      }
+      .live-queue-card::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: linear-gradient(180deg, var(--secondary), var(--accent));
+      }
+      .live-queue-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+      }
+      .live-queue-header h3 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+      .live-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        background: var(--success-bg);
+        color: var(--success);
+        border: 1px solid #A7F3D0;
+      }
+      .live-badge::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--success);
+        box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
       }
       .position-number {
-        font-size: 4rem;
-        font-weight: bold;
+        font-size: 3.75rem;
+        font-weight: 700;
+        line-height: 1;
+        color: var(--primary);
+        letter-spacing: -0.03em;
+      }
+      .live-queue-meta {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+        margin: 0.35rem 0 0;
+      }
+      .live-queue-message {
+        font-size: 1.15rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        margin: 0.25rem 0 0.75rem;
+      }
+      .live-queue-detail {
+        font-size: 0.875rem;
+        color: var(--text-muted);
+        margin: 0.75rem 0 0;
       }
       .queue-progress {
         width: 100%;
         height: 8px;
-        background: rgba(255, 255, 255, 0.3);
-        border-radius: 4px;
-        margin: 1rem 0;
+        background: #E8EEF4;
+        border-radius: 999px;
+        margin: 1.1rem 0 0.85rem;
         overflow: hidden;
       }
       .queue-progress-fill {
         height: 100%;
-        background: var(--accent);
-        border-radius: 4px;
+        background: linear-gradient(90deg, var(--secondary), var(--accent));
+        border-radius: 999px;
         transition: width 0.5s ease;
       }
       .status-timeline {
         display: flex;
         justify-content: space-between;
         margin-top: 1.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--border);
+        position: relative;
+      }
+      .status-timeline::before {
+        content: '';
+        position: absolute;
+        top: calc(1.25rem + 5px);
+        left: 12%;
+        right: 12%;
+        height: 2px;
+        background: var(--border);
+        z-index: 0;
       }
       .status-step {
         text-align: center;
         flex: 1;
+        position: relative;
+        z-index: 1;
       }
       .status-step .dot {
         width: 12px;
         height: 12px;
-        background: rgba(255, 255, 255, 0.3);
+        background: #D5DEE8;
+        border: 2px solid var(--surface);
         border-radius: 50%;
         margin: 0 auto 0.5rem;
+        box-shadow: 0 0 0 1px var(--border);
       }
       .status-step.active .dot {
         background: var(--accent);
-        box-shadow: 0 0 8px var(--accent);
+        box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.15);
+        border-color: var(--surface);
       }
       .status-step.completed .dot {
         background: var(--success);
+        box-shadow: 0 0 0 1px #A7F3D0;
       }
       .status-step-label {
         font-size: 0.7rem;
-        opacity: 0.7;
+        color: var(--text-muted);
       }
       .status-step.active .status-step-label {
-        opacity: 1;
-        font-weight: bold;
+        color: var(--primary);
+        font-weight: 600;
+      }
+      .status-step.completed .status-step-label {
+        color: var(--success);
       }
       .bill-card {
         border: 1px solid var(--border);
@@ -564,8 +648,8 @@
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js?v=20260711a"></script>
-    <script src="../js/api.js?v=20260711a"></script>
+    <script src="../js/app.js?v=20260712d"></script>
+    <script src="../js/api.js?v=20260712d"></script>
     <script>
       // Prefer real visit status; only use slot-time labels for booked appointments.
       // Past-day visits left open (With Doctor / Lab / Pharmacy) are treated as completed.
@@ -1074,107 +1158,197 @@
           .join("");
       }
 
+      function renderLiveStageCard({ title, message, tokenNumber, doctorName, steps }) {
+        const stepsHtml = steps.map(([state, label]) => `
+          <div class="status-step ${state}"><div class="dot"></div><div class="status-step-label">${label}</div></div>
+        `).join('');
+        return `
+          <div class="live-queue-card">
+            <div class="live-queue-header">
+              <h3>${title}</h3>
+              <span class="live-badge">LIVE</span>
+            </div>
+            <p class="live-queue-message">${message}</p>
+            <p class="live-queue-detail">Token: ${escapeHtml(tokenNumber)} · ${escapeHtml(doctorName)}</p>
+            <div class="status-timeline">${stepsHtml}</div>
+          </div>`;
+      }
+
       async function renderLiveQueue() {
         const container = document.getElementById("liveQueueContent");
-        const todayAppointments = appointments.filter(
-          (a) => TimeUtils.compareAppointmentDay(a.date) === 'today'
-        );
-        const todayAppointment = todayAppointments.find(isValidNextAppointment)
-          || todayAppointments.find((a) => ['checked_in', 'consulting', 'pending_lab', 'pending_pharmacy'].includes(normalizeStatus(a.status)));
+        if (!container) return;
 
-        if (!todayAppointment) {
-          const hadTodaySlot = todayAppointments.length > 0;
+        const showMessage = (type, message) => {
           container.innerHTML = `
             <div class="card">
-              <div class="alert alert-${hadTodaySlot ? 'danger' : 'info'}">
-                ${hadTodaySlot
-                  ? 'Your appointment slot for today has ended. Please book a new appointment if needed.'
-                  : "You don't have any appointments for today."}
-              </div>
-            </div>
-          `;
-          return;
-        }
-
-        const aptStatus = getAppointmentStatus(todayAppointment);
-
-        if (aptStatus.status === "upcoming") {
-          container.innerHTML = `
-            <div class="card">
-              <div class="alert alert-info">
-                <span data-icon="info" data-icon-size="18"></span>
-                <div>Your appointment is scheduled for ${todayAppointment.time}. Please check in at reception when you arrive (check-in opens 15 minutes before your slot).</div>
-              </div>
-            </div>
-          `;
-          return;
-        }
-
-        if (aptStatus.isPassed) {
-          container.innerHTML = `
-            <div class="card">
-              <div class="alert alert-danger">
-                <span>${medIconSvg('warning', 18)}</span>
-                <div>Your appointment was marked as a no-show. Please book a new appointment.</div>
-              </div>
-            </div>
-          `;
-          return;
-        }
-
-        const queueRes = await API.patientQueueStatus();
-        if (!queueRes.success || !queueRes.has_active) {
-          container.innerHTML = `
-            <div class="card">
-              <div class="alert alert-warning">
-                <span data-icon="warning" data-icon-size="18"></span>
-                <div>You have not checked in yet. Please check in at reception to join the live queue.</div>
-              </div>
-            </div>
-          `;
-          return;
-        }
-
-        const position = queueRes.queue_position;
-        if (!position || queueRes.token?.status === 'booked') {
-          container.innerHTML = `
-            <div class="card">
-              <div class="alert alert-warning">
-                <span data-icon="warning" data-icon-size="18"></span>
-                <div>You have not checked in yet. Please check in at reception to see your queue position.</div>
-              </div>
-            </div>
-          `;
-          return;
-        }
-
-        const total = queueRes.queue_length || position;
-        const progress = Math.min(100, Math.max(8, ((total - position + 1) / total) * 100));
-        const estimatedWait = Math.max(0, (position - 1) * 8);
-
-        if (lastQueuePosition !== null && position < lastQueuePosition && position <= 2) {
-          Toast.show(position === 1 ? 'You are next! Please be ready.' : 'You are almost next in line.', position === 1 ? 'success' : 'warning');
-        }
-        lastQueuePosition = position;
+              <div class="alert alert-${type}">${message}</div>
+            </div>`;
+          if (typeof MedIcons !== 'undefined') MedIcons.inject(container);
+        };
 
         container.innerHTML = `
-          <div class="live-queue-card">
-            <h3 style="margin-bottom:1rem;">Your Live Queue Status <span class="badge" style="background:rgba(255,255,255,0.2);">LIVE</span></h3>
-            <div class="position-number" id="queuePosition">${position}</div>
-            <p>Current Position in Queue (${total} waiting)</p>
-            <div class="queue-progress">
-              <div class="queue-progress-fill" id="queueProgressFill" style="width:${progress}%"></div>
-            </div>
-            <p id="estimatedWait">Estimated Wait: ~${estimatedWait} minutes</p>
-            <p style="font-size:0.875rem;opacity:0.9;">Token: ${queueRes.token.token_number} · ${queueRes.token.doctor_name} · Est. ${queueRes.token.estimated_time || todayAppointment.time}</p>
-            <div class="status-timeline">
-              <div class="status-step completed"><div class="dot"></div><div class="status-step-label">Checked In</div></div>
-              <div class="status-step active"><div class="dot"></div><div class="status-step-label">In Queue</div></div>
-              <div class="status-step"><div class="dot"></div><div class="status-step-label">Consultation</div></div>
-              <div class="status-step"><div class="dot"></div><div class="status-step-label">Completed</div></div>
-            </div>
-          </div>
-        `;
+          <div class="card">
+            <div class="alert alert-info">Loading live queue…</div>
+          </div>`;
+
+        try {
+          const queueRes = await API.patientQueueStatus();
+          const todayAppointments = (appointments || []).filter(
+            (a) => TimeUtils.compareAppointmentDay(a.date) === 'today'
+          );
+          // Prefer queue-status API, then journey payload, then today's appointment row.
+          const liveToken = (queueRes?.success && queueRes.has_active && queueRes.token)
+            ? queueRes.token
+            : (activeJourney || null);
+          const fallbackApt = todayAppointments.find((a) =>
+            ['checked_in', 'consulting', 'pending_lab', 'pending_pharmacy', 'booked'].includes(normalizeStatus(a.status))
+          );
+          const status = normalizeStatus(
+            liveToken?.status || fallbackApt?.status || ''
+          );
+
+          if (!liveToken && !fallbackApt) {
+            if (!todayAppointments.length) {
+              showMessage('info', "You don't have any appointments for today.");
+              return;
+            }
+            const allDone = todayAppointments.every((a) =>
+              ['completed', 'expired', 'cancelled'].includes(normalizeStatus(a.status))
+            );
+            if (allDone) {
+              const wasNoShow = todayAppointments.some((a) =>
+                ['expired', 'cancelled'].includes(normalizeStatus(a.status))
+              );
+              showMessage(
+                wasNoShow ? 'danger' : 'success',
+                wasNoShow
+                  ? 'Your appointment was marked as a no-show. Please book a new appointment.'
+                  : 'Your visit for today is completed.'
+              );
+              return;
+            }
+            showMessage('warning', 'Unable to load live queue details. Please refresh.');
+            return;
+          }
+
+          const tokenNumber = liveToken?.token_number || fallbackApt?.token || '—';
+          const doctorName = liveToken?.doctor_name || fallbackApt?.doctor || '—';
+          const estTime = liveToken?.estimated_time || fallbackApt?.time || '—';
+          const pharmacyLabel = liveToken?.pharmacy_display
+            || queueRes?.pharmacy_display
+            || fallbackApt?.pharmacy_display
+            || (queueRes?.pharmacy_status ? String(queueRes.pharmacy_status).replace(/_/g, ' ') : 'Waiting at pharmacy');
+
+          if (status === 'booked') {
+            showMessage(
+              'warning',
+              `You have not checked in yet${estTime && estTime !== '—' ? ` (Est. ${estTime})` : ''}. Please check in at reception to join the live queue.`
+            );
+            return;
+          }
+
+          if (status === 'consulting') {
+            container.innerHTML = renderLiveStageCard({
+              title: 'With Doctor',
+              message: 'Your consultation is in progress',
+              tokenNumber,
+              doctorName,
+              steps: [
+                ['completed', 'Checked In'],
+                ['completed', 'In Queue'],
+                ['active', 'Consultation'],
+                ['', 'Completed'],
+              ],
+            });
+            return;
+          }
+
+          if (status === 'pending_lab') {
+            container.innerHTML = renderLiveStageCard({
+              title: 'Laboratory',
+              message: 'Please proceed to the laboratory',
+              tokenNumber,
+              doctorName,
+              steps: [
+                ['completed', 'Checked In'],
+                ['completed', 'Consultation'],
+                ['active', 'Lab'],
+                ['', 'Completed'],
+              ],
+            });
+            return;
+          }
+
+          if (status === 'pending_pharmacy') {
+            container.innerHTML = renderLiveStageCard({
+              title: 'Pharmacy',
+              message: escapeHtml(pharmacyLabel),
+              tokenNumber,
+              doctorName,
+              steps: [
+                ['completed', 'Checked In'],
+                ['completed', 'Consultation'],
+                ['active', 'Pharmacy'],
+                ['', 'Completed'],
+              ],
+            });
+            return;
+          }
+
+          // checked_in — show live queue position (not required for post-consult stages above)
+          const position = queueRes?.queue_position || liveToken?.queue_position || fallbackApt?.queuePosition;
+          if (!position) {
+            container.innerHTML = renderLiveStageCard({
+              title: 'Checked In',
+              message: 'You are checked in and waiting to join the doctor queue.',
+              tokenNumber,
+              doctorName,
+              steps: [
+                ['completed', 'Checked In'],
+                ['active', 'In Queue'],
+                ['', 'Consultation'],
+                ['', 'Completed'],
+              ],
+            });
+            return;
+          }
+
+          const total = queueRes?.queue_length || position;
+          const progress = Math.min(100, Math.max(8, ((total - position + 1) / total) * 100));
+          const avgMin = liveToken?.avg_consultation_minutes || 8;
+          const estimatedWait = Math.max(0, (position - 1) * avgMin);
+
+          if (lastQueuePosition !== null && position < lastQueuePosition && position <= 2) {
+            if (typeof Toast !== 'undefined') {
+              Toast.show(position === 1 ? 'You are next! Please be ready.' : 'You are almost next in line.', position === 1 ? 'success' : 'warning');
+            }
+          }
+          lastQueuePosition = position;
+
+          container.innerHTML = `
+            <div class="live-queue-card">
+              <div class="live-queue-header">
+                <h3>Your Live Queue Status</h3>
+                <span class="live-badge">LIVE</span>
+              </div>
+              <div class="position-number" id="queuePosition">${position}</div>
+              <p class="live-queue-meta">Current Position in Queue (${total} waiting)</p>
+              <div class="queue-progress">
+                <div class="queue-progress-fill" id="queueProgressFill" style="width:${progress}%"></div>
+              </div>
+              <p id="estimatedWait" class="live-queue-meta">Estimated Wait: ~${estimatedWait} minutes</p>
+              <p class="live-queue-detail">Token: ${escapeHtml(tokenNumber)} · ${escapeHtml(doctorName)} · Est. ${escapeHtml(estTime)}</p>
+              <div class="status-timeline">
+                <div class="status-step completed"><div class="dot"></div><div class="status-step-label">Checked In</div></div>
+                <div class="status-step active"><div class="dot"></div><div class="status-step-label">In Queue</div></div>
+                <div class="status-step"><div class="dot"></div><div class="status-step-label">Consultation</div></div>
+                <div class="status-step"><div class="dot"></div><div class="status-step-label">Completed</div></div>
+              </div>
+            </div>`;
+        } catch (err) {
+          console.error('Live queue render failed:', err);
+          showMessage('danger', 'Unable to load live queue right now. Please refresh.');
+        }
       }
 
       function renderAllAppointments() {

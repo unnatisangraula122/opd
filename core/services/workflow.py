@@ -223,8 +223,8 @@ def expire_unclaimed_for_slot(slot):
     """
     After a slot ends:
     - booked (never checked in) → expired (no-show)
-    - checked_in / consulting / pending_lab / pending_pharmacy → completed
-      (visit day is over; do not leave dashboards stuck on With Doctor / Lab / Pharmacy)
+    - checked_in / consulting → completed (doctor queue should not stay live)
+    - pending_lab / pending_pharmacy stay open (post-consult work continues after the slot)
     """
     now = timezone.localtime()
     slot_end = timezone.make_aware(
@@ -238,10 +238,11 @@ def expire_unclaimed_for_slot(slot):
 
     expired = Token.objects.filter(slot=slot, status=C.BOOKED).update(status=C.EXPIRED)
 
+    # Only close doctor-side stuck states. Lab/pharmacy continue after the slot window.
     stale = list(
         Token.objects.filter(
             slot=slot,
-            status__in=(C.CHECKED_IN, C.CONSULTING, C.PENDING_LAB, C.PENDING_PHARMACY),
+            status__in=(C.CHECKED_IN, C.CONSULTING),
         ).prefetch_related('lab_queue_entries__lab_order')
     )
     completed = 0

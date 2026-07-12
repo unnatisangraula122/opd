@@ -38,6 +38,7 @@ def get_patient_tokens(request):
 @permission_classes([IsAuthenticated, IsPatient])
 def patient_queue_status(request):
     from core.services.workflow import expire_all_ended_slots
+    from core import constants as C
 
     expire_all_ended_slots()
 
@@ -46,29 +47,47 @@ def patient_queue_status(request):
         _patient_token_filter(request.user),
         slot__date=today,
         status__in=['booked', 'checked_in', 'consulting', 'pending_lab', 'pending_pharmacy'],
-    ).select_related('slot__doctor', 'queue_entry', 'pharmacy_queue_entry').order_by('-created_at').first()
+    ).select_related('slot__doctor__user', 'patient').order_by('-created_at').first()
 
     if not token:
         return Response({'success': True, 'has_active': False})
 
     queue_position = None
     queue_length = 0
-    if hasattr(token, 'queue_entry'):
-        queue_position = token.queue_entry.queue_position
-        from core.models import QueueEntry
-        queue_length = QueueEntry.objects.filter(
-            slot=token.slot,
-            queue_status='waiting',
-        ).count()
+    try:
+        entry = token.queue_entry
+        if entry and entry.queue_status == 'waiting':
+            queue_position = entry.queue_position
+            from core.models import QueueEntry
+            queue_length = QueueEntry.objects.filter(
+                slot=token.slot,
+                queue_status='waiting',
+            ).count()
+    except Exception:
+        pass
 
-    pharmacy = getattr(token, 'pharmacy_queue_entry', None)
+    pharmacy = None
+    pharmacy_status = None
+    pharmacy_display = None
+    try:
+        pharmacy = token.pharmacy_queue_entry
+        pharmacy_status = pharmacy.status
+        pharmacy_display = C.PHARMACY_DISPLAY.get(pharmacy.status, pharmacy.status)
+    except Exception:
+        pass
+
+    token_data = serialize_token(token, include_queue=True, include_workflow=True)
+    if pharmacy_display:
+        token_data['pharmacy_display'] = pharmacy_display
+
     return Response({
         'success': True,
         'has_active': True,
-        'token': serialize_token(token, include_queue=True, include_workflow=True),
+        'token': token_data,
         'queue_position': queue_position,
         'queue_length': queue_length,
-        'pharmacy_status': pharmacy.status if pharmacy else None,
+        'pharmacy_status': pharmacy_status,
+        'pharmacy_display': pharmacy_display,
     })
 
 

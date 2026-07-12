@@ -77,6 +77,8 @@ urlpatterns = [
     path('followup/<int:token_id>/', views.create_followup, name='followup'),
 
     # Admin
+    path('admin/staff/', views.admin_staff_list, name='admin-staff'),
+    path('admin/staff/<int:user_id>/', views.admin_staff_detail, name='admin-staff-detail'),
     path('admin/doctors/', views.admin_doctors, name='admin-doctors'),
     path('admin/doctors/add/', views.admin_add_doctor, name='admin-add-doctor'),
     path('admin/doctors/<int:doctor_id>/', views.admin_update_doctor, name='admin-update-doctor'),

@@ -20,6 +20,7 @@ from .lab import lab_queue, lab_start_test, lab_complete_test, lab_reports_for_t
 from .pharmacy import pharmacy_queue, pharmacy_start_dispense, pharmacy_mark_ready_view, pharmacy_complete_dispense
 from .admin_api import (
     admin_doctors, admin_add_doctor, admin_update_doctor,
+    admin_staff_list, admin_staff_detail,
     admin_slot_config, admin_throttle_config, admin_throttle_logs, analytics,
 )
 from .patient_portal import (

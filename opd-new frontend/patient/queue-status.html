@@ -4,12 +4,71 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Queue Status - General OPD</title>
-    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/style.css?v=20260712e">
     <style>
-        .live-queue-card { background: linear-gradient(135deg, var(--primary-light), var(--primary)); border-radius: var(--radius-lg); padding: 2rem; text-align: center; color: white; }
-        .position-number { font-size: 5rem; font-weight: 800; }
-        .waiting-animation { width: 100%; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; overflow: hidden; margin: 1.5rem 0; }
-        .waiting-progress { width: 0%; height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.5s ease; }
+        .live-queue-card {
+            background: var(--surface);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            text-align: center;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+        .live-queue-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(180deg, var(--secondary), var(--accent));
+        }
+        .live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            background: var(--success-bg);
+            color: var(--success);
+            border: 1px solid #A7F3D0;
+        }
+        .live-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+        }
+        .position-number {
+            font-size: 4.5rem;
+            font-weight: 700;
+            line-height: 1;
+            color: var(--primary);
+            letter-spacing: -0.03em;
+        }
+        .waiting-animation {
+            width: 100%;
+            height: 8px;
+            background: #E8EEF4;
+            border-radius: 999px;
+            overflow: hidden;
+            margin: 1.5rem 0;
+        }
+        .waiting-progress {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, var(--secondary), var(--accent));
+            border-radius: 999px;
+            transition: width 0.5s ease;
+        }
         .queue-list-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem; border-bottom: 1px solid var(--border); }
         .queue-list-item.current { background: rgba(59,151,151,0.1); border-left: 3px solid var(--secondary); }
         .priority-icon { color: var(--danger); }
@@ -18,15 +77,52 @@
         .refresh-btn .med-icon-svg { stroke: #fff; }
         .sound-toggle { position: fixed; bottom: 2rem; left: 2rem; width: 48px; height: 48px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); }
         .sound-toggle .med-icon-svg { stroke: var(--secondary-dark); }
-        .slot-info { background: rgba(255,255,255,0.2); border-radius: var(--radius); padding: 0.5rem 1rem; margin-top: 1rem; font-size: 0.875rem; }
-        .status-timeline { display: flex; justify-content: space-between; margin-top: 1.5rem; }
-        .status-step { text-align: center; flex: 1; }
-        .status-step .dot { width: 12px; height: 12px; background: rgba(255,255,255,0.3); border-radius: 50%; margin: 0 auto 0.5rem; }
-        .status-step.active .dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-        .status-step.completed .dot { background: var(--success); }
-        .status-step-label { font-size: 0.7rem; opacity: 0.7; }
-        .status-step.active .status-step-label { opacity: 1; font-weight: bold; }
-        .alert-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; text-align: center; }
+        .slot-info {
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 0.65rem 1rem;
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+        .status-timeline {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 1.5rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--border);
+            position: relative;
+        }
+        .status-timeline::before {
+            content: '';
+            position: absolute;
+            top: calc(1.25rem + 5px);
+            left: 12%;
+            right: 12%;
+            height: 2px;
+            background: var(--border);
+            z-index: 0;
+        }
+        .status-step { text-align: center; flex: 1; position: relative; z-index: 1; }
+        .status-step .dot {
+            width: 12px;
+            height: 12px;
+            background: #D5DEE8;
+            border: 2px solid var(--surface);
+            border-radius: 50%;
+            margin: 0 auto 0.5rem;
+            box-shadow: 0 0 0 1px var(--border);
+        }
+        .status-step.active .dot {
+            background: var(--accent);
+            box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.15);
+        }
+        .status-step.completed .dot { background: var(--success); box-shadow: 0 0 0 1px #A7F3D0; }
+        .status-step-label { font-size: 0.7rem; color: var(--text-muted); }
+        .status-step.active .status-step-label { color: var(--primary); font-weight: 600; }
+        .status-step.completed .status-step-label { color: var(--success); }
+        .alert-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; text-align: center; box-shadow: var(--shadow); }
     </style>
 </head>
 <body>
@@ -60,17 +156,21 @@
 
         function hasCheckedIn() {
             if (!currentPatient) return false;
-            return ['checked-in', 'checked_in', 'consulting', 'pending_lab', 'pending_pharmacy'].includes(currentPatient.status);
+            return ['checked-in', 'checked_in', 'consulting', 'pending_lab', 'pending_pharmacy'].includes(
+                String(currentPatient.status || '').toLowerCase().replace(/-/g, '_')
+            );
         }
 
-        function getSlotStatusMessage(patient) {
-            return TimeUtils.getAppointmentSlotStatus({
-                date: patient.appointmentDate,
-                slot: patient.slotType,
-                start_time: patient.startTime,
-                end_time: patient.endTime,
-                status: patient.status === 'checked-in' ? 'checked_in' : 'booked',
-            });
+        function renderStageCard(title, message, timeline) {
+            const container = document.getElementById('queueStatusContainer');
+            container.innerHTML = `
+                <div class="live-queue-card">
+                    <div style="margin-bottom: 1rem;"><span class="live-badge">LIVE</span></div>
+                    <h2 style="margin: 0.5rem 0 1rem; color: var(--text-primary); font-size: 1.25rem;">${title}</h2>
+                    <p style="font-size: 1.15rem; margin: 1rem 0; color: var(--text-primary); font-weight: 500;">${message}</p>
+                    <div style="margin: 0.5rem 0; color: var(--text-muted); font-size: 0.875rem;">Token: <strong style="color: var(--text-primary);">${currentPatient.token}</strong> · ${currentPatient.doctor}</div>
+                    <div class="status-timeline">${timeline}</div>
+                </div>`;
         }
 
         function renderQueueStatus() {
@@ -80,8 +180,53 @@
                 return;
             }
 
-            const slotStatus = getSlotStatusMessage(currentPatient);
+            const status = String(currentPatient.status || '').toLowerCase().replace(/-/g, '_');
             const checkedIn = hasCheckedIn();
+
+            if (status === 'consulting') {
+                renderStageCard(
+                    'With Doctor',
+                    'Your consultation is in progress',
+                    `
+                    <div class="status-step completed"><div class="dot"></div><div class="status-step-label">Checked In</div></div>
+                    <div class="status-step completed"><div class="dot"></div><div class="status-step-label">In Queue</div></div>
+                    <div class="status-step active"><div class="dot"></div><div class="status-step-label">Consultation</div></div>
+                    <div class="status-step"><div class="dot"></div><div class="status-step-label">Completed</div></div>`
+                );
+                return;
+            }
+            if (status === 'pending_lab') {
+                renderStageCard(
+                    'Laboratory',
+                    'Please proceed to the laboratory',
+                    `
+                    <div class="status-step completed"><div class="dot"></div><div class="status-step-label">Checked In</div></div>
+                    <div class="status-step completed"><div class="dot"></div><div class="status-step-label">Consultation</div></div>
+                    <div class="status-step active"><div class="dot"></div><div class="status-step-label">Lab</div></div>
+                    <div class="status-step"><div class="dot"></div><div class="status-step-label">Completed</div></div>`
+                );
+                return;
+            }
+            if (status === 'pending_pharmacy') {
+                renderStageCard(
+                    'Pharmacy',
+                    currentPatient.pharmacyDisplay || currentPatient.displayStatus || 'Please proceed to pharmacy',
+                    `
+                    <div class="status-step completed"><div class="dot"></div><div class="status-step-label">Checked In</div></div>
+                    <div class="status-step completed"><div class="dot"></div><div class="status-step-label">Consultation</div></div>
+                    <div class="status-step active"><div class="dot"></div><div class="status-step-label">Pharmacy</div></div>
+                    <div class="status-step"><div class="dot"></div><div class="status-step-label">Completed</div></div>`
+                );
+                return;
+            }
+
+            const slotStatus = TimeUtils.getAppointmentSlotStatus({
+                date: currentPatient.appointmentDate,
+                slot: currentPatient.slotType,
+                start_time: currentPatient.startTime,
+                end_time: currentPatient.endTime,
+                status: status === 'checked_in' ? 'checked_in' : 'booked',
+            });
 
             if (slotStatus.isUpcoming && !checkedIn) {
                 container.innerHTML = `
@@ -126,27 +271,40 @@
                 return;
             }
 
-            const position = currentPatient.queuePosition || 1;
+            const position = currentPatient.queuePosition;
+            if (!position) {
+                renderStageCard(
+                    'Checked In',
+                    'You are checked in and waiting to join the doctor queue.',
+                    `
+                    <div class="status-step completed"><div class="dot"></div><div class="status-step-label">Checked In</div></div>
+                    <div class="status-step active"><div class="dot"></div><div class="status-step-label">In Queue</div></div>
+                    <div class="status-step"><div class="dot"></div><div class="status-step-label">Consultation</div></div>
+                    <div class="status-step"><div class="dot"></div><div class="status-step-label">Completed</div></div>`
+                );
+                return;
+            }
+
             const total = currentPatient.totalInQueue || position;
             const progressPercent = Math.min(100, Math.max(8, ((total - position + 1) / total) * 100));
             const estimatedWait = Math.max(0, (position - 1) * 8);
 
             container.innerHTML = `
                 <div class="live-queue-card">
-                    <div style="margin-bottom: 1rem;"><span class="badge" style="background: rgba(255,255,255,0.2);">🔴 LIVE QUEUE STATUS</span></div>
+                    <div style="margin-bottom: 1rem;"><span class="live-badge">LIVE QUEUE</span></div>
                     <div class="position-number" id="queuePosition">${position}</div>
-                    <div style="font-size: 1.25rem;">Your Position in Queue</div>
-                    <div style="margin: 0.5rem 0;">Token: <strong>${currentPatient.token}</strong> · ${currentPatient.doctor}</div>
+                    <div style="font-size: 1.05rem; color: var(--text-secondary); margin-top: 0.35rem;">Your Position in Queue</div>
+                    <div style="margin: 0.75rem 0; color: var(--text-muted); font-size: 0.875rem;">Token: <strong style="color: var(--text-primary);">${currentPatient.token}</strong> · ${currentPatient.doctor}</div>
                     <div class="waiting-animation">
                         <div class="waiting-progress" id="waitingProgress" style="width: ${progressPercent}%"></div>
                     </div>
-                    <div style="font-size: 1.5rem; font-weight: bold;" id="estimatedWait">Estimated Wait: ~${estimatedWait} minutes</div>
+                    <div style="font-size: 1.15rem; font-weight: 600; color: var(--primary);" id="estimatedWait">Estimated Wait: ~${estimatedWait} minutes</div>
                     <div class="slot-info">
                         <strong>Slot:</strong> ${SLOT_CONFIG[currentPatient.slotType]?.displayTime || currentPatient.slotType} ·
                         <strong>${total}</strong> patient(s) in queue
                     </div>
                 </div>
-                <div class="status-timeline" style="margin-top: 1rem;">
+                <div class="status-timeline" style="margin-top: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem 1rem 1rem; box-shadow: var(--shadow);">
                     <div class="status-step completed"><div class="dot"></div><div class="status-step-label">Token Booked</div></div>
                     <div class="status-step completed"><div class="dot"></div><div class="status-step-label">Checked In</div></div>
                     <div class="status-step active"><div class="dot"></div><div class="status-step-label">In Queue</div></div>
@@ -168,13 +326,13 @@
                 return;
             }
             const t = res.token;
-            const newPosition = res.queue_position || 1;
-            if (lastQueuePosition !== null && soundEnabled && newPosition < lastQueuePosition) {
+            const newPosition = res.queue_position || null;
+            if (lastQueuePosition !== null && newPosition !== null && soundEnabled && newPosition < lastQueuePosition) {
                 if (newPosition <= 2) playSound();
                 if (newPosition === 1) Toast.show('You are next! Please be ready.', 'success');
                 else if (newPosition === 2) Toast.show('You are almost next in line.', 'warning');
             }
-            lastQueuePosition = newPosition;
+            if (newPosition !== null) lastQueuePosition = newPosition;
             currentPatient = {
                 name: t.patient_name,
                 token: t.token_number,
@@ -186,6 +344,7 @@
                 endTime: t.end_time,
                 status: t.status,
                 displayStatus: t.display_status || AppointmentStatus.label(t.status),
+                pharmacyDisplay: t.pharmacy_display || res.pharmacy_display || null,
                 queuePosition: newPosition,
                 totalInQueue: res.queue_length || newPosition,
             };

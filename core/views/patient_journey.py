@@ -77,7 +77,9 @@ def patient_journey(request):
             pharmacy = None
         queue_position = None
         try:
-            queue_position = active_token.queue_entry.queue_position
+            entry = active_token.queue_entry
+            if entry and entry.queue_status == 'waiting':
+                queue_position = entry.queue_position
         except Exception:
             queue_position = None
 

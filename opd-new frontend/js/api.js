@@ -212,6 +212,13 @@ const API = {
     adminDoctors() { return this.get('/admin/doctors/'); },
     adminAddDoctor(d) { return this.post('/admin/doctors/add/', d); },
     adminUpdateDoctor(id, d) { return this.put(`/admin/doctors/${id}/`, d); },
+    adminStaff(role) {
+        const q = role ? `?role=${encodeURIComponent(role)}` : '';
+        return this.get(`/admin/staff/${q}`);
+    },
+    adminStaffDetail(id) { return this.get(`/admin/staff/${id}/`); },
+    adminCreateStaff(d) { return this.post('/admin/staff/', d); },
+    adminUpdateStaff(id, d) { return this.put(`/admin/staff/${id}/`, d); },
     adminSlotConfig() { return this.get('/admin/slots/config/'); },
     adminSaveSlotConfig(d) { return this.put('/admin/slots/config/', d); },
     adminThrottleConfig() { return this.get('/admin/throttle/config/'); },

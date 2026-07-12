@@ -40,7 +40,7 @@ def _serialize_lab_order(order):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsLabTech])
 def lab_queue(request):
-    """Lab technician queue — all paid, unfinished work; completed today only."""
+    """Lab technician queue — paid work ready to process; plus unpaid orders for visibility."""
     today = timezone.localdate()
 
     entries = (
@@ -60,6 +60,12 @@ def lab_queue(request):
         else:
             pending.append(item)
 
+    awaiting_payment = []
+    for order in LabOrder.objects.filter(
+        status__in=('ordered', 'fee_pending'),
+    ).select_related('token', 'token__patient').order_by('ordered_at'):
+        awaiting_payment.append(_serialize_lab_order(order))
+
     completed = []
     for order in LabOrder.objects.filter(
         status='completed',
@@ -71,6 +77,7 @@ def lab_queue(request):
         'success': True,
         'pending': pending,
         'processing': processing,
+        'awaiting_payment': awaiting_payment,
         'completed': completed,
         'all': pending + processing + completed,
     })

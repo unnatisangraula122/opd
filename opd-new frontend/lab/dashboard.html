@@ -36,6 +36,10 @@
         background: #dbeafe;
         color: var(--info);
       }
+      .status-awaiting {
+        background: #fef3c7;
+        color: #92400E;
+      }
       #reportViewModal .modal-content {
         max-width: 720px;
         width: 95%;
@@ -218,10 +222,11 @@
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js?v=20260710f"></script>
-    <script src="../js/api.js?v=20260710f"></script>
+    <script src="../js/app.js?v=20260712f"></script>
+    <script src="../js/api.js?v=20260712f"></script>
     <script>
       let pendingTests = [];
+      let awaitingPaymentTests = [];
       let processingTests = [];
       let completedTests = [];
       let currentTestId = null;
@@ -260,6 +265,7 @@
             return;
           }
           pendingTests = (res.pending || []).map((t) => mapLabItem(t, 'pending'));
+          awaitingPaymentTests = (res.awaiting_payment || []).map((t) => mapLabItem(t, 'awaiting'));
           processingTests = (res.processing || []).map((t) => mapLabItem(t, 'processing'));
           completedTests = (res.completed || []).map((t) => mapLabItem(t, 'completed'));
           renderPending();
@@ -289,27 +295,49 @@
       }
 
       function renderPending() {
-        if (pendingTests.length === 0) {
+        const parts = [];
+
+        if (pendingTests.length) {
+          parts.push(pendingTests.map((t) => `
+            <div class="test-card">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                  <h4>${PatientDisplay.label(t.patient, t.patient_id)} <span class="status-badge status-pending">Ready</span></h4>
+                  <p><strong>Token:</strong> ${t.token} | <strong>Ordered:</strong> ${t.orderedAt ? new Date(t.orderedAt).toLocaleString() : '—'}</p>
+                  <p><strong>Tests:</strong> ${t.tests.join(", ")}${t.fee ? ` | <strong>Fee:</strong> Rs. ${t.fee}` : ''}</p>
+                </div>
+                <button class="btn btn-primary" onclick="startTest(${t.id})">Start Test →</button>
+              </div>
+            </div>
+          `).join(''));
+        }
+
+        if (awaitingPaymentTests.length) {
+          parts.push(`
+            <div class="alert alert-warning" style="margin: ${pendingTests.length ? '1.25rem' : '0'} 0 1rem;">
+              <strong>Awaiting payment at reception</strong> — these tests appear after the lab fee is collected.
+            </div>
+          `);
+          parts.push(awaitingPaymentTests.map((t) => `
+            <div class="test-card" style="opacity: 0.92;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                  <h4>${PatientDisplay.label(t.patient, t.patient_id)} <span class="status-badge status-awaiting">Payment Pending</span></h4>
+                  <p><strong>Token:</strong> ${t.token} | <strong>Ordered:</strong> ${t.orderedAt ? new Date(t.orderedAt).toLocaleString() : '—'}</p>
+                  <p><strong>Tests:</strong> ${t.tests.join(", ")}${t.fee ? ` | <strong>Fee due:</strong> Rs. ${t.fee}` : ''}</p>
+                </div>
+              </div>
+            </div>
+          `).join(''));
+        }
+
+        if (!parts.length) {
           document.getElementById("pendingList").innerHTML =
             '<p style="text-align:center; color:var(--text-muted);">No pending tests</p>';
           return;
         }
-        document.getElementById("pendingList").innerHTML = pendingTests
-          .map(
-            (t) => `
-                <div class="test-card">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <div>
-                            <h4>${PatientDisplay.label(t.patient, t.patient_id)} <span class="status-badge status-pending">Pending</span></h4>
-                            <p><strong>Token:</strong> ${t.token} | <strong>Ordered:</strong> ${t.orderedAt ? new Date(t.orderedAt).toLocaleString() : '—'}</p>
-                            <p><strong>Tests:</strong> ${t.tests.join(", ")}${t.fee ? ` | <strong>Fee:</strong> Rs. ${t.fee}` : ''}</p>
-                        </div>
-                        <button class="btn btn-primary" onclick="startTest(${t.id})">Start Test →</button>
-                    </div>
-                </div>
-            `,
-          )
-          .join("");
+
+        document.getElementById("pendingList").innerHTML = parts.join('');
       }
 
       function renderProcessing() {
