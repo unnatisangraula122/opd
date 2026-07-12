@@ -14,6 +14,7 @@ from accounts.models import User
 from core import constants as C
 from core.models import DoctorProfile, LabOrder, Payment, Token
 from core.permissions import IsReceptionist, IsReceptionistOrAdmin
+from core.services.lab_orders import group_pending_lab_payments, normalize_pending_lab_order_names, repair_corrupt_lab_orders
 from core.services.sms import sms_patient_registration
 from core.utils import is_elderly_by_age, patient_id_for_token, resolve_disabled_flag, serialize_token
 
@@ -288,22 +289,56 @@ def reception_tokens_booked(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsReceptionistOrAdmin])
 def reception_lab_payments(request):
+    repair_corrupt_lab_orders()
+    normalize_pending_lab_order_names()
     orders = LabOrder.objects.filter(
         status__in=['ordered', 'fee_pending']
     ).select_related('token', 'token__patient', 'consultation').order_by('ordered_at')
-    data = []
+    return Response({
+        'success': True,
+        'lab_payments': group_pending_lab_payments(orders),
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsReceptionistOrAdmin])
+@transaction.atomic
+def pay_lab_fees_for_token(request, token_id):
+    """Collect lab fees for all pending orders on a token, then send to lab queue."""
+    repair_corrupt_lab_orders(token_id)
+    orders = list(
+        LabOrder.objects.filter(
+            token_id=token_id,
+            status__in=('ordered', 'fee_pending'),
+        ).order_by('ordered_at')
+    )
+    if not orders:
+        return Response({'success': False, 'error': 'No pending lab fees for this patient'}, status=400)
+
+    entries = []
+    total = Decimal('0')
     for order in orders:
-        data.append({
-            'order_id': order.id,
-            'token_id': order.token_id,
-            'token_number': order.token.token_number,
-            'patient_id': patient_id_for_token(order.token),
-            'patient_name': order.token.patient_name,
-            'test_name': order.test_name,
-            'status': order.status,
-            'amount': float(order.fee),
-        })
-    return Response({'success': True, 'lab_payments': data})
+        amount = Decimal(str(order.fee))
+        Payment.objects.create(
+            token=order.token,
+            payment_type='lab_fee',
+            amount=amount,
+            status='paid',
+            collected_by=request.user,
+            paid_at=timezone.now(),
+            reference_number=request.data.get('reference_number', f'lab-{order.id}'),
+        )
+        entries.append(order.mark_fee_paid())
+        total += amount
+
+    return Response({
+        'success': True,
+        'message': 'Lab fee paid — patient sent to lab queue',
+        'token_id': token_id,
+        'orders_paid': len(orders),
+        'total_amount': float(total),
+        'queue_entry_ids': [e.id for e in entries],
+    })
 
 
 @api_view(['POST'])

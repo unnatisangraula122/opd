@@ -37,6 +37,7 @@ urlpatterns = [
     path('reception/patients/<int:user_id>/', views.reception_patient_detail, name='reception-patient-detail'),
     path('reception/lab-payments/', views.reception_lab_payments, name='reception-lab-payments'),
     path('reception/lab-pay/<int:order_id>/', views.pay_lab_fee, name='reception-lab-pay'),
+    path('reception/lab-pay-token/<int:token_id>/', views.pay_lab_fees_for_token, name='reception-lab-pay-token'),
     path('reception/throttle/', views.throttle_status, name='reception-throttle'),
 
     # Queue

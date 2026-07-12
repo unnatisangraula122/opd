@@ -165,6 +165,19 @@ const TimeUtils = {
         return null;
     },
 
+    /** Sort A1, A2, … A10 (not A1, A10, A2). */
+    compareTokenNumbers(a, b) {
+        const parse = (token) => {
+            const m = String(token || '').match(/^([A-Za-z]+)(\d+)$/);
+            if (!m) return [String(token || ''), 0];
+            return [m[1].toUpperCase(), parseInt(m[2], 10)];
+        };
+        const [prefixA, numA] = parse(a);
+        const [prefixB, numB] = parse(b);
+        if (prefixA !== prefixB) return prefixA.localeCompare(prefixB);
+        return numA - numB;
+    },
+
     getSlotBounds(appointment) {
         const slotType = this.normalizeSlotType(
             appointment.slot || appointment.slot_type || appointment.slot_type_raw

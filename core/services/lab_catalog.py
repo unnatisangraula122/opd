@@ -1,5 +1,6 @@
 """Standard lab test catalog with Nepal OPD reference pricing (NPR)."""
 
+import re
 from decimal import Decimal
 
 from core.constants import DEFAULT_LAB_FEE
@@ -92,6 +93,23 @@ def resolve_lab_test(test_name_or_code):
 
     match = _BY_NAME.get(key.casefold()) or _BY_CODE.get(key.casefold())
     if match:
+        return {
+            'code': match['code'],
+            'name': match['name'],
+            'category': match['category'],
+            'fee': match['fee'],
+        }
+
+    compact = re.sub(r'[^a-z0-9]', '', key.casefold())
+    compact_aliases = {
+        'completebloodcountcbc': 'cbc',
+        'completebloodcount': 'cbc',
+        'liverfunctiontestlft': 'lft',
+        'kidneyfunctiontestkft': 'kft',
+    }
+    alias_code = compact_aliases.get(compact)
+    if alias_code and alias_code in _BY_CODE:
+        match = _BY_CODE[alias_code]
         return {
             'code': match['code'],
             'name': match['name'],

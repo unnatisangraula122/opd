@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from core.models import LabOrder, LabQueueEntry, LabReport
 from core.permissions import IsLabTech, IsReceptionistOrAdmin
 from core.services.sms import sms_lab_report_ready
+from core.services.lab_orders import normalize_pending_lab_order_names, repair_corrupt_lab_orders
 from core.services.workflow import after_lab_report_uploaded
 from core.utils import serialize_token, patient_id_for_token
 
@@ -40,7 +41,9 @@ def _serialize_lab_order(order):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsLabTech])
 def lab_queue(request):
-    """Lab technician queue — paid work ready to process; plus unpaid orders for visibility."""
+    """Lab technician queue — only paid tests (after reception payment)."""
+    repair_corrupt_lab_orders()
+    normalize_pending_lab_order_names()
     today = timezone.localdate()
 
     entries = (
@@ -60,12 +63,6 @@ def lab_queue(request):
         else:
             pending.append(item)
 
-    awaiting_payment = []
-    for order in LabOrder.objects.filter(
-        status__in=('ordered', 'fee_pending'),
-    ).select_related('token', 'token__patient').order_by('ordered_at'):
-        awaiting_payment.append(_serialize_lab_order(order))
-
     completed_today = []
     for order in LabOrder.objects.filter(
         status='completed',
@@ -83,7 +80,6 @@ def lab_queue(request):
         'success': True,
         'pending': pending,
         'processing': processing,
-        'awaiting_payment': awaiting_payment,
         'completed': completed_today,
         'completed_all': completed_all,
         'all': pending + processing + completed_today,

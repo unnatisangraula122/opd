@@ -11,7 +11,7 @@ from core.models import (
 )
 from core.permissions import IsDoctor
 from core.services.analytics import get_next_eligible_token
-from core.services.workflow import complete_consultation as workflow_complete_consultation
+from core.services.workflow import complete_consultation as workflow_complete_consultation, _normalize_lab_test_names
 from core.utils import (
     format_local_time, get_doctor_for_user, patient_id_for_token,
     patient_is_new, serialize_token,
@@ -200,7 +200,7 @@ def complete_consultation(request, token_id):
             diagnosis=request.data.get('diagnosis', ''),
             notes=request.data.get('notes', ''),
             medicines=request.data.get('medicines', []),
-            lab_tests=request.data.get('lab_tests', []),
+            lab_tests=_normalize_lab_test_names(request.data.get('lab_tests', [])),
             followup_date=request.data.get('followup_date'),
         )
     except ValidationError as exc:

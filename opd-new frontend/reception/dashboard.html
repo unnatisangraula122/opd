@@ -476,8 +476,8 @@
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js?v=20260710g"></script>
-    <script src="../js/api.js?v=20260712c"></script>
+    <script src="../js/app.js?v=20260712n"></script>
+    <script src="../js/api.js?v=20260712m"></script>
     <script>
       // Slot display labels from shared TimeUtils
       const SLOT_CONFIG = TimeUtils.SLOT_CONFIG;
@@ -488,7 +488,15 @@
           const slotA = SLOT_DISPLAY_ORDER[a.slot] ?? 9;
           const slotB = SLOT_DISPLAY_ORDER[b.slot] ?? 9;
           if (slotA !== slotB) return slotA - slotB;
-          return String(a.time || '').localeCompare(String(b.time || ''));
+          if (a.queuePosition != null && b.queuePosition != null) {
+            return a.queuePosition - b.queuePosition;
+          }
+          const timeA = TimeUtils.parseClockToMinutes(a.time);
+          const timeB = TimeUtils.parseClockToMinutes(b.time);
+          if (timeA != null && timeB != null && timeA !== timeB) {
+            return timeA - timeB;
+          }
+          return TimeUtils.compareTokenNumbers(a.token, b.token);
         });
       }
 
@@ -574,6 +582,7 @@
             start_time: a.start_time,
             end_time: a.end_time,
             time: a.estimated_time,
+            queuePosition: a.queue_position ?? null,
             status: a.status,
             display_status: a.display_status || AppointmentStatus.label(a.status),
             is_active: a.is_active !== false && AppointmentStatus.isActive(a.status),
@@ -613,13 +622,14 @@
         }
         if (labRes.success) {
           pendingLabPayments = labRes.lab_payments.map(p => ({
-            id: p.order_id,
-            order_id: p.order_id,
+            id: p.token_id,
+            token_id: p.token_id,
             patient: p.patient_name,
             patient_id: p.patient_id,
             token: p.token_number,
-            tests: [p.test_name],
-            amount: p.amount || 500,
+            tests: p.tests || (p.test_name ? [p.test_name] : []),
+            orders: p.orders || [],
+            amount: p.amount || 0,
           }));
         }
         renderAppointments();
@@ -947,28 +957,29 @@
         document.getElementById("statsCompleted").innerText = completed;
       }
 
-      let currentPaymentOrderId = null;
+      let currentPaymentTokenId = null;
       let currentPaymentAmount = 500;
-      function openPaymentModal(orderId) {
-        currentPaymentOrderId = orderId;
-        const p = pendingLabPayments.find(x => x.id === orderId);
-        currentPaymentAmount = p?.amount || 500;
-        document.getElementById('paymentModalBody').innerHTML = p ? `<p><strong>${PatientDisplay.label(p.patient, p.patient_id)}</strong> — ${p.tests.join(', ')}<br>Amount: Rs. ${p.amount}</p>` : '';
+      function openPaymentModal(tokenId) {
+        const p = pendingLabPayments.find(x => x.token_id === tokenId || x.id === tokenId);
+        if (!p) return;
+        currentPaymentTokenId = p.token_id || p.id;
+        currentPaymentAmount = p.amount || 500;
+        document.getElementById('paymentModalBody').innerHTML = `<p><strong>${PatientDisplay.label(p.patient, p.patient_id)}</strong> — ${p.tests.join(', ')}<br>Amount: Rs. ${Number(p.amount).toLocaleString('en-NP')}</p>`;
         document.getElementById('paymentModal').classList.add('active');
       }
       function closePaymentModal() {
         document.getElementById('paymentModal').classList.remove('active');
       }
       async function confirmPayment() {
-        if (!currentPaymentOrderId) return;
-        const res = await API.payLabFee(currentPaymentOrderId, { amount: currentPaymentAmount });
-        if (res.success) {
-          Toast.show(res.message || 'Lab fee paid — patient sent to lab queue', 'success');
-          closePaymentModal();
-          refreshReceptionData();
-        } else {
+        if (!currentPaymentTokenId) return;
+        const res = await API.payLabFeesForToken(currentPaymentTokenId, { amount: currentPaymentAmount });
+        if (!res.success) {
           Toast.show(res.error || 'Failed', 'error');
+          return;
         }
+        Toast.show(res.message || 'Lab fee paid — patient sent to lab queue', 'success');
+        closePaymentModal();
+        refreshReceptionData();
       }
 
       function renderLabPayments() {
@@ -991,7 +1002,7 @@
                             Test: ${p.tests.join(", ")}<br>
                             Amount: Rs. ${Number(p.amount).toLocaleString('en-NP')}
                         </div>
-                        <button class="btn btn-primary" onclick="openPaymentModal(${p.id})">Process Payment</button>
+                        <button class="btn btn-primary" onclick="openPaymentModal(${p.token_id || p.id})">Process Payment</button>
                     </div>
                 </div>
             `,

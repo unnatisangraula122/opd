@@ -180,6 +180,7 @@ const API = {
     receptionUpdatePatient(userId, d) { return this.put(`/reception/patients/${userId}/`, d); },
     receptionLabPayments() { return this.get('/reception/lab-payments/'); },
     payLabFee(orderId, d) { return this.post(`/reception/lab-pay/${orderId}/`, d || {}); },
+    payLabFeesForToken(tokenId, d) { return this.post(`/reception/lab-pay-token/${tokenId}/`, d || {}); },
     throttleStatus() { return this.get('/reception/throttle/'); },
     waitingQueue(doctorId) {
         return this.get(doctorId ? `/waiting-queue/${doctorId}/` : '/waiting-queue/');

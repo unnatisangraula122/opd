@@ -84,6 +84,40 @@ def _ensure_pharmacy_queue(token, medicine_count=0):
     return entry
 
 
+def _normalize_lab_test_names(lab_tests):
+    """Accept list or string — never iterate a test name character by character."""
+    import json
+
+    if lab_tests is None:
+        return []
+
+    if isinstance(lab_tests, str):
+        raw = lab_tests.strip()
+        if not raw:
+            return []
+        if raw.startswith('['):
+            try:
+                lab_tests = json.loads(raw)
+            except json.JSONDecodeError:
+                lab_tests = [raw]
+        elif ',' in raw:
+            lab_tests = [part.strip() for part in raw.split(',') if part.strip()]
+        else:
+            lab_tests = [raw]
+    elif not isinstance(lab_tests, (list, tuple)):
+        lab_tests = [lab_tests]
+
+    names = []
+    for raw in lab_tests:
+        if isinstance(raw, dict):
+            name = (raw.get('name') or raw.get('test_name') or '').strip()
+        else:
+            name = str(raw or '').strip()
+        if name:
+            names.append(name)
+    return names
+
+
 @transaction.atomic
 def complete_consultation(
     token,
@@ -100,7 +134,7 @@ def complete_consultation(
         raise ValidationError(f'Cannot complete. Current status: {token.status}')
 
     medicines = medicines or []
-    lab_tests = lab_tests or []
+    lab_tests = _normalize_lab_test_names(lab_tests)
 
     consultation, _ = Consultation.objects.update_or_create(
         token=token,

@@ -13,13 +13,19 @@ from core.models import (
     PharmacyQueueEntry,
     Token,
 )
-from core.services.workflow import after_lab_report_uploaded, complete_consultation
+from core.services.workflow import after_lab_report_uploaded, complete_consultation, _normalize_lab_test_names
 from core.views.lab import lab_queue
 from core.views.reception import pay_lab_fee
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 
 class LabPaymentQueueFlowTests(TestCase):
+    def test_normalize_lab_test_names_string_not_chars(self):
+        self.assertEqual(
+            _normalize_lab_test_names('Complete Blood Count (CBC)'),
+            ['Complete Blood Count (CBC)'],
+        )
+
     def setUp(self):
         self.factory = APIRequestFactory()
         self.today = timezone.localdate()
