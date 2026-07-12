@@ -34,20 +34,20 @@ def _active_consultation_for_doctor(doctor_id, date=None):
 
 
 def _queue_for_doctor(doctor_id, slot_type=None, statuses=('checked_in',)):
-    today = timezone.localdate()
-    doctor_slots = ConsultationSlot.objects.filter(doctor_id=doctor_id, date=today)
+    from core.services.analytics import get_ordered_queue_tokens
+
+    tokens = get_ordered_queue_tokens(doctor_id)
     if slot_type:
-        doctor_slots = doctor_slots.filter(slot_type=slot_type)
-    tokens = Token.objects.filter(
-        slot__in=doctor_slots,
-        status__in=statuses,
-    ).select_related('slot', 'patient').prefetch_related('queue_entry')
+        tokens = [t for t in tokens if t.slot.slot_type == slot_type]
 
     queue_list = []
     for token in tokens:
+        if token.status not in statuses:
+            continue
         entry = getattr(token, 'queue_entry', None)
         queue_list.append({
-            'position': entry.queue_position if entry else len(queue_list) + 1,
+            'position': len(queue_list) + 1,
+            'queue_position': entry.queue_position if entry else len(queue_list) + 1,
             'token_id': token.id,
             'token_number': token.token_number,
             'patient_id': patient_id_for_token(token),
@@ -65,10 +65,6 @@ def _queue_for_doctor(doctor_id, slot_type=None, statuses=('checked_in',)):
             'end_time': token.slot.end_time,
             'slot_type': token.slot.slot_type,
         })
-
-    queue_list.sort(key=lambda x: (x['priority'] != 'HIGH', x['token_number']))
-    for idx, patient in enumerate(queue_list):
-        patient['position'] = idx + 1
     return queue_list
 
 

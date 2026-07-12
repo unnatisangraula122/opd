@@ -386,10 +386,11 @@
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js?v=20260712a"></script>
-    <script src="../js/api.js?v=20260712a"></script>
+    <script src="../js/app.js?v=20260712h"></script>
+    <script src="../js/api.js?v=20260712h"></script>
     <script>
       let queue = [];
+      let nextPatient = null;
       let activeConsultation = null;
 
       function parseClockToMinutes(value) {
@@ -440,9 +441,7 @@
           btn.textContent = 'Call Next';
           return;
         }
-        const next = [...queue].sort((a, b) =>
-          a.category === 'ELDERLY' && b.category !== 'ELDERLY' ? -1 : 0
-        )[0];
+        const next = nextPatient || queue[0];
         if (next && !slotHasStarted(next.start_time)) {
           btn.disabled = true;
           btn.title = `Slot starts at ${next.start_time}`;
@@ -461,6 +460,7 @@
           return;
         }
         activeConsultation = res.active_consultation || null;
+        nextPatient = res.next_patient || null;
         queue = (res.queue || []).map(p => ({
           id: p.token_id,
           token_id: p.token_id,
@@ -468,6 +468,7 @@
           patient: p.patient_name,
           patient_id: p.patient_id,
           age: p.patient_age,
+          position: p.position || p.queue_position || 999,
           category: p.priority === 'HIGH' ? 'ELDERLY' : 'GENERAL',
           is_followup: p.is_followup,
           is_new_patient: !!p.is_new_patient,
@@ -487,13 +488,11 @@
             '<p style="color: var(--text-muted);">No patients in queue.</p>';
           return;
         }
-        const sorted = [...queue].sort((a, b) =>
-          a.category === 'ELDERLY' && b.category !== 'ELDERLY' ? -1 : 0
-        );
+        const sorted = [...queue].sort((a, b) => a.position - b.position);
         document.getElementById('queueList').innerHTML = sorted.map(p => `
           <div class="queue-item ${p.category === 'ELDERLY' ? 'priority-queue' : ''}" style="padding:0.75rem; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:0.5rem;">
             <div>
-              <strong>${p.token}</strong>
+              <strong>#${p.position} · ${p.token}</strong>
               ${p.is_followup ? ' <span class="badge badge-warning">Follow-up</span>' : ''}
               ${p.is_new_patient ? ' <span class="badge badge-warning">New</span>' : ''}
               ${p.category === 'ELDERLY' ? ' <span class="badge badge-priority">Priority</span>' : ''}
@@ -517,10 +516,11 @@
           Toast.show('No patients in queue', 'error');
           return;
         }
-        const sorted = [...queue].sort((a, b) =>
-          a.category === 'ELDERLY' && b.category !== 'ELDERLY' ? -1 : 0
-        );
-        const next = sorted[0];
+        const next = nextPatient || queue[0];
+        if (!next) {
+          Toast.show('No patients in queue', 'error');
+          return;
+        }
         if (!slotHasStarted(next.start_time)) {
           Toast.show(`Consultation cannot start before the slot begins at ${next.start_time}.`, 'error');
           return;

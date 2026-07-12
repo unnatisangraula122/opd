@@ -21,24 +21,31 @@ from core.models import (
 VARIANCE_THRESHOLD_PERCENT = 15
 
 
+def _queue_entry_sort_key(entry):
+    """Match QueueEntry.queue_position: high priority first, then check-in order."""
+    return (0 if entry.priority == 'high' else 1, entry.token.created_at)
+
+
 def _token_sort_key(token):
+    """Legacy token-only sort — prefer get_ordered_queue_tokens for live queue."""
     priority = 0 if (token.is_elderly or token.is_disabled) else 1
     num = int(''.join(c for c in token.token_number if c.isdigit()) or 0)
     return (priority, num, token.created_at)
 
 
 def get_ordered_queue_tokens(doctor_id, date=None):
-    """Return checked-in tokens in queue order for a doctor."""
+    """Return checked-in tokens in the same order as reception/patient queue_position."""
     date = date or timezone.localdate()
-    tokens = list(
-        Token.objects.filter(
-            slot__doctor_id=doctor_id,
-            slot__date=date,
-            status='checked_in',
-        ).select_related('slot')
+    entries = list(
+        QueueEntry.objects.filter(
+            doctor_id=doctor_id,
+            queue_date=date,
+            queue_status='waiting',
+            token__status='checked_in',
+        ).select_related('token', 'token__slot', 'token__patient')
     )
-    tokens.sort(key=_token_sort_key)
-    return tokens
+    entries.sort(key=_queue_entry_sort_key)
+    return [entry.token for entry in entries]
 
 
 def get_next_eligible_token(doctor_id, date=None):
