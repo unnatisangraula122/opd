@@ -10,11 +10,12 @@ from core.services.otp import send_otp, verify_otp
 def otp_send(request):
     phone = request.data.get('phone', '').strip()
     purpose = request.data.get('purpose', 'login')
+    patient_id = request.data.get('patient_id', '').strip() or None
     if purpose not in ('registration', 'login', 'password_reset'):
         return Response({'success': False, 'error': 'Invalid purpose'}, status=400)
     if not phone:
         return Response({'success': False, 'error': 'Phone number required'}, status=400)
-    result = send_otp(phone, purpose)
+    result = send_otp(phone, purpose, patient_id=patient_id)
     status = 200 if result.get('success') else 400
     return Response(result, status=status)
 

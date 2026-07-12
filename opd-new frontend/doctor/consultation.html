@@ -55,8 +55,8 @@
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js?v=20260710f"></script>
-    <script src="../js/api.js?v=20260710f"></script>
+    <script src="../js/app.js?v=20260712i"></script>
+    <script src="../js/api.js?v=20260712i"></script>
     <script>
       let currentPatient = null;
       let doctorName = 'Doctor';
@@ -68,6 +68,21 @@
       let patientHistoryData = null;
       let currentPrescriptionData = null;
 
+      function normalizeConsultPatient(raw) {
+        if (!raw) return null;
+        const t = raw.token && typeof raw.token === 'object' ? raw.token : raw;
+        return {
+          token_id: t.token_id || raw.token_id,
+          token: t.token_number || raw.token,
+          patient: t.patient_name || raw.patient,
+          patient_id: t.patient_id || raw.patient_id,
+          age: t.patient_age ?? raw.age,
+          category: t.category || raw.category || 'General',
+          is_followup: !!(t.is_followup ?? raw.is_followup),
+          started_at: t.started_at || raw.started_at || null,
+        };
+      }
+
       async function loadPatientHistory(tokenId) {
         patientHistoryData = null;
         const res = await API.doctorPatientHistory(tokenId);
@@ -76,16 +91,13 @@
 
       function renderPatientHistoryPanel() {
         if (!patientHistoryData) return '<div class="patient-history-panel"><em>Loading patient history...</em></div>';
-        if (patientHistoryData.is_new_patient) {
-          return '<div class="patient-history-panel"><strong>New patient</strong> — registered but has not logged into the patient portal yet.</div>';
-        }
         const visits = patientHistoryData.history || [];
         if (!visits.length) {
-          return `<div class="patient-history-panel"><strong>Returning portal patient</strong>${
+          return `<div class="patient-history-panel"><strong>No prior visit history on record.</strong>${
             patientHistoryData.prior_visit_count
-              ? ` (${patientHistoryData.prior_visit_count} prior visit(s))`
+              ? ` (${patientHistoryData.prior_visit_count} earlier visit(s) not detailed here.)`
               : ''
-          }.</div>`;
+          }</div>`;
         }
         return `<div class="patient-history-panel"><strong>Patient History</strong> (${patientHistoryData.prior_visit_count} prior visits)
           ${visits.map(v => `<div class="history-visit"><strong>${v.date}</strong> · ${v.token_number} · ${v.doctor_name}
@@ -112,7 +124,7 @@
           <div class="patient-info-box">
             <div><span class="label">Patient</span><br><span class="value">${PatientDisplay.label(currentPatient.patient, currentPatient.patient_id)}</span></div>
             <div><span class="label">Token</span><br><span class="value">${currentPatient.token}</span></div>
-            <div><span class="label">Age</span><br><span class="value">${currentPatient.age} years</span></div>
+            <div><span class="label">Age</span><br><span class="value">${currentPatient.age != null && currentPatient.age !== '' ? `${currentPatient.age} years` : '—'}</span></div>
             <div><span class="label">Type</span><br><span class="value">${currentPatient.is_followup ? 'Follow-up' : currentPatient.category || 'General'}</span></div>
           </div>
           <div class="form-group"><label class="form-label">Symptoms *</label><textarea class="form-textarea" id="symptoms" rows="3"></textarea></div>
@@ -269,22 +281,19 @@
         let data = null;
         try {
           const stored = JSON.parse(sessionStorage.getItem('activeConsultation') || 'null');
-          if (stored && String(stored.token_id) === String(tokenId)) data = stored;
+          if (stored && String(stored.token_id) === String(tokenId)) {
+            data = normalizeConsultPatient(stored);
+          }
         } catch (_) {}
 
-        if (!data) {
+        if (!data?.token || data.age == null) {
           const res = await API.doctorConsultationDetail(tokenId);
-          if (!res.success) { Toast.show(res.error || 'Consultation not found', 'error'); setTimeout(() => window.location.href = 'dashboard.html', 2000); return; }
-          data = {
-            token_id: res.token.token_id,
-            token: res.token.token_number,
-            patient: res.token.patient_name,
-            patient_id: res.token.patient_id,
-            age: res.token.patient_age,
-            category: res.token.category,
-            is_followup: res.token.is_followup,
-            started_at: res.token.started_at,
-          };
+          if (!res.success) {
+            Toast.show(res.error || 'Consultation not found', 'error');
+            setTimeout(() => window.location.href = 'dashboard.html', 2000);
+            return;
+          }
+          data = normalizeConsultPatient({ token: res.token });
         }
 
         currentPatient = data;

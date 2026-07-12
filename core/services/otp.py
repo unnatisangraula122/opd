@@ -9,6 +9,7 @@ from django.utils import timezone
 from accounts.models import User
 from core.models import OTPVerification
 from core.services.sms import sms_otp
+from core.utils import patient_has_portal_login
 
 OTP_LENGTH = 6
 OTP_EXPIRY_MINUTES = 5
@@ -28,7 +29,7 @@ def generate_otp() -> str:
     return ''.join(secrets.choice('0123456789') for _ in range(OTP_LENGTH))
 
 
-def send_otp(phone: str, purpose: str) -> dict:
+def send_otp(phone: str, purpose: str, patient_id: str | None = None) -> dict:
     """Create and send OTP. Returns {success, message, expires_in}."""
     phone = phone.strip()
     if len(phone) < 10:
@@ -42,13 +43,26 @@ def send_otp(phone: str, purpose: str) -> dict:
             }
 
     if purpose == 'registration':
-        existing = User.objects.filter(phone=phone, role='patient').first()
-        if existing and existing.has_usable_password():
-            return {
-                'success': False,
-                'error': 'An online account already exists for this phone. Please use Old Patient login.',
-                'already_registered': True,
-            }
+        if patient_id:
+            user = User.resolve_patient_id(patient_id.strip())
+            if not user:
+                return {'success': False, 'error': 'Patient ID not found'}
+            if user.phone != phone:
+                return {'success': False, 'error': 'Phone number does not match patient record'}
+            if patient_has_portal_login(user):
+                return {
+                    'success': False,
+                    'error': 'This patient already has an online account. Please use Old Patient login.',
+                    'already_registered': True,
+                }
+        else:
+            existing = User.objects.filter(phone=phone, role='patient').first()
+            if existing and patient_has_portal_login(existing):
+                return {
+                    'success': False,
+                    'error': 'An online account already exists for this phone. Please use Old Patient login.',
+                    'already_registered': True,
+                }
 
     recent = OTPVerification.objects.filter(
         phone=phone,

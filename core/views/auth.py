@@ -9,7 +9,7 @@ from accounts.services.auth_tokens import issue_api_token, revoke_request_token
 from core.permissions import STAFF_ROLES, IsPatient, IsStaff
 from core.services.otp import is_otp_verified, verify_otp
 from core.services.sms import sms_patient_registration
-from core.utils import get_doctor_for_user
+from core.utils import get_doctor_for_user, patient_has_portal_login
 
 
 def _user_payload(user):
@@ -58,7 +58,7 @@ def patient_register(request):
             return Response({'success': False, 'error': 'Patient ID not found'}, status=404)
         if existing.phone != phone:
             return Response({'success': False, 'error': 'Phone number does not match patient record'}, status=400)
-        if existing.has_usable_password():
+        if patient_has_portal_login(existing):
             return Response({
                 'success': False,
                 'error': 'This patient already has an online account. Please use Old Patient login.',
@@ -86,7 +86,7 @@ def patient_register(request):
 
     existing_by_phone = User.objects.filter(phone=phone, role='patient').first()
     if existing_by_phone:
-        if existing_by_phone.has_usable_password():
+        if patient_has_portal_login(existing_by_phone):
             return Response({
                 'success': False,
                 'error': 'This phone number already has an online account. Please use Old Patient login.',

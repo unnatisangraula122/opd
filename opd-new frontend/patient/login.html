@@ -250,7 +250,7 @@
 
     <script src="../js/icons.js"></script>
     <script src="../js/app.js?v=20260710f"></script>
-    <script src="../js/api.js?v=20260710f"></script>
+    <script src="../js/api.js?v=20260712j"></script>
     <script>
         // Global variables
         let regData = {};
@@ -436,7 +436,7 @@
                 return;
             }
 
-            const res = await API.otpSend({ phone, purpose: 'registration' });
+            const res = await API.otpSend({ phone, purpose: 'registration', patient_id: id });
             LoadingOverlay.hide();
             if (!res.success) {
                 Toast.show(res.error || 'Failed to send OTP', 'error');
@@ -566,7 +566,11 @@
         
         async function resendRegistrationOTP() {
             LoadingOverlay.show();
-            const res = await API.otpSend({ phone: regData.phone, purpose: 'registration' });
+            const res = await API.otpSend({
+                phone: regData.phone,
+                purpose: 'registration',
+                patient_id: regData.id,
+            });
             LoadingOverlay.hide();
             if (!res.success) {
                 Toast.show(res.error || 'Failed to resend OTP', 'error');

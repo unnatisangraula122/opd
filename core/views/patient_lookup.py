@@ -3,7 +3,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from accounts.models import User
-from core.utils import patient_has_portal_login, patient_is_new
+from core.utils import patient_has_online_account, patient_has_portal_login, patient_is_new
 
 
 def _serialize_patient(user):
@@ -15,7 +15,7 @@ def _serialize_patient(user):
         'phone': user.phone,
         'age': user.age,
         'address': user.address or '',
-        'has_online_account': user.has_usable_password(),
+        'has_online_account': patient_has_online_account(user),
         'has_portal_login': patient_has_portal_login(user),
         'is_new_patient': patient_is_new(user),
     }
@@ -39,7 +39,7 @@ def validate_old_patient(request):
     if user.phone != phone:
         return Response({'success': False, 'error': 'Phone number does not match patient record'}, status=400)
 
-    if purpose in ('portal_activation', 'registration') and user.has_usable_password():
+    if purpose in ('portal_activation', 'registration') and patient_has_portal_login(user):
         return Response({
             'success': False,
             'error': 'This patient already has an online account. Please use Old Patient login.',

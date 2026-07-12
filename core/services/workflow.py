@@ -57,6 +57,8 @@ def resolve_or_create_patient_user(phone, name, age, address=''):
         age=int(age) if age else None,
         address=address or '',
     )
+    user.set_unusable_password()
+    user.save(update_fields=['password'])
     return user
 
 

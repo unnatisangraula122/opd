@@ -153,6 +153,8 @@ def register_walkin_patient(request):
             user.assign_patient_code()
         user.save()
     else:
+        user.set_unusable_password()
+        user.save(update_fields=['password'])
         sms_result = sms_patient_registration(user.patient_id, phone)
 
     if token_id:

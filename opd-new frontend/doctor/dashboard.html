@@ -386,8 +386,8 @@
     </div>
 
     <script src="../js/icons.js"></script>
-    <script src="../js/app.js?v=20260712h"></script>
-    <script src="../js/api.js?v=20260712h"></script>
+    <script src="../js/app.js?v=20260712i"></script>
+    <script src="../js/api.js?v=20260712i"></script>
     <script>
       let queue = [];
       let nextPatient = null;
@@ -408,6 +408,21 @@
         if (startMins == null) return true;
         const now = new Date();
         return (now.getHours() * 60 + now.getMinutes()) >= startMins;
+      }
+
+      function mapQueuePatient(p) {
+        if (!p) return null;
+        return {
+          token_id: p.token_id,
+          token: p.token || p.token_number,
+          patient: p.patient || p.patient_name,
+          patient_id: p.patient_id,
+          age: p.patient_age ?? p.age,
+          category: p.category || (p.priority === 'HIGH' ? 'ELDERLY' : 'GENERAL'),
+          is_followup: !!p.is_followup,
+          start_time: p.start_time,
+          position: p.position || p.queue_position || 999,
+        };
       }
 
       function updateCallNextButton() {
@@ -460,23 +475,13 @@
           return;
         }
         activeConsultation = res.active_consultation || null;
-        nextPatient = res.next_patient || null;
-        queue = (res.queue || []).map(p => ({
-          id: p.token_id,
-          token_id: p.token_id,
+        nextPatient = res.next_patient ? mapQueuePatient(res.next_patient) : null;
+        queue = (res.queue || []).map((p) => mapQueuePatient({
+          ...p,
           token: p.token_number,
           patient: p.patient_name,
-          patient_id: p.patient_id,
           age: p.patient_age,
-          position: p.position || p.queue_position || 999,
           category: p.priority === 'HIGH' ? 'ELDERLY' : 'GENERAL',
-          is_followup: p.is_followup,
-          is_new_patient: !!p.is_new_patient,
-          fee_exempted: p.fee_exempted,
-          start_time: p.start_time,
-          wait: 0,
-          complaint: '',
-          status: 'waiting',
         }));
         renderQueue();
         updateCallNextButton();
@@ -533,19 +538,23 @@
           await loadDoctorQueue();
           return;
         }
-        sessionStorage.setItem('activeConsultation', JSON.stringify({
-          token_id: next.token_id,
-          token: next.token,
-          patient: next.patient,
-          patient_id: next.patient_id,
-          age: next.age,
+        const t = res.token || {};
+        const consultPatient = mapQueuePatient({
+          token_id: t.token_id || next.token_id,
+          token_number: t.token_number || next.token,
+          patient_name: t.patient_name || next.patient,
+          patient_id: t.patient_id || next.patient_id,
+          patient_age: t.patient_age ?? next.age,
+          is_followup: t.is_followup ?? next.is_followup,
           category: next.category,
-          is_followup: next.is_followup,
+        });
+        sessionStorage.setItem('activeConsultation', JSON.stringify({
+          ...consultPatient,
           started_at: new Date().toISOString(),
         }));
-        window.open(`consultation.html?token_id=${next.token_id}`, '_blank');
+        window.open(`consultation.html?token_id=${consultPatient.token_id}`, '_blank');
         await loadDoctorQueue();
-        Toast.show(`Consultation opened for ${PatientDisplay.label(next.patient, next.patient_id)}`, 'success');
+        Toast.show(`Consultation opened for ${PatientDisplay.label(consultPatient.patient, consultPatient.patient_id)}`, 'success');
       }
 
       async function loadCompletedToday() {

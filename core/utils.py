@@ -86,12 +86,8 @@ def duplicate_slot_booking_error(slot):
 
 
 def patient_has_online_account(user):
-    """True when the patient has already activated portal login with a password."""
-    return bool(
-        user
-        and getattr(user, 'role', None) == 'patient'
-        and user.has_usable_password()
-    )
+    """True when the patient has activated and used the patient portal."""
+    return patient_has_portal_login(user)
 
 
 def patient_has_portal_login(user):
