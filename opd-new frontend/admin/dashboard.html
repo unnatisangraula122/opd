@@ -870,9 +870,17 @@
 
       const SLOT_TYPES = ['morning', 'afternoon', 'evening'];
       let slotConfigState = {};
+      let availableDoctors = [];
 
       function slotLabel(type) {
         return type.charAt(0).toUpperCase() + type.slice(1);
+      }
+
+      function doctorOptions(selectedId) {
+        const opts = availableDoctors.map((d) =>
+          `<option value="${d.id}" ${String(d.id) === String(selectedId) ? 'selected' : ''}>${d.name}</option>`
+        ).join('');
+        return `<option value="">— Auto assign —</option>${opts}`;
       }
 
       function computeDurationMinutes(start, end) {
@@ -914,6 +922,12 @@
                   <label class="form-label">Max Tokens</label>
                   <input type="text" class="form-input" id="${type}MaxTokens" value="${maxTokens}" readonly>
                 </div>
+                <div class="form-group">
+                  <label class="form-label">Assigned Doctor</label>
+                  <select class="form-select slot-doctor" id="${type}Doctor">
+                    ${doctorOptions(cfg.assigned_doctor_id)}
+                  </select>
+                </div>
               </div>
             </div>`;
         }).join('');
@@ -938,10 +952,12 @@
       async function saveSlotConfig() {
         const slots = {};
         for (const type of SLOT_TYPES) {
+          const doctorEl = document.getElementById(`${type}Doctor`);
           slots[type] = {
             start_time: document.getElementById(`${type}Start`).value,
             end_time: document.getElementById(`${type}End`).value,
             avg_consultation_minutes: parseInt(document.getElementById(`${type}AvgConsult`).value, 10) || 10,
+            assigned_doctor_id: doctorEl?.value ? parseInt(doctorEl.value, 10) : null,
           };
         }
         const res = await API.adminSaveSlotConfig({ slots });
@@ -1019,6 +1035,14 @@
         API.adminSlotConfig().then((r) => {
           if (r.success && r.slots) {
             renderSlotConfigForms(r.slots);
+          }
+        });
+        API.adminDoctors().then((r) => {
+          if (r.success) {
+            availableDoctors = (r.doctors || []).filter((d) => d.is_available);
+            if (slotConfigState && Object.keys(slotConfigState).length) {
+              renderSlotConfigForms(slotConfigState);
+            }
           }
         });
 

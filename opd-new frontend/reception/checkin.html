@@ -483,13 +483,19 @@
         PatientPriority.syncModalElderlyCheckbox('modalAge', 'modalElderly');
       }
 
-      // Align with backend: present = on/before slot start, missed = after start but before end
+      // On-time if arrived on/before estimated time; late only after estimated time
       function determineCheckinStatus(appointment, arrivalTime) {
         const bounds = TimeUtils.getSlotBounds(appointment);
-        if (bounds.startMinutes == null || bounds.endMinutes == null) return 'expired';
+        if (bounds.endMinutes == null) return 'expired';
         const arrival = TimeUtils.nowMinutes(arrivalTime);
         if (arrival > bounds.endMinutes) return 'expired';
-        if (arrival > bounds.startMinutes) return 'late';
+        const estimatedMinutes = TimeUtils.parseClockToMinutes(
+          appointment.scheduledTime || appointment.estimated_time
+        );
+        if (estimatedMinutes != null) {
+          return arrival <= estimatedMinutes ? 'ontime' : 'late';
+        }
+        if (bounds.startMinutes != null && arrival > bounds.startMinutes) return 'late';
         return 'ontime';
       }
 

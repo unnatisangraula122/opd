@@ -464,6 +464,23 @@ const PatientPriority = {
         if (!appointment) return false;
         return !!(appointment.is_disabled || appointment.patient_is_disabled);
     },
+
+    categoryLabel(patient) {
+        if (!patient) return 'General';
+        if (patient.is_elderly) return 'Elderly';
+        if (patient.is_disabled) return 'Disabled';
+        const cat = String(patient.category || '').toUpperCase();
+        if (cat === 'ELDERLY') return 'Elderly';
+        if (cat === 'DISABLED') return 'Disabled';
+        if (cat && cat !== 'GENERAL') return patient.category;
+        return 'General';
+    },
+
+    isPriorityPatient(patient) {
+        if (!patient) return false;
+        return !!(patient.is_elderly || patient.is_disabled
+            || ['ELDERLY', 'DISABLED'].includes(String(patient.category || '').toUpperCase()));
+    },
 };
 
 const PatientDisplay = {

@@ -412,13 +412,16 @@
 
       function mapQueuePatient(p) {
         if (!p) return null;
+        const category = p.category || PatientPriority.categoryLabel(p);
         return {
           token_id: p.token_id,
           token: p.token || p.token_number,
           patient: p.patient || p.patient_name,
           patient_id: p.patient_id,
           age: p.patient_age ?? p.age,
-          category: p.category || (p.priority === 'HIGH' ? 'ELDERLY' : 'GENERAL'),
+          category,
+          is_elderly: !!p.is_elderly,
+          is_disabled: !!p.is_disabled,
           is_followup: !!p.is_followup,
           start_time: p.start_time,
           position: p.position || p.queue_position || 999,
@@ -481,7 +484,6 @@
           token: p.token_number,
           patient: p.patient_name,
           age: p.patient_age,
-          category: p.priority === 'HIGH' ? 'ELDERLY' : 'GENERAL',
         }));
         renderQueue();
         updateCallNextButton();
@@ -495,12 +497,12 @@
         }
         const sorted = [...queue].sort((a, b) => a.position - b.position);
         document.getElementById('queueList').innerHTML = sorted.map(p => `
-          <div class="queue-item ${p.category === 'ELDERLY' ? 'priority-queue' : ''}" style="padding:0.75rem; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:0.5rem;">
+          <div class="queue-item ${PatientPriority.isPriorityPatient(p) ? 'priority-queue' : ''}" style="padding:0.75rem; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:0.5rem;">
             <div>
               <strong>#${p.position} · ${p.token}</strong>
               ${p.is_followup ? ' <span class="badge badge-warning">Follow-up</span>' : ''}
               ${p.is_new_patient ? ' <span class="badge badge-warning">New</span>' : ''}
-              ${p.category === 'ELDERLY' ? ' <span class="badge badge-priority">Priority</span>' : ''}
+              ${PatientPriority.isPriorityPatient(p) ? ` <span class="badge badge-priority">${PatientPriority.categoryLabel(p)}</span>` : ''}
               <h4 style="margin:0.35rem 0;">${PatientDisplay.label(p.patient, p.patient_id)} (${p.age} yrs)</h4>
               ${p.start_time && !slotHasStarted(p.start_time)
                 ? `<small style="color:var(--text-muted);">Slot starts ${p.start_time} — waiting</small>`

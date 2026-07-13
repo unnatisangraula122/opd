@@ -14,7 +14,7 @@ from core.services.analytics import get_next_eligible_token
 from core.services.workflow import complete_consultation as workflow_complete_consultation, _normalize_lab_test_names
 from core.utils import (
     format_local_time, get_doctor_for_user, patient_id_for_token,
-    patient_is_new, serialize_token,
+    patient_is_new, patient_priority_category, serialize_token,
 )
 
 
@@ -60,6 +60,7 @@ def _queue_for_doctor(doctor_id, slot_type=None, statuses=('checked_in',)):
             'fee_exempted': token.fee_exempted,
             'is_new_patient': patient_is_new(token.patient),
             'priority': 'HIGH' if (token.is_elderly or token.is_disabled) else 'NORMAL',
+            'category': patient_priority_category(token),
             'status': token.status,
             'start_time': token.slot.start_time,
             'end_time': token.slot.end_time,
@@ -285,7 +286,7 @@ def doctor_consultation_detail(request, token_id):
     except Token.DoesNotExist:
         return Response({'success': False, 'error': 'No active consultation for this token'}, status=404)
 
-    category = 'ELDERLY' if (token.is_elderly or token.is_disabled) else 'GENERAL'
+    category = patient_priority_category(token)
     return Response({
         'success': True,
         'token': {
@@ -295,6 +296,8 @@ def doctor_consultation_detail(request, token_id):
             'patient_name': token.patient_name,
             'patient_age': token.patient_age,
             'is_followup': token.is_followup,
+            'is_elderly': token.is_elderly,
+            'is_disabled': token.is_disabled,
             'category': category,
             'started_at': token.consultation_started_at.isoformat() if token.consultation_started_at else None,
         },

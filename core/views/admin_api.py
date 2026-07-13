@@ -344,6 +344,20 @@ def admin_slot_config(request):
             config.avg_consultation_minutes = max(int(payload['avg_consultation_minutes']), 1)
         if 'checkin_opens_minutes_before' in payload:
             config.checkin_opens_minutes_before = max(int(payload['checkin_opens_minutes_before']), 0)
+        if 'assigned_doctor_id' in payload:
+            doc_id = payload.get('assigned_doctor_id')
+            if doc_id:
+                try:
+                    config.assigned_doctor = DoctorProfile.objects.get(
+                        id=int(doc_id), is_available=True,
+                    )
+                except (DoctorProfile.DoesNotExist, TypeError, ValueError):
+                    return Response({
+                        'success': False,
+                        'error': f'Invalid doctor for {slot_type} slot',
+                    }, status=400)
+            else:
+                config.assigned_doctor = None
         if config.end_time <= config.start_time:
             return Response({
                 'success': False,

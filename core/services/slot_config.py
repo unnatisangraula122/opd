@@ -56,6 +56,7 @@ def get_slot_type_config(slot_type):
 
 
 def serialize_slot_type_config(config):
+    doctor = getattr(config, 'assigned_doctor', None)
     return {
         'slot_type': config.slot_type,
         'label': dict(ConsultationSlot.SLOT_TYPE).get(config.slot_type, config.slot_type.title()),
@@ -66,12 +67,16 @@ def serialize_slot_type_config(config):
         'max_tokens': config.max_tokens,
         'checkin_opens_minutes_before': config.checkin_opens_minutes_before,
         'time_range': _format_time_range(config.start_time, config.end_time),
+        'assigned_doctor_id': doctor.id if doctor else None,
+        'assigned_doctor_name': str(doctor) if doctor else '',
     }
 
 
 def get_all_slot_configs_serialized():
     ensure_slot_type_configs()
-    configs = SlotTypeConfig.objects.filter(slot_type__in=SLOT_TYPES).order_by('slot_type')
+    configs = SlotTypeConfig.objects.filter(
+        slot_type__in=SLOT_TYPES,
+    ).select_related('assigned_doctor__user').order_by('slot_type')
     by_type = {cfg.slot_type: serialize_slot_type_config(cfg) for cfg in configs}
     for slot_type in SLOT_TYPES:
         by_type.setdefault(slot_type, serialize_slot_type_config(get_slot_type_config(slot_type)))

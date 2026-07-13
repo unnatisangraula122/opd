@@ -34,6 +34,15 @@ def is_elderly_by_age(age):
         return False
 
 
+def patient_priority_category(token):
+    """Human-readable priority label for consultation / queue display."""
+    if getattr(token, 'is_elderly', False):
+        return 'ELDERLY'
+    if getattr(token, 'is_disabled', False):
+        return 'DISABLED'
+    return 'GENERAL'
+
+
 def patient_id_for_token(token):
     """Canonical PAT code for a token's linked patient account, if any."""
     patient = getattr(token, 'patient', None)
@@ -249,7 +258,9 @@ def _consolidate_slot_for_day(day, slot_type, assigned_doctor):
 
 def ensure_today_tomorrow_slots():
     """Create 3 slots per day — one doctor per slot (morning/afternoon/evening)."""
-    from core.services.slot_config import ensure_slot_type_configs, refresh_consultation_slot_capacities
+    from core.services.slot_config import (
+        ensure_slot_type_configs, get_slot_type_config, refresh_consultation_slot_capacities,
+    )
     ensure_slot_type_configs()
     doctors = list(DoctorProfile.objects.filter(is_available=True).order_by('id'))
     if not doctors:
@@ -259,7 +270,12 @@ def ensure_today_tomorrow_slots():
     tomorrow = today + timedelta(days=1)
     for day in (today, tomorrow):
         for idx, slot_type in enumerate(SLOT_TYPES):
-            assigned_doctor = doctors[idx % len(doctors)]
+            cfg = get_slot_type_config(slot_type)
+            configured = getattr(cfg, 'assigned_doctor', None)
+            if configured and configured.is_available:
+                assigned_doctor = configured
+            else:
+                assigned_doctor = doctors[idx % len(doctors)]
             _consolidate_slot_for_day(day, slot_type, assigned_doctor)
     refresh_consultation_slot_capacities()
 

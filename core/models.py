@@ -133,6 +133,10 @@ class SlotTypeConfig(models.Model):
     end_time = models.TimeField()
     avg_consultation_minutes = models.PositiveIntegerField(default=10)
     checkin_opens_minutes_before = models.PositiveIntegerField(default=15)
+    assigned_doctor = models.ForeignKey(
+        'DoctorProfile', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='slot_type_configs',
+    )
 
     class Meta:
         verbose_name = 'Slot type configuration'
@@ -181,9 +185,9 @@ class Token(models.Model):
         ('expired', 'No-show'),       # never arrived before slot ended
         ('cancelled', 'Cancelled'),
     )
-    # Arrival classification per proposal Step 3 — set once, at check-in.
-    # 'present' = arrived within window, before slot start.
-    # 'missed'  = arrived late, but still within the slot (NOT a no-show).
+    # Arrival classification — set once, at check-in.
+    # 'present' = arrived on or before estimated appointment time.
+    # 'missed'  = arrived after estimated time but before slot end (NOT a no-show).
     # A true no-show is tracked via status='expired', not here.
     CHECKIN_STATUS_CHOICES = (
         ('present', 'Present'),
@@ -303,16 +307,12 @@ class Token(models.Model):
 
     def check_in(self, receptionist=None):
         """
-        Implements proposal Step 3 exactly:
-        - check-in window opens 15 minutes before slot start, stays open
+        - check-in window opens N minutes before slot start, stays open
           until slot end_time
         - arriving before the window opens -> rejected (too early)
-        - arriving after slot end_time -> too late, should already be
-          'expired' via mark_expired_if_overdue() / scheduled job
-        - on-time arrival (within window, before slot start) -> 'present'
-        - late arrival (after slot start but before slot end) -> 'missed'
-          (the proposal's "Missed" = late but still within slot, NOT a
-          no-show; a true no-show becomes 'expired' once the slot closes)
+        - arriving after slot end_time -> too late (no-show / expired)
+        - on-time: arrived on or before this token's estimated_time -> 'present'
+        - late: arrived after estimated_time but before slot end -> 'missed'
         """
         if self.status != 'booked':
             raise ValidationError(f"Cannot check in. Current status: {self.status}")
@@ -321,9 +321,6 @@ class Token(models.Model):
         slot_date = self.slot.date
         checkin_open = timezone.make_aware(datetime.combine(
             slot_date, datetime.strptime(self.slot.checkin_opens_at, '%H:%M').time()
-        ))
-        slot_start = timezone.make_aware(datetime.combine(
-            slot_date, datetime.strptime(self.slot.start_time, '%H:%M').time()
         ))
         slot_end = timezone.make_aware(datetime.combine(
             slot_date, datetime.strptime(self.slot.end_time, '%H:%M').time()
@@ -338,7 +335,8 @@ class Token(models.Model):
             self.save()
             raise ValidationError("Slot has ended. Marked as no-show.")
 
-        self.checkin_status = 'present' if now <= slot_start else 'missed'
+        estimated = timezone.localtime(self.estimated_time)
+        self.checkin_status = 'present' if now <= estimated else 'missed'
         self.status = 'checked_in'
         self.checked_in_at = now
         self.receptionist = receptionist

@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="../css/style.css" />
     <style>
       .consultation-wrap { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
-      .medicine-row { display: grid; grid-template-columns: 2fr 1fr 1fr 2fr auto; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; }
+      .medicine-row { display: grid; grid-template-columns: 2fr 1fr 1fr 0.9fr 1.5fr auto; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; }
       .add-medicine { color: var(--secondary); cursor: pointer; font-size: 0.875rem; margin-top: 0.5rem; }
       .lab-test-item { display: flex; justify-content: space-between; padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 0.5rem; }
       .timer-display { font-family: monospace; font-size: 1.5rem; font-weight: bold; color: var(--secondary); }
@@ -71,13 +71,21 @@
       function normalizeConsultPatient(raw) {
         if (!raw) return null;
         const t = raw.token && typeof raw.token === 'object' ? raw.token : raw;
+        const isElderly = !!(t.is_elderly ?? raw.is_elderly);
+        const isDisabled = !!(t.is_disabled ?? raw.is_disabled);
         return {
           token_id: t.token_id || raw.token_id,
           token: t.token_number || raw.token,
           patient: t.patient_name || raw.patient,
           patient_id: t.patient_id || raw.patient_id,
           age: t.patient_age ?? raw.age,
-          category: t.category || raw.category || 'General',
+          category: PatientPriority.categoryLabel({
+            is_elderly: isElderly,
+            is_disabled: isDisabled,
+            category: t.category || raw.category,
+          }),
+          is_elderly: isElderly,
+          is_disabled: isDisabled,
           is_followup: !!(t.is_followup ?? raw.is_followup),
           started_at: t.started_at || raw.started_at || null,
         };
@@ -125,7 +133,7 @@
             <div><span class="label">Patient</span><br><span class="value">${PatientDisplay.label(currentPatient.patient, currentPatient.patient_id)}</span></div>
             <div><span class="label">Token</span><br><span class="value">${currentPatient.token}</span></div>
             <div><span class="label">Age</span><br><span class="value">${currentPatient.age != null && currentPatient.age !== '' ? `${currentPatient.age} years` : '—'}</span></div>
-            <div><span class="label">Type</span><br><span class="value">${currentPatient.is_followup ? 'Follow-up' : currentPatient.category || 'General'}</span></div>
+            <div><span class="label">Type</span><br><span class="value">${currentPatient.is_followup ? 'Follow-up' : PatientPriority.categoryLabel(currentPatient)}</span></div>
           </div>
           <div class="form-group"><label class="form-label">Symptoms *</label><textarea class="form-textarea" id="symptoms" rows="3"></textarea></div>
           <div class="form-group"><label class="form-label">Diagnosis *</label><input class="form-input" id="diagnosis" placeholder="Enter diagnosis"></div>
@@ -172,9 +180,17 @@
         return `Rs. ${Number(fee).toLocaleString('en-NP')}`;
       }
 
-      function medSelect(options, value, onChange) {
-        const opts = options.map(o => `<option value="${o}" ${o === value ? 'selected' : ''}>${o}</option>`).join('');
-        return `<select class="form-select" onchange="${onChange}"><option value="">-- Select --</option>${opts}</select>`;
+      function medCombo(options, value, onChange, placeholder) {
+        const listId = `medlist-${Math.random().toString(36).slice(2)}`;
+        const safe = String(value || '').replace(/"/g, '&quot;');
+        const opts = options.map(o => `<option value="${o}">`).join('');
+        return `<input class="form-input" list="${listId}" placeholder="${placeholder}" value="${safe}" oninput="${onChange}" onchange="${onChange}">
+          <datalist id="${listId}">${opts}</datalist>`;
+      }
+
+      function parseDurationDays(str) {
+        const m = String(str || '').match(/(\d+)/);
+        return m ? parseInt(m[1], 10) : null;
       }
 
       function renderMedicines() {
@@ -183,14 +199,15 @@
         if (!medicines.length) { c.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">No medicines added.</p>'; return; }
         c.innerHTML = medicines.map((m, i) => `
           <div class="medicine-row">
-            <input class="form-input" placeholder="Medicine *" value="${m.name || ''}" onchange="updateMedicine(${i},'name',this.value)">
-            ${medSelect(MED_DOSAGES, m.dosage, `updateMedicine(${i},'dosage',this.value)`)}
-            ${medSelect(MED_FREQUENCIES, m.duration, `updateMedicine(${i},'duration',this.value)`)}
-            ${medSelect(MED_TIMINGS, m.instructions, `updateMedicine(${i},'instructions',this.value)`)}
+            <input class="form-input" placeholder="Medicine *" value="${m.name || ''}" oninput="updateMedicine(${i},'name',this.value)">
+            ${medCombo(MED_DOSAGES, m.dosage, `updateMedicine(${i},'dosage',this.value)`, 'Dosage *')}
+            ${medCombo(MED_FREQUENCIES, m.frequency, `updateMedicine(${i},'frequency',this.value)`, 'Frequency *')}
+            ${medCombo(MED_DURATIONS, m.duration, `updateMedicine(${i},'duration',this.value)`, 'Duration *')}
+            ${medCombo(MED_TIMINGS, m.instructions, `updateMedicine(${i},'instructions',this.value)`, 'Instructions *')}
             <button class="btn btn-danger btn-sm" onclick="removeMedicine(${i})">X</button>
           </div>`).join('');
       }
-      function addMedicine() { medicines.push({ name:'', dosage:'', duration:'', instructions:'' }); renderMedicines(); }
+      function addMedicine() { medicines.push({ name:'', dosage:'', frequency:'', duration:'', instructions:'' }); renderMedicines(); }
       function removeMedicine(i) { medicines.splice(i, 1); renderMedicines(); }
       function updateMedicine(i, f, v) { medicines[i][f] = v; }
 
@@ -224,10 +241,10 @@
         const followUp = document.getElementById('followUp')?.value;
         if (!symptoms) { Toast.show('Please enter symptoms', 'error'); return; }
         if (!diagnosis) { Toast.show('Please enter diagnosis', 'error'); return; }
-        const filledMedicines = medicines.filter(m => m.name || m.dosage || m.duration || m.instructions);
+        const filledMedicines = medicines.filter(m => m.name || m.dosage || m.frequency || m.duration || m.instructions);
         for (let i = 0; i < filledMedicines.length; i++) {
           const m = filledMedicines[i];
-          if (!m.name || !m.dosage || !m.duration || !m.instructions) { Toast.show(`Fill all fields for medicine ${i + 1}`, 'error'); return; }
+          if (!m.name || !m.dosage || !m.frequency || !m.duration || !m.instructions) { Toast.show(`Fill all fields for medicine ${i + 1}`, 'error'); return; }
         }
         const end = new Date();
         const duration = Math.floor((end - consultationStartTime) / 1000);
@@ -241,7 +258,13 @@
         LoadingOverlay.show();
         API.completeConsult(currentPatient.token_id, {
           symptoms, diagnosis, notes,
-          medicines: filledMedicines.map(m => ({ name: m.name, dosage: m.dosage, frequency: m.duration, instructions: m.instructions })),
+          medicines: filledMedicines.map(m => ({
+            name: m.name,
+            dosage: m.dosage,
+            frequency: m.frequency,
+            duration_days: parseDurationDays(m.duration),
+            instructions: m.instructions,
+          })),
           lab_tests: selectedLabTests.length ? selectedLabTests.map(t => t.name) : [], followup_date: followUp || null,
         }).then(res => {
           LoadingOverlay.hide();
@@ -253,7 +276,7 @@
       }
 
       function showPrescriptionSlip(data) {
-        const meds = (data.medicines || []).map(m => `<tr><td>${m.name}</td><td>${m.dosage}</td><td>${m.duration}</td><td>${m.instructions}</td></tr>`).join('');
+        const meds = (data.medicines || []).map(m => `<tr><td>${m.name}</td><td>${m.dosage}</td><td>${m.frequency || ''}</td><td>${m.duration || ''}</td><td>${m.instructions}</td></tr>`).join('');
         document.getElementById('prescriptionBody').innerHTML = `
           <div class="prescription-slip">
             <div class="header"><h1>GENERAL OPD</h1><div>Digital Prescription</div></div>
@@ -263,7 +286,7 @@
             <div class="info-row"><span>Time</span><span>${data.consultationStart} - ${data.consultationEnd}</span></div>
             <div class="section"><div class="section-title">Symptoms</div><div>${data.symptoms}</div></div>
             <div class="section"><div class="section-title">Diagnosis</div><div>${data.diagnosis}</div></div>
-            ${meds ? `<div class="section"><div class="section-title">Medicines</div><table class="medicine-table"><thead><tr><th>Medicine</th><th>Dosage</th><th>Duration</th><th>Instructions</th></tr></thead><tbody>${meds}</tbody></table></div>` : ''}
+            ${meds ? `<div class="section"><div class="section-title">Medicines</div><table class="medicine-table"><thead><tr><th>Medicine</th><th>Dosage</th><th>Frequency</th><th>Duration</th><th>Instructions</th></tr></thead><tbody>${meds}</tbody></table></div>` : ''}
             ${data.labTests?.length ? `<div class="section"><div class="section-title">Lab Tests</div>${data.labTests.map(t => `<div>• ${typeof t === 'string' ? t : t.name}${t.fee ? ` (${formatLabFee(t.fee)})` : ''}</div>`).join('')}</div>` : ''}
             <div class="section"><div class="section-title">Follow-up</div><div>${data.followUp}</div></div>
           </div>`;
@@ -286,14 +309,13 @@
           }
         } catch (_) {}
 
-        if (!data?.token || data.age == null) {
-          const res = await API.doctorConsultationDetail(tokenId);
-          if (!res.success) {
-            Toast.show(res.error || 'Consultation not found', 'error');
-            setTimeout(() => window.location.href = 'dashboard.html', 2000);
-            return;
-          }
+        const res = await API.doctorConsultationDetail(tokenId);
+        if (res.success) {
           data = normalizeConsultPatient({ token: res.token });
+        } else if (!data?.token) {
+          Toast.show(res.error || 'Consultation not found', 'error');
+          setTimeout(() => window.location.href = 'dashboard.html', 2000);
+          return;
         }
 
         currentPatient = data;
