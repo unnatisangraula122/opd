@@ -26,11 +26,14 @@ class DoctorProfile(models.Model):
         return f"Dr. {self.user.get_full_name()} - General Physician"
 
     def check_throttle(self):
-        """
-        Auto-throttling logic: checks the doctor's CURRENT slot queue
-        (not just any token today) and pauses/resumes check-ins.
-        Logs every state change into ThrottleLog for the admin dashboard.
-        """
+        """Auto-throttle is disabled when AUTO_THROTTLE_ENABLED is False."""
+        from core import constants as C
+        if not C.AUTO_THROTTLE_ENABLED:
+            if self.is_throttled:
+                self.is_throttled = False
+                self.save(update_fields=['is_throttled'])
+            return False
+
         today = timezone.localdate()
         current_slot = self.slots.filter(date=today).filter(
             slot_type=self.get_current_slot_type()

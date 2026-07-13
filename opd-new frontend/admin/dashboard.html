@@ -58,13 +58,6 @@
           </div>
           <div
             class="sidebar-nav-item"
-            data-section="throttle"
-            onclick="showSection('throttle', this)"
-          >
-            <span class="nav-icon">◬</span> Auto-Throttle
-          </div>
-          <div
-            class="sidebar-nav-item"
             data-section="logs"
             onclick="showSection('logs', this)"
           >
@@ -326,86 +319,8 @@
           </div>
         </div>
 
-        <!-- THROTTLE -->
-        <div id="throttleSection" style="display: none">
-          <div class="panel">
-            <div class="panel-header">
-              <div>
-                <h3 class="panel-title">Auto-Throttle Configuration</h3>
-                <p class="panel-subtitle">
-                  Pauses check-ins when queue exceeds capacity threshold
-                </p>
-              </div>
-            </div>
-            <div class="config-card">
-              <h4>Throttle Settings</h4>
-              <div class="config-row">
-                <div class="form-group">
-                  <label class="form-label">Max Queue Size</label>
-                  <input
-                    type="number"
-                    class="form-input"
-                    id="throttleThreshold"
-                    value="20"
-                    min="5"
-                    max="50"
-                  />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Check Interval (seconds)</label>
-                  <input
-                    type="number"
-                    class="form-input"
-                    id="checkInterval"
-                    value="30"
-                    min="10"
-                    max="120"
-                    disabled
-                  />
-                </div>
-              </div>
-              <button class="btn btn-primary" onclick="saveThrottleConfig()">
-                Save Settings
-              </button>
-            </div>
-            <div class="config-card">
-              <h4>Current Status</h4>
-              <div
-                style="
-                  display: flex;
-                  gap: 2rem;
-                  flex-wrap: wrap;
-                  align-items: center;
-                "
-              >
-                <div>
-                  <span style="color: var(--text-muted)">Status: </span
-                  ><span
-                    class="throttle-status throttle-inactive"
-                    id="throttleStatusBadge"
-                    >INACTIVE</span
-                  >
-                </div>
-                <div>
-                  <span style="color: var(--text-muted)">Events Today: </span
-                  ><strong id="throttleEvents">0</strong>
-                </div>
-                <div>
-                  <span style="color: var(--text-muted)">Last Checked: </span
-                  ><span id="lastCheckTime">—</span>
-                </div>
-              </div>
-              <div style="margin-top: 1rem">
-                <button
-                  class="btn btn-outline"
-                  onclick="updateThrottleStatus()"
-                >
-                  ↻ Refresh Status
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- THROTTLE (disabled) -->
+        <div id="throttleSection" style="display: none"></div>
 
         <!-- LOGS -->
         <div id="logsSection" style="display: none">
@@ -414,7 +329,7 @@
               <div>
                 <h3 class="panel-title">System Activity Logs</h3>
                 <p class="panel-subtitle">
-                  Throttle events and system activity
+                  System activity
                 </p>
               </div>
             </div>
@@ -521,8 +436,7 @@
         doctors: ["Doctor Management", "Manage doctors and availability"],
         staff: ["Staff Accounts", "Manage credentials, roles, and access"],
         slots: ["Slot Configuration", "Consultation time and token capacity"],
-        throttle: ["Auto-Throttle", "Queue capacity management"],
-        logs: ["System Logs", "Activity and throttle event history"],
+        logs: ["System Logs", "Activity history"],
       };
 
       function showSection(section, el) {
@@ -544,7 +458,6 @@
         if (section === "doctors") renderDoctors();
         if (section === "staff") renderStaff();
         if (section === "logs") renderLogs();
-        if (section === "throttle") updateThrottleStatus();
       }
 
       function fmt(val, suffix = "") {
@@ -632,12 +545,6 @@
 
       function renderAlerts(data) {
         const alerts = [];
-        if (data.throttle_events > 0) {
-          alerts.push({
-            type: "critical",
-            text: `<strong>Throttling:</strong> ${data.throttle_events} throttle event(s) recorded today.`,
-          });
-        }
         if (data.no_show_rate >= 15) {
           alerts.push({
             type: "warning",
@@ -967,37 +874,6 @@
         } else Toast.show(res.error || 'Failed', 'error');
       }
 
-      async function saveThrottleConfig() {
-        const threshold =
-          parseInt(document.getElementById("throttleThreshold").value, 10) ||
-          20;
-        const res = await API.adminSaveThrottleConfig({
-          max_queue_size: threshold,
-        });
-        Toast.show(
-          res.success ? "Throttle settings saved" : res.error || "Failed",
-          res.success ? "success" : "error",
-        );
-        updateThrottleStatus();
-      }
-
-      async function updateThrottleStatus() {
-        document.getElementById("lastCheckTime").textContent =
-          new Date().toLocaleTimeString();
-        const res = await API.adminThrottleConfig();
-        if (res.success) {
-          const badge = document.getElementById("throttleStatusBadge");
-          badge.textContent = res.is_throttled ? "ACTIVE" : "INACTIVE";
-          badge.className =
-            "throttle-status " +
-            (res.is_throttled ? "throttle-active" : "throttle-inactive");
-        }
-        if (analyticsData) {
-          document.getElementById("throttleEvents").textContent =
-            analyticsData.throttle_events ?? 0;
-        }
-      }
-
       let logs = [];
 
       function renderLogs() {
@@ -1045,18 +921,6 @@
             }
           }
         });
-
-        API.adminThrottleLogs().then((r) => {
-          if (r.success) {
-            logs = r.logs.map((l) => ({
-              time: l.triggered_at,
-              type: "throttle",
-              user: l.doctor,
-              action: `${l.action} — queue: ${l.queue_length} (threshold: ${l.threshold})`,
-            }));
-            renderLogs();
-          }
-        });
       });
 
       window.showSection = showSection;
@@ -1065,8 +929,6 @@
       window.editDoctor = editDoctor;
       window.updateMaxTokens = updateMaxTokens;
       window.saveSlotConfig = saveSlotConfig;
-      window.saveThrottleConfig = saveThrottleConfig;
-      window.updateThrottleStatus = updateThrottleStatus;
     </script>
   </body>
 </html>

@@ -376,13 +376,21 @@ def admin_slot_config(request):
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated, IsAdmin])
 def admin_throttle_config(request):
+    from core import constants as C
     if request.method == 'GET':
         doc = DoctorProfile.objects.first()
         return Response({
             'success': True,
+            'enabled': C.AUTO_THROTTLE_ENABLED,
             'max_queue_size': doc.max_queue_size if doc else 5,
-            'is_throttled': any(d.is_throttled for d in DoctorProfile.objects.all()),
+            'is_throttled': False,
         })
+
+    if not C.AUTO_THROTTLE_ENABLED:
+        return Response({
+            'success': False,
+            'error': 'Auto-throttle is disabled system-wide.',
+        }, status=400)
 
     max_queue = int(request.data.get('max_queue_size', 5))
     DoctorProfile.objects.update(max_queue_size=max_queue)

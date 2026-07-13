@@ -172,7 +172,7 @@ def serialize_slot(slot):
         'is_full': slot.is_full,
         'is_ended': ended,
         'is_bookable': is_slot_bookable(slot),
-        'is_throttled': doctor.is_throttled,
+        'is_throttled': False,
     }
 
 

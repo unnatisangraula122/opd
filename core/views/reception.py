@@ -88,13 +88,6 @@ def check_in_patient(request, token_id):
     except Token.DoesNotExist:
         return Response({'success': False, 'error': 'Token not found'}, status=404)
 
-    if token.slot.doctor.is_throttled:
-        return Response({
-            'success': False,
-            'error': 'Auto-throttle active. Queue at capacity — wait for queue to clear.',
-            'throttled': True,
-        }, status=400)
-
     is_disabled = request.data.get('is_disabled')
     token.is_elderly = is_elderly_by_age(token.patient_age)
     token.is_disabled = resolve_disabled_flag(
@@ -380,16 +373,17 @@ def pay_lab_fee(request, order_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsReceptionistOrAdmin])
 def throttle_status(request):
+    from core import constants as C
     doctors = DoctorProfile.objects.select_related('user').all()
     data = []
     for doc in doctors:
         data.append({
             'doctor_id': doc.id,
             'doctor_name': str(doc),
-            'is_throttled': doc.is_throttled,
+            'is_throttled': False if not C.AUTO_THROTTLE_ENABLED else doc.is_throttled,
             'max_queue_size': doc.max_queue_size,
         })
-    return Response({'success': True, 'doctors': data})
+    return Response({'success': True, 'doctors': data, 'enabled': C.AUTO_THROTTLE_ENABLED})
 
 
 def _serialize_reception_patient(user, *, include_stats=False):

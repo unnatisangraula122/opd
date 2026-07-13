@@ -55,3 +55,6 @@ PHARMACY_DISPLAY = {
 ELDERLY_AGE_THRESHOLD = 70
 # Fallback only when a test is not in the standard lab catalog.
 DEFAULT_LAB_FEE = 500
+
+# Auto-throttle pauses check-ins when doctor queue exceeds max_queue_size.
+AUTO_THROTTLE_ENABLED = False

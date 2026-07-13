@@ -121,9 +121,6 @@ def book_token(request):
             return Response({'success': False, 'error': f'Slot is full! Maximum {slot.max_tokens} tokens allowed.'}, status=400)
         return Response({'success': False, 'error': 'This slot has already passed. Please choose another slot or date.'}, status=400)
 
-    if slot.doctor.is_throttled:
-        return Response({'success': False, 'error': 'Doctor queue is at capacity. Check-in throttled.'}, status=400)
-
     if not patient_user:
         if request.user.is_authenticated and request.user.role == 'patient':
             patient_user = request.user

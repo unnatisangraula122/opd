@@ -181,11 +181,8 @@
       <div class="main-content">
         <h1 style="margin-bottom: 1.5rem">Reception Dashboard</h1>
 
-        <!-- Throttle Alert -->
-        <div id="throttleAlert" class="throttle-alert">
-          <span data-icon="warning" data-icon-size="16" style="vertical-align:middle;margin-right:0.35rem;"></span> AUTO-THROTTLING ACTIVE: Doctor queue at 85% capacity. New check-ins
-          temporarily paused.
-        </div>
+        <!-- Throttle disabled -->
+        <div id="throttleAlert" class="throttle-alert" style="display: none"></div>
 
         <!-- Main Dashboard Tab -->
         <div id="dashboardTab">
@@ -561,11 +558,10 @@
 
       // Load data from Django API
       async function refreshReceptionData() {
-        const [aptRes, queueRes, labRes, throttleRes] = await Promise.all([
+        const [aptRes, queueRes, labRes] = await Promise.all([
           API.receptionAppointments({ day: 'today' }),
           API.waitingQueue(),
           API.receptionLabPayments(),
-          API.throttleStatus(),
         ]);
         if (aptRes.success) {
           allAppointments = aptRes.appointments.map(a => ({
@@ -615,10 +611,6 @@
           Object.keys(queues).forEach(slot => {
             queues[slot].sort((a, b) => (a.queuePosition || 999) - (b.queuePosition || 999));
           });
-        }
-        if (throttleRes.success) {
-          const throttled = throttleRes.doctors.some(d => d.is_throttled);
-          document.getElementById('throttleAlert').style.display = throttled ? 'block' : 'none';
         }
         if (labRes.success) {
           pendingLabPayments = labRes.lab_payments.map(p => ({
